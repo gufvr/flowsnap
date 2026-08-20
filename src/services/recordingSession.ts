@@ -12,10 +12,17 @@ function getPermissionPattern(url: string) {
 }
 
 async function getActiveTab() {
-  const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const [activeTab] = await chrome.tabs.query({
+    active: true,
+    lastFocusedWindow: true,
+  });
 
-  if (!activeTab?.id || !activeTab.url) {
+  if (!activeTab?.id) {
     throw new Error('Não foi possível identificar a aba ativa.');
+  }
+
+  if (!activeTab.url) {
+    throw new Error('Reabra o FlowSnap pelo ícone para acessar a aba ativa.');
   }
 
   return { id: activeTab.id, url: activeTab.url };

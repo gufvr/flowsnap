@@ -31,6 +31,10 @@ describe('recordingSession', () => {
     expect(requestPermission).toHaveBeenCalledWith({
       origins: ['https://example.com/*'],
     });
+    expect(query).toHaveBeenCalledWith({
+      active: true,
+      lastFocusedWindow: true,
+    });
     expect(sendMessage).toHaveBeenCalledWith({
       type: 'START_RECORDING',
       payload: { tabId: 42, origin: 'https://example.com' },
@@ -63,6 +67,15 @@ describe('recordingSession', () => {
     query.mockResolvedValue([{ id: 42, url: 'brave://extensions' }]);
 
     await expect(startRecordingSession()).rejects.toThrow('HTTP ou HTTPS');
+    expect(requestPermission).not.toHaveBeenCalled();
+  });
+
+  it('explains how to restore activeTab access when the URL is unavailable', async () => {
+    query.mockResolvedValue([{ id: 42 }]);
+
+    await expect(startRecordingSession()).rejects.toThrow(
+      'Reabra o FlowSnap pelo ícone',
+    );
     expect(requestPermission).not.toHaveBeenCalled();
   });
 });
