@@ -4,6 +4,12 @@ export interface RecordingState {
   origin?: string;
 }
 
+export interface ActiveTabContext {
+  tabId: number;
+  windowId: number;
+  url: string;
+}
+
 export interface SelectorCandidates {
   testId?: string;
   id?: string;

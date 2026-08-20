@@ -1,6 +1,5 @@
 import type { ExtensionMessage, ExtensionResponse } from '../shared/messages';
 import type { RecordingState } from '../shared/recordingTypes';
-import { loadActiveTabContext } from './activeTabContext';
 
 function getPermissionPattern(url: string) {
   const parsedUrl = new URL(url);
@@ -13,7 +12,10 @@ function getPermissionPattern(url: string) {
 }
 
 async function getActiveTab() {
-  const activeTab = await loadActiveTabContext();
+  const response = (await chrome.runtime.sendMessage({
+    type: 'GET_ACTIVE_TAB_CONTEXT',
+  } satisfies ExtensionMessage)) as ExtensionResponse;
+  const activeTab = response.activeTabContext;
 
   if (!activeTab) {
     throw new Error('Reabra o FlowSnap pelo ícone para acessar a aba ativa.');

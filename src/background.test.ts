@@ -6,6 +6,7 @@ const runtimeOnStartup = vi.fn();
 const runtimeOnMessage = vi.fn();
 const openSidePanel = vi.fn();
 const setPanelBehavior = vi.fn();
+const getSessionStorage = vi.fn();
 const setSessionStorage = vi.fn();
 
 describe('extension action', () => {
@@ -17,8 +18,10 @@ describe('extension action', () => {
     runtimeOnMessage.mockReset();
     openSidePanel.mockReset();
     setPanelBehavior.mockReset();
+    getSessionStorage.mockReset();
     setSessionStorage.mockReset();
     openSidePanel.mockResolvedValue(undefined);
+    getSessionStorage.mockResolvedValue({});
     setSessionStorage.mockResolvedValue(undefined);
 
     vi.stubGlobal('chrome', {
@@ -29,21 +32,26 @@ describe('extension action', () => {
         onMessage: { addListener: runtimeOnMessage },
       },
       sidePanel: { open: openSidePanel, setPanelBehavior },
-      storage: { session: { set: setSessionStorage } },
+      storage: {
+        session: { get: getSessionStorage, set: setSessionStorage },
+      },
     });
 
     await import('./background');
   });
 
-  it('stores the protected tab context before opening its side panel', async () => {
+  it('opens synchronously even while context persistence is pending', () => {
+    setSessionStorage.mockReturnValue(new Promise(() => undefined));
     const handleActionClick = actionOnClicked.mock.calls[0][0];
 
-    await handleActionClick({
+    const result = handleActionClick({
       id: 21,
       windowId: 4,
       url: 'https://example.com/form',
     });
 
+    expect(result).toBeUndefined();
+    expect(openSidePanel).toHaveBeenCalledWith({ tabId: 21 });
     expect(setSessionStorage).toHaveBeenCalledWith({
       activeTabContext: {
         tabId: 21,
@@ -51,16 +59,30 @@ describe('extension action', () => {
         url: 'https://example.com/form',
       },
     });
-    expect(openSidePanel).toHaveBeenCalledWith({ tabId: 21 });
-    expect(setSessionStorage.mock.invocationCallOrder[0]).toBeLessThan(
-      openSidePanel.mock.invocationCallOrder[0],
+    expect(openSidePanel.mock.invocationCallOrder[0]).toBeLessThan(
+      setSessionStorage.mock.invocationCallOrder[0],
     );
   });
 
-  it('does not open the panel when activeTab did not expose a URL', async () => {
+  it('contains a rejected side panel promise', async () => {
+    openSidePanel.mockRejectedValue(new Error('User gesture unavailable'));
     const handleActionClick = actionOnClicked.mock.calls[0][0];
 
-    await handleActionClick({ id: 21, windowId: 4 });
+    expect(() =>
+      handleActionClick({
+        id: 21,
+        windowId: 4,
+        url: 'https://example.com/form',
+      }),
+    ).not.toThrow();
+
+    await Promise.resolve();
+  });
+
+  it('does not open the panel when activeTab did not expose a URL', () => {
+    const handleActionClick = actionOnClicked.mock.calls[0][0];
+
+    handleActionClick({ id: 21, windowId: 4 });
 
     expect(setSessionStorage).not.toHaveBeenCalled();
     expect(openSidePanel).not.toHaveBeenCalled();

@@ -1,24 +1,33 @@
 import type { ExtensionMessage, ExtensionResponse } from './shared/messages';
 import type { RecordedStep, RecordingState } from './shared/recordingTypes';
-import { saveActiveTabContext } from './services/activeTabContext';
+import {
+  captureActiveTabContext,
+  getActiveTabContext,
+  persistActiveTabContext,
+} from './services/activeTabContext';
 
 const RECORDING_STATE_KEY = 'recordingState';
 const RECORDED_STEPS_KEY = 'recordedSteps';
 
 chrome.runtime.onInstalled.addListener(() => {
-  void chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false });
+  void chrome.sidePanel
+    .setPanelBehavior({ openPanelOnActionClick: false })
+    .catch(() => undefined);
 });
 
 chrome.runtime.onStartup.addListener(() => {
-  void chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false });
+  void chrome.sidePanel
+    .setPanelBehavior({ openPanelOnActionClick: false })
+    .catch(() => undefined);
 });
 
-chrome.action.onClicked.addListener(async (tab) => {
-  const hasContext = await saveActiveTabContext(tab);
+chrome.action.onClicked.addListener((tab) => {
+  const context = captureActiveTabContext(tab);
 
-  if (!hasContext || !tab.id) return;
+  if (!context) return;
 
-  await chrome.sidePanel.open({ tabId: tab.id });
+  void chrome.sidePanel.open({ tabId: context.tabId }).catch(() => undefined);
+  void persistActiveTabContext(context);
 });
 
 async function startRecording(
@@ -97,6 +106,11 @@ chrome.runtime.onMessage.addListener(
     const handleMessage = async () => {
       if (message.type === 'START_RECORDING') {
         return startRecording(message.payload.tabId, message.payload.origin);
+      }
+
+      if (message.type === 'GET_ACTIVE_TAB_CONTEXT') {
+        const activeTabContext = await getActiveTabContext();
+        return { success: Boolean(activeTabContext), activeTabContext };
       }
 
       if (message.type === 'STOP_RECORDING') return stopRecording();
