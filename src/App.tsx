@@ -3,6 +3,7 @@ import { BrandHeader } from './components/BrandHeader';
 import { RecordingButton } from './components/RecordingButton';
 import { StatusBanner } from './components/StatusBanner';
 import { useRecordingState } from './hooks/useRecordingState';
+import { closeSidePanel } from './services/closeSidePanel';
 
 const Panel = styled.main`
   min-height: 100vh;
@@ -40,7 +41,7 @@ export function App() {
 
   return (
     <Panel>
-      <BrandHeader />
+      <BrandHeader onClose={closeSidePanel} />
       <RecordingCard aria-label="Controle de gravação">
         <StatusBanner isRecording={isRecording} isLoading={isLoading} />
         <StepCount>{stepCount} cliques capturados</StepCount>

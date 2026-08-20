@@ -1,4 +1,9 @@
 import styled from 'styled-components';
+import { ClosePanelButton } from './ClosePanelButton';
+
+interface BrandHeaderProps {
+  onClose: () => void | Promise<void>;
+}
 
 const Header = styled.header`
   display: flex;
@@ -30,7 +35,7 @@ const Subtitle = styled.p`
   font-size: ${({ theme }) => theme.fontSizes.small};
 `;
 
-export function BrandHeader() {
+export function BrandHeader({ onClose }: BrandHeaderProps) {
   return (
     <Header>
       <Logo src="/icons/icon-128.png" alt="" />
@@ -38,6 +43,7 @@ export function BrandHeader() {
         <Title>FlowSnap</Title>
         <Subtitle>Gravador de fluxos</Subtitle>
       </BrandText>
+      <ClosePanelButton onClick={onClose} />
     </Header>
   );
 }
