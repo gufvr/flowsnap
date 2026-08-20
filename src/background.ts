@@ -1,15 +1,24 @@
 import type { ExtensionMessage, ExtensionResponse } from './shared/messages';
 import type { RecordedStep, RecordingState } from './shared/recordingTypes';
+import { saveActiveTabContext } from './services/activeTabContext';
 
 const RECORDING_STATE_KEY = 'recordingState';
 const RECORDED_STEPS_KEY = 'recordedSteps';
 
 chrome.runtime.onInstalled.addListener(() => {
-  void chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+  void chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false });
 });
 
 chrome.runtime.onStartup.addListener(() => {
-  void chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+  void chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false });
+});
+
+chrome.action.onClicked.addListener(async (tab) => {
+  const hasContext = await saveActiveTabContext(tab);
+
+  if (!hasContext || !tab.id) return;
+
+  await chrome.sidePanel.open({ tabId: tab.id });
 });
 
 async function startRecording(

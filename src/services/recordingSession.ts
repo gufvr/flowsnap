@@ -1,5 +1,6 @@
 import type { ExtensionMessage, ExtensionResponse } from '../shared/messages';
 import type { RecordingState } from '../shared/recordingTypes';
+import { loadActiveTabContext } from './activeTabContext';
 
 function getPermissionPattern(url: string) {
   const parsedUrl = new URL(url);
@@ -12,20 +13,13 @@ function getPermissionPattern(url: string) {
 }
 
 async function getActiveTab() {
-  const [activeTab] = await chrome.tabs.query({
-    active: true,
-    lastFocusedWindow: true,
-  });
+  const activeTab = await loadActiveTabContext();
 
-  if (!activeTab?.id) {
-    throw new Error('Não foi possível identificar a aba ativa.');
-  }
-
-  if (!activeTab.url) {
+  if (!activeTab) {
     throw new Error('Reabra o FlowSnap pelo ícone para acessar a aba ativa.');
   }
 
-  return { id: activeTab.id, url: activeTab.url };
+  return { id: activeTab.tabId, url: activeTab.url };
 }
 
 export async function startRecordingSession(): Promise<RecordingState> {

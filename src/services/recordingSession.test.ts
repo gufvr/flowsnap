@@ -1,25 +1,31 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { startRecordingSession } from './recordingSession';
 
-const query = vi.fn();
+const getSessionStorage = vi.fn();
 const requestPermission = vi.fn();
 const sendMessage = vi.fn();
 
 describe('recordingSession', () => {
   beforeEach(() => {
-    query.mockReset();
+    getSessionStorage.mockReset();
     requestPermission.mockReset();
     sendMessage.mockReset();
 
     vi.stubGlobal('chrome', {
-      tabs: { query },
+      storage: { session: { get: getSessionStorage } },
       permissions: { request: requestPermission },
       runtime: { sendMessage },
     });
   });
 
   it('requests only the active site and starts its tab', async () => {
-    query.mockResolvedValue([{ id: 42, url: 'https://example.com/account' }]);
+    getSessionStorage.mockResolvedValue({
+      activeTabContext: {
+        tabId: 42,
+        windowId: 2,
+        url: 'https://example.com/account',
+      },
+    });
     requestPermission.mockResolvedValue(true);
     sendMessage.mockResolvedValue({ success: true });
 
@@ -31,10 +37,6 @@ describe('recordingSession', () => {
     expect(requestPermission).toHaveBeenCalledWith({
       origins: ['https://example.com/*'],
     });
-    expect(query).toHaveBeenCalledWith({
-      active: true,
-      lastFocusedWindow: true,
-    });
     expect(sendMessage).toHaveBeenCalledWith({
       type: 'START_RECORDING',
       payload: { tabId: 42, origin: 'https://example.com' },
@@ -42,7 +44,13 @@ describe('recordingSession', () => {
   });
 
   it('does not start when the permission is denied', async () => {
-    query.mockResolvedValue([{ id: 42, url: 'https://example.com' }]);
+    getSessionStorage.mockResolvedValue({
+      activeTabContext: {
+        tabId: 42,
+        windowId: 2,
+        url: 'https://example.com',
+      },
+    });
     requestPermission.mockResolvedValue(false);
 
     await expect(startRecordingSession()).rejects.toThrow('Permissão negada');
@@ -50,7 +58,13 @@ describe('recordingSession', () => {
   });
 
   it('requests localhost access without coupling it to a development port', async () => {
-    query.mockResolvedValue([{ id: 8, url: 'http://localhost:5173/form' }]);
+    getSessionStorage.mockResolvedValue({
+      activeTabContext: {
+        tabId: 8,
+        windowId: 2,
+        url: 'http://localhost:5173/form',
+      },
+    });
     requestPermission.mockResolvedValue(true);
     sendMessage.mockResolvedValue({ success: true });
 
@@ -64,14 +78,20 @@ describe('recordingSession', () => {
   });
 
   it('rejects browser internal pages before requesting permission', async () => {
-    query.mockResolvedValue([{ id: 42, url: 'brave://extensions' }]);
+    getSessionStorage.mockResolvedValue({
+      activeTabContext: {
+        tabId: 42,
+        windowId: 2,
+        url: 'brave://extensions',
+      },
+    });
 
     await expect(startRecordingSession()).rejects.toThrow('HTTP ou HTTPS');
     expect(requestPermission).not.toHaveBeenCalled();
   });
 
   it('explains how to restore activeTab access when the URL is unavailable', async () => {
-    query.mockResolvedValue([{ id: 42 }]);
+    getSessionStorage.mockResolvedValue({});
 
     await expect(startRecordingSession()).rejects.toThrow(
       'Reabra o FlowSnap pelo ícone',
