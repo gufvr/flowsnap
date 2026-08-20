@@ -5,8 +5,20 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App';
 import { theme } from './styles/theme';
 
+const { startRecordingSession, stopRecordingSession } = vi.hoisted(() => ({
+  startRecordingSession: vi.fn(),
+  stopRecordingSession: vi.fn(),
+}));
+
+vi.mock('./services/recordingSession', () => ({
+  startRecordingSession,
+  stopRecordingSession,
+}));
+
 const storageGet = vi.fn();
 const storageSet = vi.fn();
+const storageChangeAddListener = vi.fn();
+const storageChangeRemoveListener = vi.fn();
 
 function renderApp() {
   return render(
@@ -22,9 +34,19 @@ describe('App', () => {
     storageSet.mockReset();
     storageGet.mockResolvedValue({});
     storageSet.mockResolvedValue(undefined);
+    startRecordingSession.mockReset();
+    stopRecordingSession.mockReset();
+    startRecordingSession.mockResolvedValue({ isRecording: true, tabId: 7 });
+    stopRecordingSession.mockResolvedValue({ isRecording: false });
 
     vi.stubGlobal('chrome', {
-      storage: { local: { get: storageGet, set: storageSet } },
+      storage: {
+        local: { get: storageGet, set: storageSet },
+        onChanged: {
+          addListener: storageChangeAddListener,
+          removeListener: storageChangeRemoveListener,
+        },
+      },
     });
   });
 
@@ -43,17 +65,26 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: 'Parar Gravação' })).toBeEnabled();
   });
 
-  it('toggles and persists the recording state', async () => {
+  it('starts a recording session from the button', async () => {
     const user = userEvent.setup();
     renderApp();
 
     await user.click(await screen.findByRole('button', { name: 'Iniciar Gravação' }));
 
     expect(screen.getByText('Status: Gravando')).toBeInTheDocument();
-    await waitFor(() => {
-      expect(storageSet).toHaveBeenCalledWith({
-        recordingState: { isRecording: true },
-      });
-    });
+    await waitFor(() => expect(startRecordingSession).toHaveBeenCalledOnce());
+  });
+
+  it('shows a clear message when permission is denied', async () => {
+    const user = userEvent.setup();
+    startRecordingSession.mockRejectedValue(
+      new Error('Permissão negada. Autorize o site para iniciar a gravação.'),
+    );
+    renderApp();
+
+    await user.click(await screen.findByRole('button', { name: 'Iniciar Gravação' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Permissão negada');
+    expect(screen.getByText('Status: Parado')).toBeInTheDocument();
   });
 });

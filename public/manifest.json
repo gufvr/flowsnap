@@ -2,10 +2,12 @@
   "manifest_version": 3,
   "name": "FlowSnap",
   "description": "Grave fluxos no navegador e transforme-os em testes automatizados.",
-  "version": "0.1.0",
-  "permissions": ["sidePanel", "storage"],
+  "version": "0.2.0",
+  "permissions": ["activeTab", "scripting", "sidePanel", "storage"],
+  "optional_host_permissions": ["http://*/*", "https://*/*"],
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "assets/background.js",
+    "type": "module"
   },
   "action": {
     "default_title": "Abrir FlowSnap",

@@ -21,14 +21,30 @@ const RecordingCard = styled.section`
   box-shadow: ${({ theme }) => theme.shadows.card};
 `;
 
+const StepCount = styled.p`
+  color: ${({ theme }) => theme.colors.textMuted};
+  font-size: ${({ theme }) => theme.fontSizes.small};
+  text-align: center;
+`;
+
+const ErrorMessage = styled.p`
+  color: ${({ theme }) => theme.colors.dangerText};
+  font-size: ${({ theme }) => theme.fontSizes.small};
+  line-height: 1.4;
+  text-align: center;
+`;
+
 export function App() {
-  const { isRecording, isLoading, toggleRecording } = useRecordingState();
+  const { isRecording, isLoading, stepCount, error, toggleRecording } =
+    useRecordingState();
 
   return (
     <Panel>
       <BrandHeader />
       <RecordingCard aria-label="Controle de gravação">
         <StatusBanner isRecording={isRecording} isLoading={isLoading} />
+        <StepCount>{stepCount} cliques capturados</StepCount>
+        {error && <ErrorMessage role="alert">{error}</ErrorMessage>}
         <RecordingButton
           isRecording={isRecording}
           isLoading={isLoading}

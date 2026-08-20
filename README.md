@@ -2,7 +2,9 @@
 
 FlowSnap é uma extensão Chrome para gravar fluxos de navegação e, futuramente, exportá-los como testes automatizados.
 
-Nesta primeira versão, o Side Panel permite iniciar e parar uma sessão visual de gravação. O estado é salvo no próprio navegador, mas nenhuma interação com páginas é capturada ainda.
+O Side Panel permite iniciar e parar uma sessão na aba ativa. O FlowSnap solicita acesso somente ao site atual e registra os cliques localmente no navegador.
+
+Cada clique armazena a URL, o horário, informações básicas do elemento e candidatos de seletor. Digitação, navegação e outros eventos ainda não são capturados.
 
 ## Requisitos
 
@@ -33,6 +35,9 @@ npm run build
 4. Clique em **Carregar sem compactação**.
 5. Selecione a pasta `dist` gerada neste projeto.
 6. Fixe o FlowSnap na barra de ferramentas e clique no ícone para abrir o painel lateral.
+7. Abra um site HTTP ou HTTPS, clique em **Iniciar Gravação** e autorize o acesso quando o navegador solicitar.
+
+O FlowSnap não grava páginas internas, como `brave://extensions` e `chrome://extensions`.
 
 Depois de alterações no código, gere um novo build e clique em **Atualizar** no cartão da extensão.
 

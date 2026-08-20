@@ -3,7 +3,7 @@ import styled from 'styled-components';
 interface RecordingButtonProps {
   isRecording: boolean;
   isLoading: boolean;
-  onClick: () => void;
+  onClick: () => void | Promise<void>;
 }
 
 const Button = styled.button<{ $isRecording: boolean }>`
