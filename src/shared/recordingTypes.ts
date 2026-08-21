@@ -10,7 +10,21 @@ export interface ActiveTabContext {
   url: string;
 }
 
-export interface SelectorCandidates {
+export type SelectorStrategy = 'testId' | 'role' | 'label' | 'id' | 'text' | 'css';
+
+export interface SelectorCandidate {
+  strategy: SelectorStrategy;
+  value: string;
+  score: number;
+  isUnique: boolean;
+}
+
+export interface SelectorAnalysis {
+  recommended: SelectorCandidate;
+  alternatives: SelectorCandidate[];
+}
+
+export interface LegacySelectorCandidates {
   testId?: string;
   id?: string;
   role?: string;
@@ -19,15 +33,29 @@ export interface SelectorCandidates {
 }
 
 export interface RecordedClick {
+  schemaVersion: 2;
   id: string;
   type: 'click';
   url: string;
   timestamp: number;
-  selector: SelectorCandidates;
+  selectors: SelectorAnalysis;
+  element: {
+    tagName: string;
+    text?: string;
+    inputType?: string;
+  };
+}
+
+export interface LegacyRecordedClick {
+  id: string;
+  type: 'click';
+  url: string;
+  timestamp: number;
+  selector: LegacySelectorCandidates;
   element: {
     tagName: string;
     text?: string;
   };
 }
 
-export type RecordedStep = RecordedClick;
+export type RecordedStep = RecordedClick | LegacyRecordedClick;

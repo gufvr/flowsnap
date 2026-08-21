@@ -1,5 +1,9 @@
 import type { ExtensionMessage } from '../shared/messages';
-import type { SelectorCandidates } from '../shared/recordingTypes';
+import type {
+  SelectorAnalysis,
+  SelectorCandidate,
+} from '../shared/recordingTypes';
+import { createSelectorAnalysis } from './selectorAnalysis';
 
 interface RecorderController {
   isActive: boolean;
@@ -79,39 +83,97 @@ function getUniqueCssSelector(element: Element) {
   return segments.join(' > ');
 }
 
-export function buildSelectorCandidates(element: Element): SelectorCandidates {
-  const testId =
-    element.getAttribute('data-testid') ??
-    element.getAttribute('data-test') ??
-    element.getAttribute('data-cy') ??
-    undefined;
+function countMatchingElements(predicate: (candidate: Element) => boolean) {
+  return Array.from(document.querySelectorAll('*')).filter(predicate).length;
+}
+
+export function buildSelectorCandidates(element: Element): SelectorAnalysis {
+  const candidates: SelectorCandidate[] = [];
+  const testIdAttributes = ['data-testid', 'data-cy', 'data-test'];
+  const testIdAttribute = testIdAttributes.find((attribute) =>
+    element.hasAttribute(attribute),
+  );
+  const testId = testIdAttribute
+    ? element.getAttribute(testIdAttribute) ?? undefined
+    : undefined;
   const rawId = element.id || undefined;
   const id =
     rawId && document.querySelectorAll(`#${CSS.escape(rawId)}`).length === 1
       ? rawId
       : undefined;
+  const role = element.getAttribute('role') ?? getImplicitRole(element);
+  const accessibleName = getAccessibleName(element);
+  const css = getUniqueCssSelector(element);
 
-  return {
-    testId,
-    id,
-    role: element.getAttribute('role') ?? getImplicitRole(element),
-    accessibleName: getAccessibleName(element),
-    css: getUniqueCssSelector(element),
-  };
+  if (testId && testIdAttribute) {
+    candidates.push({
+      strategy: 'testId',
+      value: testId,
+      score: 100,
+      isUnique:
+        countMatchingElements(
+          (candidate) => candidate.getAttribute(testIdAttribute) === testId,
+        ) === 1,
+    });
+  }
+
+  if (role) {
+    const value = accessibleName ? `${role}:${accessibleName}` : role;
+    candidates.push({
+      strategy: 'role',
+      value,
+      score: 90,
+      isUnique:
+        countMatchingElements((candidate) => {
+          const candidateRole =
+            candidate.getAttribute('role') ?? getImplicitRole(candidate);
+          const candidateName = getAccessibleName(candidate);
+          return candidateRole === role && candidateName === accessibleName;
+        }) === 1,
+    });
+  }
+
+  if (id) {
+    candidates.push({ strategy: 'id', value: id, score: 80, isUnique: true });
+  }
+
+  if (accessibleName) {
+    candidates.push({
+      strategy: 'text',
+      value: accessibleName,
+      score: 60,
+      isUnique:
+        countMatchingElements(
+          (candidate) => getAccessibleName(candidate) === accessibleName,
+        ) === 1,
+    });
+  }
+
+  candidates.push({
+    strategy: 'css',
+    value: css,
+    score: 40,
+    isUnique: true,
+  });
+
+  return createSelectorAnalysis(candidates);
 }
 
 function createClickMessage(element: Element): ExtensionMessage {
   return {
     type: 'RECORDED_CLICK',
     payload: {
+      schemaVersion: 2,
       id: crypto.randomUUID(),
       type: 'click',
       url: window.location.href,
       timestamp: Date.now(),
-      selector: buildSelectorCandidates(element),
+      selectors: buildSelectorCandidates(element),
       element: {
         tagName: element.tagName.toLowerCase(),
         text: normalizeText(element.textContent),
+        inputType:
+          element instanceof HTMLInputElement ? element.type : undefined,
       },
     },
   };

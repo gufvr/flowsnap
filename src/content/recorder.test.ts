@@ -11,11 +11,32 @@ describe('buildSelectorCandidates', () => {
     const button = document.querySelector('button')!;
 
     expect(buildSelectorCandidates(button)).toEqual({
-      testId: 'save-flow',
-      id: undefined,
-      role: 'button',
-      accessibleName: 'Salvar fluxo',
-      css: 'button',
+      recommended: {
+        strategy: 'testId',
+        value: 'save-flow',
+        score: 100,
+        isUnique: true,
+      },
+      alternatives: [
+        {
+          strategy: 'role',
+          value: 'button:Salvar fluxo',
+          score: 90,
+          isUnique: true,
+        },
+        {
+          strategy: 'css',
+          value: 'button',
+          score: 40,
+          isUnique: true,
+        },
+        {
+          strategy: 'text',
+          value: 'Salvar fluxo',
+          score: 60,
+          isUnique: false,
+        },
+      ],
     });
   });
 
@@ -25,6 +46,12 @@ describe('buildSelectorCandidates', () => {
     `;
     const link = document.querySelectorAll('a')[1];
 
-    expect(buildSelectorCandidates(link).css).toBe('a:nth-of-type(2)');
+    const analysis = buildSelectorCandidates(link);
+
+    expect(
+      [analysis.recommended, ...analysis.alternatives].find(
+        ({ strategy }) => strategy === 'css',
+      )?.value,
+    ).toBe('a:nth-of-type(2)');
   });
 });
