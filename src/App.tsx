@@ -48,7 +48,7 @@ export function App() {
     useRecordingState();
   const { steps, isLoading: areStepsLoading } = useRecordedSteps();
   const stepCountLabel =
-    steps.length === 1 ? '1 clique capturado' : `${steps.length} cliques capturados`;
+    steps.length === 1 ? '1 passo capturado' : `${steps.length} passos capturados`;
 
   return (
     <Panel>

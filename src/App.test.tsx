@@ -110,6 +110,6 @@ describe('App', () => {
     renderApp();
 
     expect(await screen.findByText('Clicou no botão "Login"')).toBeInTheDocument();
-    expect(screen.getByText('1 clique capturado')).toBeInTheDocument();
+    expect(screen.getByText('1 passo capturado')).toBeInTheDocument();
   });
 });

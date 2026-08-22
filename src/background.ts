@@ -9,6 +9,13 @@ import {
 const RECORDING_STATE_KEY = 'recordingState';
 const RECORDED_STEPS_KEY = 'recordedSteps';
 
+type RecordedStepMessage = Extract<
+  ExtensionMessage,
+  { type: 'RECORDED_CLICK' | 'RECORDED_FOCUS_NAVIGATION' }
+>;
+
+let recordedStepWriteQueue = Promise.resolve();
+
 chrome.runtime.onInstalled.addListener(() => {
   void chrome.sidePanel
     .setPanelBehavior({ openPanelOnActionClick: false })
@@ -76,9 +83,10 @@ async function stopRecording(): Promise<ExtensionResponse> {
   return { success: true };
 }
 
-async function storeClick(message: ExtensionMessage, sender: chrome.runtime.MessageSender) {
-  if (message.type !== 'RECORDED_CLICK') return { success: false };
-
+async function appendRecordedStep(
+  message: RecordedStepMessage,
+  sender: chrome.runtime.MessageSender,
+) {
   const result = await chrome.storage.local.get([
     RECORDING_STATE_KEY,
     RECORDED_STEPS_KEY,
@@ -95,6 +103,22 @@ async function storeClick(message: ExtensionMessage, sender: chrome.runtime.Mess
   });
 
   return { success: true };
+}
+
+function storeRecordedStep(
+  message: RecordedStepMessage,
+  sender: chrome.runtime.MessageSender,
+) {
+  const operation = recordedStepWriteQueue.then(() =>
+    appendRecordedStep(message, sender),
+  );
+
+  recordedStepWriteQueue = operation.then(
+    () => undefined,
+    () => undefined,
+  );
+
+  return operation;
 }
 
 chrome.runtime.onMessage.addListener(
@@ -114,7 +138,12 @@ chrome.runtime.onMessage.addListener(
       }
 
       if (message.type === 'STOP_RECORDING') return stopRecording();
-      if (message.type === 'RECORDED_CLICK') return storeClick(message, sender);
+      if (
+        message.type === 'RECORDED_CLICK' ||
+        message.type === 'RECORDED_FOCUS_NAVIGATION'
+      ) {
+        return storeRecordedStep(message, sender);
+      }
 
       return { success: false };
     };

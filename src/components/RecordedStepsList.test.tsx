@@ -52,6 +52,25 @@ describe('RecordedStepsList', () => {
     const steps = [
       schema4Step,
       {
+        schemaVersion: 4,
+        id: 'focus-navigation',
+        type: 'focus-navigation',
+        description: {
+          action: 'focusNavigation',
+          target: { type: 'field', name: 'Password' },
+          source: 'label',
+          text: 'Navegou para o campo "Password"',
+          locale: 'pt-BR',
+        },
+        selectors: {
+          recommended: {
+            strategy: 'label',
+            value: 'Password',
+          },
+          alternatives: [],
+        },
+      },
+      {
         schemaVersion: 3,
         id: 'schema-3',
         element: { tagName: 'a', text: 'Minha conta' },
@@ -71,20 +90,25 @@ describe('RecordedStepsList', () => {
 
     renderList(steps);
 
-    expect(screen.getByLabelText('4 passos')).toBeInTheDocument();
+    expect(screen.getByLabelText('5 passos')).toBeInTheDocument();
     const descriptions = screen
       .getAllByRole('listitem')
       .map((item) => item.querySelector('p')?.textContent);
 
     expect(descriptions).toEqual([
       'Clicou no botão "Entrar"',
+      'Navegou para o campo "Password"',
       'Clicou no link "Minha conta"',
       'Clicou em uma caixa de seleção',
       'Clicou em um elemento',
     ]);
     expect(screen.getByText('role=button;name=Entrar')).toBeInTheDocument();
+    expect(screen.getByText('label=Password')).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'Copiar seletor do passo 1' }),
+    ).toBeEnabled();
+    expect(
+      screen.getByRole('button', { name: 'Copiar seletor do passo 2' }),
     ).toBeEnabled();
   });
 

@@ -8,6 +8,10 @@ const openSidePanel = vi.fn();
 const setPanelBehavior = vi.fn();
 const getSessionStorage = vi.fn();
 const setSessionStorage = vi.fn();
+const getLocalStorage = vi.fn();
+const setLocalStorage = vi.fn();
+
+let localStorageData: Record<string, unknown>;
 
 describe('extension action', () => {
   beforeEach(async () => {
@@ -20,9 +24,24 @@ describe('extension action', () => {
     setPanelBehavior.mockReset();
     getSessionStorage.mockReset();
     setSessionStorage.mockReset();
+    getLocalStorage.mockReset();
+    setLocalStorage.mockReset();
+    localStorageData = {};
     openSidePanel.mockResolvedValue(undefined);
     getSessionStorage.mockResolvedValue({});
     setSessionStorage.mockResolvedValue(undefined);
+    getLocalStorage.mockImplementation((keys: string | string[]) => {
+      const requestedKeys = Array.isArray(keys) ? keys : [keys];
+      return Promise.resolve(
+        Object.fromEntries(
+          requestedKeys.map((key) => [key, localStorageData[key]]),
+        ),
+      );
+    });
+    setLocalStorage.mockImplementation((values: Record<string, unknown>) => {
+      Object.assign(localStorageData, values);
+      return Promise.resolve();
+    });
 
     vi.stubGlobal('chrome', {
       action: { onClicked: { addListener: actionOnClicked } },
@@ -34,7 +53,10 @@ describe('extension action', () => {
       sidePanel: { open: openSidePanel, setPanelBehavior },
       storage: {
         session: { get: getSessionStorage, set: setSessionStorage },
+        local: { get: getLocalStorage, set: setLocalStorage },
       },
+      scripting: { executeScript: vi.fn() },
+      tabs: { sendMessage: vi.fn() },
     });
 
     await import('./background');
@@ -86,5 +108,58 @@ describe('extension action', () => {
 
     expect(setSessionStorage).not.toHaveBeenCalled();
     expect(openSidePanel).not.toHaveBeenCalled();
+  });
+
+  it('stores focus navigation in the active tab recording', async () => {
+    localStorageData = {
+      recordingState: {
+        isRecording: true,
+        tabId: 21,
+        origin: 'https://example.com',
+      },
+      recordedSteps: [],
+    };
+    const message = {
+      type: 'RECORDED_FOCUS_NAVIGATION',
+      payload: {
+        schemaVersion: 4,
+        id: 'focus-password',
+        type: 'focus-navigation',
+        url: 'https://example.com/form',
+        timestamp: 1,
+        key: 'Tab',
+        direction: 'forward',
+        selectors: {
+          recommended: {
+            strategy: 'label',
+            value: 'Password',
+            score: 85,
+            isUnique: true,
+            validation: {
+              status: 'valid',
+              matchCount: 1,
+              matchesTarget: true,
+            },
+          },
+          alternatives: [],
+        },
+        element: { tagName: 'input', inputType: 'password' },
+        description: {
+          action: 'focusNavigation',
+          target: { type: 'field', name: 'Password' },
+          source: 'label',
+          text: 'Navegou para o campo "Password"',
+          locale: 'pt-BR',
+        },
+      },
+    } as const;
+    const handleMessage = runtimeOnMessage.mock.calls[0][0];
+
+    const response = await new Promise((resolve) => {
+      expect(handleMessage(message, { tab: { id: 21 } }, resolve)).toBe(true);
+    });
+
+    expect(response).toEqual({ success: true });
+    expect(localStorageData.recordedSteps).toEqual([message.payload]);
   });
 });

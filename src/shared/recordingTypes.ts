@@ -1,4 +1,7 @@
-import type { ClickStepDescription } from './stepDescriptionTypes';
+import type {
+  ClickStepDescription,
+  FocusNavigationStepDescription,
+} from './stepDescriptionTypes';
 
 export interface RecordingState {
   isRecording: boolean;
@@ -99,6 +102,23 @@ export interface RecordedClickV2 {
   };
 }
 
+export interface RecordedFocusNavigation {
+  schemaVersion: 4;
+  id: string;
+  type: 'focus-navigation';
+  url: string;
+  timestamp: number;
+  key: 'Tab';
+  direction: 'forward' | 'backward';
+  selectors: SelectorAnalysis;
+  element: {
+    tagName: string;
+    text?: string;
+    inputType?: string;
+  };
+  description: FocusNavigationStepDescription;
+}
+
 export interface LegacyRecordedClick {
   id: string;
   type: 'click';
@@ -113,6 +133,7 @@ export interface LegacyRecordedClick {
 
 export type RecordedStep =
   | RecordedClick
+  | RecordedFocusNavigation
   | RecordedClickV3
   | RecordedClickV2
   | LegacyRecordedClick;

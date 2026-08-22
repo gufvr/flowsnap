@@ -1,4 +1,8 @@
-import type { ActiveTabContext, RecordedClick } from './recordingTypes';
+import type {
+  ActiveTabContext,
+  RecordedClick,
+  RecordedFocusNavigation,
+} from './recordingTypes';
 
 export type ExtensionMessage =
   | {
@@ -7,6 +11,10 @@ export type ExtensionMessage =
     }
   | { type: 'STOP_RECORDING' }
   | { type: 'RECORDED_CLICK'; payload: RecordedClick }
+  | {
+      type: 'RECORDED_FOCUS_NAVIGATION';
+      payload: RecordedFocusNavigation;
+    }
   | { type: 'GET_ACTIVE_TAB_CONTEXT' }
   | { type: 'ACTIVATE_CLICK_RECORDER' }
   | { type: 'DEACTIVATE_CLICK_RECORDER' };

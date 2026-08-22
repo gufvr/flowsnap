@@ -9,6 +9,14 @@ const validDescription = {
   locale: 'pt-BR' as const,
 };
 
+const validFocusNavigationDescription = {
+  action: 'focusNavigation' as const,
+  target: { type: 'field' as const, name: 'Password' },
+  source: 'label' as const,
+  text: 'Navegou para o campo "Password"',
+  locale: 'pt-BR' as const,
+};
+
 describe('resolveStepDescription', () => {
   it('uses the persisted schema 4 description', () => {
     const step = {
@@ -18,6 +26,43 @@ describe('resolveStepDescription', () => {
     };
 
     expect(resolveStepDescription(step)).toBe(validDescription);
+  });
+
+  it('uses a persisted schema 4 focus navigation description', () => {
+    const step = {
+      schemaVersion: 4,
+      type: 'focus-navigation',
+      description: validFocusNavigationDescription,
+    };
+
+    expect(resolveStepDescription(step)).toBe(validFocusNavigationDescription);
+  });
+
+  it('rebuilds an incomplete focus navigation description safely', () => {
+    const step = {
+      schemaVersion: 4,
+      type: 'focus-navigation',
+      description: { action: 'focusNavigation', text: '' },
+      selectors: {
+        recommended: {
+          strategy: 'label',
+          value: 'Password',
+          score: 85,
+          isUnique: true,
+          validation: {
+            status: 'valid',
+            matchCount: 1,
+            matchesTarget: true,
+          },
+        },
+        alternatives: [],
+      },
+      element: { tagName: 'input', inputType: 'password' },
+    };
+
+    expect(resolveStepDescription(step)).toEqual(
+      validFocusNavigationDescription,
+    );
   });
 
   it('generates a schema 3 description in memory', () => {
@@ -116,6 +161,11 @@ describe('resolveStepDescription', () => {
     const steps = [
       { schemaVersion: 4, description: validDescription },
       {
+        schemaVersion: 4,
+        type: 'focus-navigation',
+        description: validFocusNavigationDescription,
+      },
+      {
         schemaVersion: 3,
         element: { tagName: 'a', text: 'Minha conta' },
       },
@@ -129,6 +179,7 @@ describe('resolveStepDescription', () => {
 
     expect(steps.map(resolveStepDescription).map(({ text }) => text)).toEqual([
       'Clicou no botão "Entrar"',
+      'Navegou para o campo "Password"',
       'Clicou no link "Minha conta"',
       'Clicou em uma caixa de seleção',
       'Clicou em um elemento',

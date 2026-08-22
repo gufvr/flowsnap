@@ -7,11 +7,12 @@ import type {
   TestIdAttribute,
 } from '../recordingTypes';
 import type {
-  ClickStepDescription,
   DescriptionSource,
+  StepDescription,
   StepTargetType,
 } from '../stepDescriptionTypes';
 import { createClickDescription } from './createClickDescription';
+import { createFocusNavigationDescription } from './createFocusNavigationDescription';
 
 const SELECTOR_STRATEGIES: SelectorStrategy[] = [
   'testId',
@@ -82,11 +83,11 @@ function includesValue<T extends string>(
   return isString(value) && values.includes(value as T);
 }
 
-function isClickDescription(value: unknown): value is ClickStepDescription {
+function isStepDescription(value: unknown): value is StepDescription {
   if (!isRecord(value) || !isRecord(value.target)) return false;
 
   return (
-    value.action === 'click' &&
+    (value.action === 'click' || value.action === 'focusNavigation') &&
     value.locale === 'pt-BR' &&
     isString(value.text) &&
     value.text.trim().length > 0 &&
@@ -197,7 +198,7 @@ function createFallbackDescription() {
   });
 }
 
-export function resolveStepDescription(step: unknown): ClickStepDescription {
+export function resolveStepDescription(step: unknown): StepDescription {
   if (!isRecord(step)) return createFallbackDescription();
 
   const isKnownSchema =
@@ -207,12 +208,16 @@ export function resolveStepDescription(step: unknown): ClickStepDescription {
 
   if (!isKnownSchema) return createFallbackDescription();
 
-  if (step.schemaVersion === 4 && isClickDescription(step.description)) {
+  if (step.schemaVersion === 4 && isStepDescription(step.description)) {
     return step.description;
   }
 
-  return createClickDescription({
+  const descriptionInput = {
     selectors: getSelectorAnalysis(step),
     element: getElement(step),
-  });
+  };
+
+  return step.type === 'focus-navigation'
+    ? createFocusNavigationDescription(descriptionInput)
+    : createClickDescription(descriptionInput);
 }

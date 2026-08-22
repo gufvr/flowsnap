@@ -6,9 +6,9 @@
 
 Esse projeto é uma extensão Chrome pensada para gravar fluxos de navegação e, futuramente, exportá-los como testes automatizados para Cypress e Playwright.
 
-O Side Panel permite iniciar e parar uma sessão na aba ativa. O FlowSnap solicita acesso somente ao site atual e registra os cliques localmente no navegador.
+O Side Panel permite iniciar e parar uma sessão na aba ativa. O FlowSnap solicita acesso somente ao site atual e registra cliques e navegações por `Tab` localmente no navegador.
 
-Cada clique armazena a URL, o horário, informações básicas do elemento e candidatos de seletor. Digitação, navegação e outros eventos ainda não são capturados.
+Cada passo armazena a URL, o horário, informações básicas do elemento e candidatos de seletor. `Tab` e `Shift+Tab` registram o elemento que recebeu foco; digitação e outras teclas não são capturadas.
 
 ## Requisitos
 
