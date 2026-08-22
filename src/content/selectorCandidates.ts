@@ -30,6 +30,41 @@ function getLabelText(element: Element) {
   return normalizeText(element.labels[0].textContent);
 }
 
+const COMBOBOX_INPUT_TYPES = new Set(['email', 'search', 'tel', 'text', 'url']);
+
+function getImplicitInputRole(element: HTMLInputElement) {
+  const { type } = element;
+
+  if (element.hasAttribute('list') && COMBOBOX_INPUT_TYPES.has(type)) {
+    return 'combobox';
+  }
+
+  switch (type) {
+    case 'button':
+    case 'image':
+    case 'reset':
+    case 'submit':
+      return 'button';
+    case 'checkbox':
+      return 'checkbox';
+    case 'email':
+    case 'tel':
+    case 'text':
+    case 'url':
+      return 'textbox';
+    case 'number':
+      return 'spinbutton';
+    case 'radio':
+      return 'radio';
+    case 'range':
+      return 'slider';
+    case 'search':
+      return 'searchbox';
+    default:
+      return undefined;
+  }
+}
+
 function getImplicitRole(element: Element) {
   const tagName = element.tagName.toLowerCase();
 
@@ -38,12 +73,7 @@ function getImplicitRole(element: Element) {
   if (tagName === 'select') return 'combobox';
   if (tagName === 'textarea') return 'textbox';
 
-  if (element instanceof HTMLInputElement) {
-    if (['button', 'submit', 'reset'].includes(element.type)) return 'button';
-    if (element.type === 'checkbox') return 'checkbox';
-    if (element.type === 'radio') return 'radio';
-    return 'textbox';
-  }
+  if (element instanceof HTMLInputElement) return getImplicitInputRole(element);
 
   return undefined;
 }

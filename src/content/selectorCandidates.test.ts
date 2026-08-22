@@ -124,6 +124,115 @@ describe('buildSelectorCandidates', () => {
   });
 });
 
+describe('implicit input roles', () => {
+  it.each([
+    ['button', 'button'],
+    ['image', 'button'],
+    ['reset', 'button'],
+    ['submit', 'button'],
+    ['checkbox', 'checkbox'],
+    ['email', 'textbox'],
+    ['tel', 'textbox'],
+    ['text', 'textbox'],
+    ['url', 'textbox'],
+    ['number', 'spinbutton'],
+    ['radio', 'radio'],
+    ['range', 'slider'],
+    ['search', 'searchbox'],
+  ])('maps input type=%s to the %s role', (type, role) => {
+    document.body.innerHTML = `
+      <input type="${type}" aria-label="Campo ${type}" />
+    `;
+    const input = document.querySelector('input')!;
+
+    expect(findCandidate(buildSelectorCandidates(input), 'role')).toEqual({
+      strategy: 'role',
+      value: `${role}:Campo ${type}`,
+      score: 90,
+      isUnique: true,
+    });
+  });
+
+  it.each([
+    'color',
+    'date',
+    'datetime-local',
+    'file',
+    'hidden',
+    'month',
+    'password',
+    'time',
+    'week',
+  ])('does not create an implicit role for input type=%s', (type) => {
+    document.body.innerHTML = `
+      <input type="${type}" aria-label="Campo ${type}" />
+    `;
+    const input = document.querySelector('input')!;
+
+    expect(findCandidate(buildSelectorCandidates(input), 'role')).toBeUndefined();
+  });
+
+  it.each(['email', 'search', 'tel', 'text', 'url'])(
+    'maps input type=%s with a list attribute to the combobox role',
+    (type) => {
+      document.body.innerHTML = `
+        <input type="${type}" list="options" aria-label="Campo ${type}" />
+        <datalist id="options"><option value="Opção" /></datalist>
+      `;
+      const input = document.querySelector('input')!;
+
+      expect(findCandidate(buildSelectorCandidates(input), 'role')).toEqual({
+        strategy: 'role',
+        value: `combobox:Campo ${type}`,
+        score: 90,
+        isUnique: true,
+      });
+    },
+  );
+
+  it.each([
+    ['number', 'spinbutton'],
+    ['range', 'slider'],
+  ])(
+    'keeps the %s input role as %s when it has a list attribute',
+    (type, role) => {
+      document.body.innerHTML = `
+        <input type="${type}" list="options" aria-label="Campo ${type}" />
+        <datalist id="options"><option value="10" /></datalist>
+      `;
+      const input = document.querySelector('input')!;
+
+      expect(findCandidate(buildSelectorCandidates(input), 'role')).toMatchObject({
+        value: `${role}:Campo ${type}`,
+        isUnique: true,
+      });
+    },
+  );
+
+  it('treats a missing input type as text', () => {
+    document.body.innerHTML = '<input aria-label="Nome" />';
+    const input = document.querySelector('input')!;
+
+    expect(findCandidate(buildSelectorCandidates(input), 'role')).toMatchObject({
+      value: 'textbox:Nome',
+      isUnique: true,
+    });
+  });
+
+  it('treats a missing input type with list as a combobox', () => {
+    document.body.innerHTML = `
+      <input list="names" aria-label="Nome" />
+      <datalist id="names"><option value="Ada" /></datalist>
+    `;
+    const input = document.querySelector('input')!;
+
+    expect(findCandidate(buildSelectorCandidates(input), 'role')).toMatchObject({
+      value: 'combobox:Nome',
+      isUnique: true,
+    });
+  });
+});
+
 describe('isLikelyDynamicId', () => {
   it.each([
     '550e8400-e29b-41d4-a716-446655440000',
