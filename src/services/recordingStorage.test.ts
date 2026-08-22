@@ -94,4 +94,18 @@ describe('recordingStorage', () => {
 
     await expect(loadRecordedSteps()).resolves.toEqual([previousRecording]);
   });
+
+  it('does not migrate mixed or incomplete recordings while loading them', async () => {
+    const recordings = [
+      { schemaVersion: 4, type: 'click', description: { text: 'Persistida' } },
+      { schemaVersion: 3, type: 'click', element: { tagName: 'button' } },
+      { schemaVersion: 2, type: 'click' },
+      { type: 'click', selector: { css: 'button' } },
+      { corrupted: true },
+    ];
+    storageGet.mockResolvedValue({ recordedSteps: recordings });
+
+    await expect(loadRecordedSteps()).resolves.toEqual(recordings);
+    expect(storageSet).not.toHaveBeenCalled();
+  });
 });

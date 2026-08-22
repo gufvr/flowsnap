@@ -1,3 +1,5 @@
+import type { ClickStepDescription } from './stepDescriptionTypes';
+
 export interface RecordingState {
   isRecording: boolean;
   tabId?: number;
@@ -66,7 +68,7 @@ export interface RecordedClick {
     text?: string;
     inputType?: string;
   };
-  description: import('./stepDescriptionTypes').ClickStepDescription;
+  description: ClickStepDescription;
 }
 
 export interface RecordedClickV3 {
