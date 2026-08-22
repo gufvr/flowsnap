@@ -10,6 +10,8 @@ O Side Panel permite iniciar e parar uma sessão na aba ativa. O FlowSnap solici
 
 Cada passo armazena a URL, o horário, informações básicas do elemento e candidatos de seletor. `Tab` e `Shift+Tab` registram o elemento que recebeu foco; digitação e outras teclas não são capturadas.
 
+No Side Panel, cada passo pode ter seu seletor recomendado copiado ou ser excluído após confirmação. Também é possível limpar toda a lista sem interromper uma gravação ativa.
+
 ## Requisitos
 
 - Node.js 24 ou superior

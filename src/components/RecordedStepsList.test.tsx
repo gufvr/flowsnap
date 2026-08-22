@@ -1,13 +1,19 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import type { ComponentProps } from 'react';
 import { ThemeProvider } from 'styled-components';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { theme } from '../styles/theme';
 import { RecordedStepsList } from './RecordedStepsList';
 
-function renderList(steps: readonly unknown[], isLoading = false) {
+function renderList(
+  steps: readonly unknown[],
+  isLoading = false,
+  props: Partial<ComponentProps<typeof RecordedStepsList>> = {},
+) {
   return render(
     <ThemeProvider theme={theme}>
-      <RecordedStepsList steps={steps} isLoading={isLoading} />
+      <RecordedStepsList steps={steps} isLoading={isLoading} {...props} />
     </ThemeProvider>,
   );
 }
@@ -121,5 +127,134 @@ describe('RecordedStepsList', () => {
     expect(screen.getByLabelText('Lista de passos gravados')).toHaveStyle({
       overflowY: 'auto',
     });
+  });
+
+  it('requires confirmation before deleting and restores focus on cancel', async () => {
+    const user = userEvent.setup();
+    const onDeleteStep = vi.fn().mockResolvedValue(true);
+    renderList([schema4Step], false, {
+      onDeleteStep,
+      onClearSteps: vi.fn().mockResolvedValue(true),
+    });
+    const deleteButton = screen.getByRole('button', {
+      name: 'Excluir passo 1',
+    });
+
+    await user.click(deleteButton);
+
+    expect(onDeleteStep).not.toHaveBeenCalled();
+    expect(
+      screen.getByText('Excluir o passo 1? Esta ação não pode ser desfeita.'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cancelar' })).toHaveFocus();
+
+    await user.keyboard('{Escape}');
+
+    expect(screen.queryByText(/Excluir o passo 1\?/)).not.toBeInTheDocument();
+    await waitFor(() => expect(deleteButton).toHaveFocus());
+  });
+
+  it('confirms individual deletion and moves focus to the list title', async () => {
+    const user = userEvent.setup();
+    const onDeleteStep = vi.fn().mockResolvedValue(true);
+    renderList([schema4Step], false, { onDeleteStep });
+
+    await user.click(
+      screen.getByRole('button', { name: 'Excluir passo 1' }),
+    );
+    await user.click(screen.getByRole('button', { name: 'Excluir passo' }));
+
+    expect(onDeleteStep).toHaveBeenCalledWith(0);
+    expect(screen.getByRole('heading', { name: 'Passos gravados' })).toHaveFocus();
+  });
+
+  it('requires confirmation before clearing every step', async () => {
+    const user = userEvent.setup();
+    const onClearSteps = vi.fn().mockResolvedValue(true);
+    renderList([schema4Step, { ...schema4Step, id: 'second' }], false, {
+      onClearSteps,
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Limpar tudo' }));
+
+    expect(onClearSteps).not.toHaveBeenCalled();
+    const confirmation = screen.getByRole('group', {
+      name: 'Confirmar limpeza dos passos',
+    });
+    expect(confirmation).toHaveTextContent(
+      'Limpar todos os 2 passos? Esta ação não pode ser desfeita.',
+    );
+
+    await user.click(
+      within(confirmation).getByRole('button', { name: 'Limpar tudo' }),
+    );
+
+    expect(onClearSteps).toHaveBeenCalledOnce();
+  });
+
+  it('announces pending, success and error states accessibly', () => {
+    const { rerender } = renderList([schema4Step], false, {
+      pendingMutation: { type: 'delete', stepIndex: 0 },
+      onDeleteStep: vi.fn().mockResolvedValue(true),
+      onClearSteps: vi.fn().mockResolvedValue(true),
+    });
+
+    expect(screen.getByRole('status')).toHaveTextContent('Excluindo passo 1');
+    expect(
+      screen.getByRole('button', { name: 'Excluir passo 1' }),
+    ).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Limpar tudo' })).toBeDisabled();
+
+    rerender(
+      <ThemeProvider theme={theme}>
+        <RecordedStepsList
+          steps={[schema4Step]}
+          isLoading={false}
+          feedback={{ type: 'error', message: 'Falha ao excluir.' }}
+        />
+      </ThemeProvider>,
+    );
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Falha ao excluir.');
+  });
+
+  it('does not offer clearing when the list is empty', () => {
+    renderList([], false, {
+      onClearSteps: vi.fn().mockResolvedValue(true),
+    });
+
+    expect(
+      screen.queryByRole('button', { name: 'Limpar tudo' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('cancels a stale confirmation after a reactive storage update', async () => {
+    const user = userEvent.setup();
+    const onDeleteStep = vi.fn().mockResolvedValue(true);
+    const { rerender } = renderList(
+      [schema4Step, { ...schema4Step, id: 'second' }],
+      false,
+      { onDeleteStep },
+    );
+
+    await user.click(
+      screen.getByRole('button', { name: 'Excluir passo 1' }),
+    );
+
+    rerender(
+      <ThemeProvider theme={theme}>
+        <RecordedStepsList
+          steps={[{ ...schema4Step, id: 'second' }]}
+          isLoading={false}
+          onDeleteStep={onDeleteStep}
+        />
+      </ThemeProvider>,
+    );
+
+    await waitFor(() =>
+      expect(screen.queryByText(/Excluir o passo 1\?/)).not.toBeInTheDocument(),
+    );
+    expect(screen.getByRole('heading', { name: 'Passos gravados' })).toHaveFocus();
+    expect(onDeleteStep).not.toHaveBeenCalled();
   });
 });

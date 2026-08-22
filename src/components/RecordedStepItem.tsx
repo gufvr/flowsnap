@@ -3,10 +3,16 @@ import { resolveStepDescription } from '../shared/descriptions/resolveStepDescri
 import { formatSelector } from '../shared/selectors/formatSelector';
 import { resolveRecommendedSelector } from '../shared/selectors/resolveRecommendedSelector';
 import { CopySelectorButton } from './CopySelectorButton';
+import { InlineConfirmation } from './InlineConfirmation';
 
 interface RecordedStepItemProps {
   step: unknown;
   stepNumber: number;
+  isDeleteConfirmationOpen?: boolean;
+  areMutationsDisabled?: boolean;
+  onRequestDelete?: (trigger: HTMLButtonElement) => void;
+  onConfirmDelete?: () => void;
+  onCancelDelete?: () => void;
 }
 
 const Item = styled.li`
@@ -37,6 +43,7 @@ const SelectorRow = styled.div`
 `;
 
 const SelectorPreview = styled.code`
+  flex: 1;
   min-width: 0;
   padding: 6px ${({ theme }) => theme.spacing.sm};
   color: ${({ theme }) => theme.colors.textMuted};
@@ -46,9 +53,48 @@ const SelectorPreview = styled.code`
   overflow-wrap: anywhere;
 `;
 
+const StepActions = styled.div`
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+`;
+
+const DeleteButton = styled.button`
+  padding: 6px ${({ theme }) => theme.spacing.sm};
+  color: ${({ theme }) => theme.colors.dangerText};
+  background: ${({ theme }) => theme.colors.surface};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: ${({ theme }) => theme.radii.md};
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    border-color: ${({ theme }) => theme.colors.danger};
+  }
+
+  &:focus-visible {
+    outline: 3px solid ${({ theme }) => theme.colors.focus};
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+`;
+
 export function RecordedStepItem({
   step,
   stepNumber,
+  isDeleteConfirmationOpen = false,
+  areMutationsDisabled = false,
+  onRequestDelete,
+  onConfirmDelete,
+  onCancelDelete,
 }: RecordedStepItemProps) {
   const description = resolveStepDescription(step);
   const recommendedSelector = resolveRecommendedSelector(step);
@@ -63,11 +109,32 @@ export function RecordedStepItem({
         <SelectorPreview>
           {formattedSelector ?? 'Seletor indisponível'}
         </SelectorPreview>
-        <CopySelectorButton
-          selector={formattedSelector}
-          stepNumber={stepNumber}
-        />
+        <StepActions>
+          <CopySelectorButton
+            selector={formattedSelector}
+            stepNumber={stepNumber}
+          />
+          {onRequestDelete && (
+            <DeleteButton
+              type="button"
+              aria-label={`Excluir passo ${stepNumber}`}
+              disabled={areMutationsDisabled}
+              onClick={(event) => onRequestDelete(event.currentTarget)}
+            >
+              Excluir
+            </DeleteButton>
+          )}
+        </StepActions>
       </SelectorRow>
+      {isDeleteConfirmationOpen && onConfirmDelete && onCancelDelete && (
+        <InlineConfirmation
+          label={`Confirmar exclusão do passo ${stepNumber}`}
+          message={`Excluir o passo ${stepNumber}? Esta ação não pode ser desfeita.`}
+          confirmLabel="Excluir passo"
+          onConfirm={onConfirmDelete}
+          onCancel={onCancelDelete}
+        />
+      )}
     </Item>
   );
 }

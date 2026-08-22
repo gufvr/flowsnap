@@ -1,18 +1,30 @@
 import { ThemeProvider } from 'styled-components';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App';
 import { theme } from './styles/theme';
 
-const { startRecordingSession, stopRecordingSession } = vi.hoisted(() => ({
+const {
+  startRecordingSession,
+  stopRecordingSession,
+  deleteRecordedStep,
+  clearRecordedSteps,
+} = vi.hoisted(() => ({
   startRecordingSession: vi.fn(),
   stopRecordingSession: vi.fn(),
+  deleteRecordedStep: vi.fn(),
+  clearRecordedSteps: vi.fn(),
 }));
 
 vi.mock('./services/recordingSession', () => ({
   startRecordingSession,
   stopRecordingSession,
+}));
+
+vi.mock('./services/recordedStepActions', () => ({
+  deleteRecordedStep,
+  clearRecordedSteps,
 }));
 
 const storageGet = vi.fn();
@@ -38,8 +50,12 @@ describe('App', () => {
     storageSet.mockResolvedValue(undefined);
     startRecordingSession.mockReset();
     stopRecordingSession.mockReset();
+    deleteRecordedStep.mockReset();
+    clearRecordedSteps.mockReset();
     startRecordingSession.mockResolvedValue({ isRecording: true, tabId: 7 });
     stopRecordingSession.mockResolvedValue({ isRecording: false });
+    deleteRecordedStep.mockResolvedValue(undefined);
+    clearRecordedSteps.mockResolvedValue(undefined);
 
     vi.stubGlobal('chrome', {
       storage: {
@@ -111,5 +127,46 @@ describe('App', () => {
 
     expect(await screen.findByText('Clicou no botão "Login"')).toBeInTheDocument();
     expect(screen.getByText('1 passo capturado')).toBeInTheDocument();
+  });
+
+  it('deletes a confirmed step and reacts to the storage update', async () => {
+    const user = userEvent.setup();
+    storageGet.mockResolvedValue({
+      recordingState: { isRecording: false },
+      recordedSteps: [
+        {
+          schemaVersion: 4,
+          id: 'login-click',
+          description: {
+            action: 'click',
+            target: { type: 'button', name: 'Login' },
+            source: 'accessibleName',
+            text: 'Clicou no botão "Login"',
+            locale: 'pt-BR',
+          },
+        },
+      ],
+    });
+    renderApp();
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Excluir passo 1' }),
+    );
+    await user.click(screen.getByRole('button', { name: 'Excluir passo' }));
+
+    await waitFor(() =>
+      expect(deleteRecordedStep).toHaveBeenCalledWith(0, 'login-click'),
+    );
+    const handleStorageChange = storageChangeAddListener.mock.calls[0][0];
+    await act(async () => {
+      handleStorageChange({ recordedSteps: { newValue: [] } }, 'local');
+    });
+
+    expect(screen.getByText('Nenhum passo gravado ainda.')).toBeInTheDocument();
+    expect(screen.getByText('0 passos capturados')).toBeInTheDocument();
+    expect(screen.getByText('Passo 1 excluído.')).toHaveAttribute(
+      'role',
+      'status',
+    );
   });
 });

@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ExtensionMessage } from './shared/messages';
+import type { RecordedClick } from './shared/recordingTypes';
 
 const actionOnClicked = vi.fn();
 const runtimeOnInstalled = vi.fn();
@@ -12,6 +14,49 @@ const getLocalStorage = vi.fn();
 const setLocalStorage = vi.fn();
 
 let localStorageData: Record<string, unknown>;
+
+function createRecordedClick(id: string): RecordedClick {
+  return {
+    schemaVersion: 4,
+    id,
+    type: 'click',
+    url: 'https://example.com/form',
+    timestamp: 1,
+    selectors: {
+      recommended: {
+        strategy: 'css',
+        value: 'button',
+        score: 40,
+        isUnique: true,
+        validation: {
+          status: 'valid',
+          matchCount: 1,
+          matchesTarget: true,
+        },
+      },
+      alternatives: [],
+    },
+    element: { tagName: 'button', text: id },
+    description: {
+      action: 'click',
+      target: { type: 'button', name: id },
+      source: 'text',
+      text: `Clicou no botão "${id}"`,
+      locale: 'pt-BR',
+    },
+  };
+}
+
+function dispatchMessage(
+  message: ExtensionMessage,
+  sender: { tab?: { id: number } } = {},
+) {
+  const handleMessage = runtimeOnMessage.mock.calls[0][0];
+
+  return new Promise((resolve) => {
+    expect(handleMessage(message, sender, resolve)).toBe(true);
+  });
+}
 
 describe('extension action', () => {
   beforeEach(async () => {
@@ -119,7 +164,7 @@ describe('extension action', () => {
       },
       recordedSteps: [],
     };
-    const message = {
+    const message: ExtensionMessage = {
       type: 'RECORDED_FOCUS_NAVIGATION',
       payload: {
         schemaVersion: 4,
@@ -152,14 +197,93 @@ describe('extension action', () => {
           locale: 'pt-BR',
         },
       },
-    } as const;
-    const handleMessage = runtimeOnMessage.mock.calls[0][0];
-
-    const response = await new Promise((resolve) => {
-      expect(handleMessage(message, { tab: { id: 21 } }, resolve)).toBe(true);
-    });
+    };
+    const response = await dispatchMessage(message, { tab: { id: 21 } });
 
     expect(response).toEqual({ success: true });
     expect(localStorageData.recordedSteps).toEqual([message.payload]);
+  });
+
+  it('deletes one step and preserves mixed recordings in order', async () => {
+    const first = createRecordedClick('first');
+    const legacy = { type: 'click', selector: { css: 'a' } };
+    const last = createRecordedClick('last');
+    localStorageData = {
+      recordingState: { isRecording: false },
+      recordedSteps: [first, legacy, last],
+    };
+
+    const response = await dispatchMessage({
+      type: 'DELETE_RECORDED_STEP',
+      payload: { stepIndex: 1 },
+    });
+
+    expect(response).toEqual({ success: true });
+    expect(localStorageData.recordedSteps).toEqual([first, last]);
+    expect(localStorageData.recordingState).toEqual({ isRecording: false });
+  });
+
+  it('rejects deletion when a stable id no longer matches the index', async () => {
+    const current = createRecordedClick('current');
+    localStorageData = { recordedSteps: [current] };
+
+    const response = await dispatchMessage({
+      type: 'DELETE_RECORDED_STEP',
+      payload: { stepIndex: 0, expectedId: 'stale-id' },
+    });
+
+    expect(response).toEqual({
+      success: false,
+      error: 'A lista de passos foi atualizada. Tente novamente.',
+    });
+    expect(localStorageData.recordedSteps).toEqual([current]);
+  });
+
+  it('clears every step without stopping an active recording', async () => {
+    localStorageData = {
+      recordingState: {
+        isRecording: true,
+        tabId: 21,
+        origin: 'https://example.com',
+      },
+      recordedSteps: [createRecordedClick('first')],
+    };
+
+    const response = await dispatchMessage({ type: 'CLEAR_RECORDED_STEPS' });
+
+    expect(response).toEqual({ success: true });
+    expect(localStorageData.recordedSteps).toEqual([]);
+    expect(localStorageData.recordingState).toMatchObject({
+      isRecording: true,
+      tabId: 21,
+    });
+  });
+
+  it('serializes a capture followed by deletion without losing the capture', async () => {
+    const first = createRecordedClick('first');
+    const second = createRecordedClick('second');
+    localStorageData = {
+      recordingState: {
+        isRecording: true,
+        tabId: 21,
+        origin: 'https://example.com',
+      },
+      recordedSteps: [first],
+    };
+
+    const capture = dispatchMessage(
+      { type: 'RECORDED_CLICK', payload: second },
+      { tab: { id: 21 } },
+    );
+    const deletion = dispatchMessage({
+      type: 'DELETE_RECORDED_STEP',
+      payload: { stepIndex: 0, expectedId: 'first' },
+    });
+
+    await expect(Promise.all([capture, deletion])).resolves.toEqual([
+      { success: true },
+      { success: true },
+    ]);
+    expect(localStorageData.recordedSteps).toEqual([second]);
   });
 });

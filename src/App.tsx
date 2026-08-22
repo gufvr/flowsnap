@@ -46,7 +46,14 @@ const ErrorMessage = styled.p`
 export function App() {
   const { isRecording, isLoading, error, toggleRecording } =
     useRecordingState();
-  const { steps, isLoading: areStepsLoading } = useRecordedSteps();
+  const {
+    steps,
+    isLoading: areStepsLoading,
+    pendingMutation,
+    feedback: stepsFeedback,
+    removeStep,
+    clearSteps,
+  } = useRecordedSteps();
   const stepCountLabel =
     steps.length === 1 ? '1 passo capturado' : `${steps.length} passos capturados`;
 
@@ -64,7 +71,14 @@ export function App() {
             onClick={toggleRecording}
           />
         </RecordingCard>
-        <RecordedStepsList steps={steps} isLoading={areStepsLoading} />
+        <RecordedStepsList
+          steps={steps}
+          isLoading={areStepsLoading}
+          pendingMutation={pendingMutation}
+          feedback={stepsFeedback}
+          onDeleteStep={removeStep}
+          onClearSteps={clearSteps}
+        />
       </Content>
     </Panel>
   );

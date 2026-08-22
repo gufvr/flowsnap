@@ -1,5 +1,16 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const { deleteRecordedStep, clearRecordedSteps } = vi.hoisted(() => ({
+  deleteRecordedStep: vi.fn(),
+  clearRecordedSteps: vi.fn(),
+}));
+
+vi.mock('../services/recordedStepActions', () => ({
+  deleteRecordedStep,
+  clearRecordedSteps,
+}));
+
 import { useRecordedSteps } from './useRecordedSteps';
 
 const storageGet = vi.fn();
@@ -30,7 +41,11 @@ describe('useRecordedSteps', () => {
     storageGet.mockReset();
     storageChangeAddListener.mockReset();
     storageChangeRemoveListener.mockReset();
+    deleteRecordedStep.mockReset();
+    clearRecordedSteps.mockReset();
     storageGet.mockResolvedValue({ recordedSteps: [] });
+    deleteRecordedStep.mockResolvedValue(undefined);
+    clearRecordedSteps.mockResolvedValue(undefined);
 
     vi.stubGlobal('chrome', {
       storage: {
@@ -127,5 +142,112 @@ describe('useRecordedSteps', () => {
     expect(storageChangeRemoveListener).toHaveBeenCalledWith(
       handleStorageChange,
     );
+  });
+
+  it('deletes through the background and waits for the reactive update', async () => {
+    const persistedStep = createStep('persisted', 'Passo persistido');
+    storageGet.mockResolvedValue({ recordedSteps: [persistedStep] });
+    const { result } = renderHook(() => useRecordedSteps());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await expect(result.current.removeStep(0)).resolves.toBe(true);
+    });
+
+    expect(deleteRecordedStep).toHaveBeenCalledWith(0, 'persisted');
+    expect(result.current.steps).toEqual([persistedStep]);
+    expect(result.current.feedback).toEqual({
+      type: 'success',
+      message: 'Passo 1 excluído.',
+    });
+
+    const handleStorageChange = storageChangeAddListener.mock.calls[0][0];
+    act(() => {
+      handleStorageChange({ recordedSteps: { newValue: [] } }, 'local');
+    });
+
+    expect(result.current.steps).toEqual([]);
+  });
+
+  it('deletes incomplete legacy steps using their index', async () => {
+    storageGet.mockResolvedValue({ recordedSteps: [{ type: 'click' }] });
+    const { result } = renderHook(() => useRecordedSteps());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.removeStep(0);
+    });
+
+    expect(deleteRecordedStep).toHaveBeenCalledWith(0, undefined);
+  });
+
+  it('prevents overlapping mutations', async () => {
+    let finishDeletion: () => void = () => undefined;
+    deleteRecordedStep.mockReturnValue(
+      new Promise<void>((resolve) => {
+        finishDeletion = resolve;
+      }),
+    );
+    storageGet.mockResolvedValue({
+      recordedSteps: [createStep('persisted', 'Passo persistido')],
+    });
+    const { result } = renderHook(() => useRecordedSteps());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    let firstMutation: Promise<boolean> | undefined;
+    let secondMutation: Promise<boolean> | undefined;
+    act(() => {
+      firstMutation = result.current.removeStep(0);
+      secondMutation = result.current.clearSteps();
+    });
+
+    await expect(secondMutation).resolves.toBe(false);
+    expect(result.current.pendingMutation).toEqual({
+      type: 'delete',
+      stepIndex: 0,
+    });
+    expect(clearRecordedSteps).not.toHaveBeenCalled();
+
+    await act(async () => {
+      finishDeletion();
+      await firstMutation;
+    });
+
+    expect(result.current.pendingMutation).toBeUndefined();
+  });
+
+  it('shows accessible error data when a mutation fails', async () => {
+    deleteRecordedStep.mockRejectedValue(
+      new Error('A lista de passos foi atualizada. Tente novamente.'),
+    );
+    storageGet.mockResolvedValue({
+      recordedSteps: [createStep('persisted', 'Passo persistido')],
+    });
+    const { result } = renderHook(() => useRecordedSteps());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await expect(result.current.removeStep(0)).resolves.toBe(false);
+    });
+
+    expect(result.current.feedback).toEqual({
+      type: 'error',
+      message: 'A lista de passos foi atualizada. Tente novamente.',
+    });
+  });
+
+  it('clears every step through the background', async () => {
+    const { result } = renderHook(() => useRecordedSteps());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await expect(result.current.clearSteps()).resolves.toBe(true);
+    });
+
+    expect(clearRecordedSteps).toHaveBeenCalledOnce();
+    expect(result.current.feedback).toEqual({
+      type: 'success',
+      message: 'Todos os passos foram removidos.',
+    });
   });
 });

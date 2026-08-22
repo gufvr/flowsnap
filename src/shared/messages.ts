@@ -15,6 +15,11 @@ export type ExtensionMessage =
       type: 'RECORDED_FOCUS_NAVIGATION';
       payload: RecordedFocusNavigation;
     }
+  | {
+      type: 'DELETE_RECORDED_STEP';
+      payload: { stepIndex: number; expectedId?: string };
+    }
+  | { type: 'CLEAR_RECORDED_STEPS' }
   | { type: 'GET_ACTIVE_TAB_CONTEXT' }
   | { type: 'ACTIVATE_CLICK_RECORDER' }
   | { type: 'DEACTIVATE_CLICK_RECORDER' };

@@ -1,19 +1,53 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  clearRecordedSteps,
+  deleteRecordedStep,
+} from '../services/recordedStepActions';
 import { loadRecordedSteps } from '../services/recordingStorage';
 import type { RecordedStep } from '../shared/recordingTypes';
 
 const RECORDED_STEPS_KEY = 'recordedSteps';
+const FEEDBACK_DURATION_MS = 3000;
+
+export type RecordedStepMutation =
+  | { type: 'delete'; stepIndex: number }
+  | { type: 'clear' };
+
+export interface RecordedStepsFeedback {
+  type: 'success' | 'error';
+  message: string;
+}
+
+function getStepId(step: unknown) {
+  if (
+    typeof step === 'object' &&
+    step !== null &&
+    'id' in step &&
+    typeof step.id === 'string'
+  ) {
+    return step.id;
+  }
+
+  return undefined;
+}
 
 export function useRecordedSteps() {
   const [steps, setSteps] = useState<RecordedStep[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [pendingMutation, setPendingMutation] =
+    useState<RecordedStepMutation>();
+  const [feedback, setFeedback] = useState<RecordedStepsFeedback>();
+  const mutationInProgress = useRef(false);
+  const feedbackTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const isMounted = useRef(true);
 
   useEffect(() => {
-    let isMounted = true;
     let hasReceivedStorageUpdate = false;
 
+    isMounted.current = true;
+
     loadRecordedSteps().then((storedSteps) => {
-      if (!isMounted) return;
+      if (!isMounted.current) return;
 
       if (!hasReceivedStorageUpdate) setSteps(storedSteps);
       setIsLoading(false);
@@ -37,10 +71,88 @@ export function useRecordedSteps() {
     globalThis.chrome?.storage?.onChanged?.addListener(handleStorageChange);
 
     return () => {
-      isMounted = false;
+      isMounted.current = false;
+      clearTimeout(feedbackTimer.current);
       globalThis.chrome?.storage?.onChanged?.removeListener(handleStorageChange);
     };
   }, []);
 
-  return { steps, isLoading };
+  const showFeedback = useCallback((nextFeedback: RecordedStepsFeedback) => {
+    clearTimeout(feedbackTimer.current);
+    setFeedback(nextFeedback);
+    feedbackTimer.current = setTimeout(
+      () => setFeedback(undefined),
+      FEEDBACK_DURATION_MS,
+    );
+  }, []);
+
+  const runMutation = useCallback(
+    async (
+      mutation: RecordedStepMutation,
+      action: () => Promise<void>,
+      successMessage: string,
+      fallbackError: string,
+    ) => {
+      if (mutationInProgress.current) return false;
+
+      mutationInProgress.current = true;
+      clearTimeout(feedbackTimer.current);
+      setFeedback(undefined);
+      setPendingMutation(mutation);
+
+      try {
+        await action();
+        if (isMounted.current) {
+          showFeedback({ type: 'success', message: successMessage });
+        }
+        return true;
+      } catch (error) {
+        if (isMounted.current) {
+          showFeedback({
+            type: 'error',
+            message: error instanceof Error ? error.message : fallbackError,
+          });
+        }
+        return false;
+      } finally {
+        mutationInProgress.current = false;
+        if (isMounted.current) setPendingMutation(undefined);
+      }
+    },
+    [showFeedback],
+  );
+
+  const removeStep = useCallback(
+    (stepIndex: number) => {
+      const expectedId = getStepId(steps[stepIndex]);
+
+      return runMutation(
+        { type: 'delete', stepIndex },
+        () => deleteRecordedStep(stepIndex, expectedId),
+        `Passo ${stepIndex + 1} excluído.`,
+        'Não foi possível excluir o passo.',
+      );
+    },
+    [runMutation, steps],
+  );
+
+  const clearSteps = useCallback(
+    () =>
+      runMutation(
+        { type: 'clear' },
+        clearRecordedSteps,
+        'Todos os passos foram removidos.',
+        'Não foi possível limpar os passos.',
+      ),
+    [runMutation],
+  );
+
+  return {
+    steps,
+    isLoading,
+    pendingMutation,
+    feedback,
+    removeStep,
+    clearSteps,
+  };
 }

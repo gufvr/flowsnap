@@ -14,7 +14,12 @@ type RecordedStepMessage = Extract<
   { type: 'RECORDED_CLICK' | 'RECORDED_FOCUS_NAVIGATION' }
 >;
 
-let recordedStepWriteQueue = Promise.resolve();
+type RecordedStepActionMessage = Extract<
+  ExtensionMessage,
+  { type: 'DELETE_RECORDED_STEP' | 'CLEAR_RECORDED_STEPS' }
+>;
+
+let recordedStepOperationQueue: Promise<void> = Promise.resolve();
 
 chrome.runtime.onInstalled.addListener(() => {
   void chrome.sidePanel
@@ -97,7 +102,8 @@ async function appendRecordedStep(
     return { success: false };
   }
 
-  const steps = (result[RECORDED_STEPS_KEY] as RecordedStep[] | undefined) ?? [];
+  const storedSteps = result[RECORDED_STEPS_KEY];
+  const steps = Array.isArray(storedSteps) ? storedSteps : [];
   await chrome.storage.local.set({
     [RECORDED_STEPS_KEY]: [...steps, message.payload],
   });
@@ -105,20 +111,74 @@ async function appendRecordedStep(
   return { success: true };
 }
 
+async function deleteRecordedStep(
+  message: Extract<RecordedStepActionMessage, { type: 'DELETE_RECORDED_STEP' }>,
+): Promise<ExtensionResponse> {
+  const { stepIndex, expectedId } = message.payload;
+
+  if (!Number.isInteger(stepIndex) || stepIndex < 0) {
+    return { success: false, error: 'O passo solicitado é inválido.' };
+  }
+
+  const result = await chrome.storage.local.get(RECORDED_STEPS_KEY);
+  const storedSteps = result[RECORDED_STEPS_KEY];
+  const steps: RecordedStep[] = Array.isArray(storedSteps) ? storedSteps : [];
+  const target = steps[stepIndex];
+
+  if (!target) {
+    return { success: false, error: 'O passo não está mais disponível.' };
+  }
+
+  if (
+    expectedId &&
+    (typeof target.id !== 'string' || target.id !== expectedId)
+  ) {
+    return {
+      success: false,
+      error: 'A lista de passos foi atualizada. Tente novamente.',
+    };
+  }
+
+  await chrome.storage.local.set({
+    [RECORDED_STEPS_KEY]: steps.filter((_, index) => index !== stepIndex),
+  });
+
+  return { success: true };
+}
+
+async function clearRecordedSteps(): Promise<ExtensionResponse> {
+  await chrome.storage.local.set({ [RECORDED_STEPS_KEY]: [] });
+  return { success: true };
+}
+
+function enqueueRecordedStepOperation<T>(operation: () => Promise<T>) {
+  const result = recordedStepOperationQueue.then(operation);
+
+  recordedStepOperationQueue = result.then(
+    () => undefined,
+    () => undefined,
+  );
+
+  return result;
+}
+
 function storeRecordedStep(
   message: RecordedStepMessage,
   sender: chrome.runtime.MessageSender,
 ) {
-  const operation = recordedStepWriteQueue.then(() =>
+  return enqueueRecordedStepOperation(() =>
     appendRecordedStep(message, sender),
   );
+}
 
-  recordedStepWriteQueue = operation.then(
-    () => undefined,
-    () => undefined,
-  );
+function performRecordedStepAction(message: RecordedStepActionMessage) {
+  return enqueueRecordedStepOperation(() => {
+    if (message.type === 'DELETE_RECORDED_STEP') {
+      return deleteRecordedStep(message);
+    }
 
-  return operation;
+    return clearRecordedSteps();
+  });
 }
 
 chrome.runtime.onMessage.addListener(
@@ -145,10 +205,24 @@ chrome.runtime.onMessage.addListener(
         return storeRecordedStep(message, sender);
       }
 
+      if (
+        message.type === 'DELETE_RECORDED_STEP' ||
+        message.type === 'CLEAR_RECORDED_STEPS'
+      ) {
+        return performRecordedStepAction(message);
+      }
+
       return { success: false };
     };
 
-    void handleMessage().then(sendResponse);
+    void handleMessage()
+      .then(sendResponse)
+      .catch(() =>
+        sendResponse({
+          success: false,
+          error: 'Não foi possível atualizar os passos gravados.',
+        }),
+      );
     return true;
   },
 );
