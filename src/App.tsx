@@ -1,14 +1,22 @@
 import styled from 'styled-components';
 import { BrandHeader } from './components/BrandHeader';
+import { RecordedStepsList } from './components/RecordedStepsList';
 import { RecordingButton } from './components/RecordingButton';
 import { StatusBanner } from './components/StatusBanner';
 import { useRecordingState } from './hooks/useRecordingState';
+import { useRecordedSteps } from './hooks/useRecordedSteps';
 import { closeSidePanel } from './services/closeSidePanel';
 
 const Panel = styled.main`
   min-height: 100vh;
   padding: ${({ theme }) => theme.spacing.lg};
   background: ${({ theme }) => theme.colors.background};
+`;
+
+const Content = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${({ theme }) => theme.spacing.lg};
 `;
 
 const RecordingCard = styled.section`
@@ -36,22 +44,28 @@ const ErrorMessage = styled.p`
 `;
 
 export function App() {
-  const { isRecording, isLoading, stepCount, error, toggleRecording } =
+  const { isRecording, isLoading, error, toggleRecording } =
     useRecordingState();
+  const { steps, isLoading: areStepsLoading } = useRecordedSteps();
+  const stepCountLabel =
+    steps.length === 1 ? '1 clique capturado' : `${steps.length} cliques capturados`;
 
   return (
     <Panel>
       <BrandHeader onClose={closeSidePanel} />
-      <RecordingCard aria-label="Controle de gravação">
-        <StatusBanner isRecording={isRecording} isLoading={isLoading} />
-        <StepCount>{stepCount} cliques capturados</StepCount>
-        {error && <ErrorMessage role="alert">{error}</ErrorMessage>}
-        <RecordingButton
-          isRecording={isRecording}
-          isLoading={isLoading}
-          onClick={toggleRecording}
-        />
-      </RecordingCard>
+      <Content>
+        <RecordingCard aria-label="Controle de gravação">
+          <StatusBanner isRecording={isRecording} isLoading={isLoading} />
+          <StepCount>{stepCountLabel}</StepCount>
+          {error && <ErrorMessage role="alert">{error}</ErrorMessage>}
+          <RecordingButton
+            isRecording={isRecording}
+            isLoading={isLoading}
+            onClick={toggleRecording}
+          />
+        </RecordingCard>
+        <RecordedStepsList steps={steps} isLoading={areStepsLoading} />
+      </Content>
     </Panel>
   );
 }

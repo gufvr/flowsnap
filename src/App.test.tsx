@@ -32,6 +32,8 @@ describe('App', () => {
   beforeEach(() => {
     storageGet.mockReset();
     storageSet.mockReset();
+    storageChangeAddListener.mockReset();
+    storageChangeRemoveListener.mockReset();
     storageGet.mockResolvedValue({});
     storageSet.mockResolvedValue(undefined);
     startRecordingSession.mockReset();
@@ -86,5 +88,28 @@ describe('App', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Permissão negada');
     expect(screen.getByText('Status: Parado')).toBeInTheDocument();
+  });
+
+  it('shows persisted step descriptions and their count', async () => {
+    storageGet.mockResolvedValue({
+      recordingState: { isRecording: false },
+      recordedSteps: [
+        {
+          schemaVersion: 4,
+          id: 'login-click',
+          description: {
+            action: 'click',
+            target: { type: 'button', name: 'Login' },
+            source: 'accessibleName',
+            text: 'Clicou no botão "Login"',
+            locale: 'pt-BR',
+          },
+        },
+      ],
+    });
+    renderApp();
+
+    expect(await screen.findByText('Clicou no botão "Login"')).toBeInTheDocument();
+    expect(screen.getByText('1 clique capturado')).toBeInTheDocument();
   });
 });
