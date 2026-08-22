@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { resolveRecommendedSelector } from './resolveRecommendedSelector';
 
 describe('resolveRecommendedSelector', () => {
-  it.each([4, 3, 2])(
+  it.each([5, 4, 3, 2])(
     'uses the recommended candidate from schema %s',
     (schemaVersion) => {
       const step = {

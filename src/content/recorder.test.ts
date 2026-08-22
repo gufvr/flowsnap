@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createClickMessage,
+  createFieldFillMessage,
   createFocusNavigationMessage,
   createRecorderController,
   type RecorderController,
@@ -12,6 +13,8 @@ function connectController(controller: RecorderController) {
   document.addEventListener('click', controller.handleClick, true);
   document.addEventListener('keydown', controller.handleKeyDown, true);
   document.addEventListener('focusin', controller.handleFocusIn, true);
+  document.addEventListener('input', controller.handleInput, true);
+  document.addEventListener('change', controller.handleChange, true);
   document.addEventListener('pointerdown', controller.handlePointerDown, true);
   window.addEventListener('blur', controller.handleWindowBlur);
 
@@ -19,6 +22,8 @@ function connectController(controller: RecorderController) {
     document.removeEventListener('click', controller.handleClick, true);
     document.removeEventListener('keydown', controller.handleKeyDown, true);
     document.removeEventListener('focusin', controller.handleFocusIn, true);
+    document.removeEventListener('input', controller.handleInput, true);
+    document.removeEventListener('change', controller.handleChange, true);
     document.removeEventListener(
       'pointerdown',
       controller.handlePointerDown,
@@ -99,9 +104,145 @@ describe('recording messages', () => {
     });
     expect(JSON.stringify(message)).not.toContain('SuperSecretPassword!');
   });
+
+  it('creates a schema 5 field fill with its persisted description', () => {
+    const label = document.createElement('label');
+    label.textContent = 'Username';
+    const username = document.createElement('input');
+    username.value = 'tester';
+    label.append(username);
+    document.body.append(label);
+
+    expect(createFieldFillMessage(username)).toMatchObject({
+      type: 'RECORDED_FIELD_FILL',
+      payload: {
+        schemaVersion: 5,
+        type: 'field-fill',
+        value: { kind: 'plain', value: 'tester' },
+        description: {
+          action: 'fieldFill',
+          text: 'Preencheu o campo "Username" com "tester"',
+        },
+      },
+    });
+  });
+
+  it('creates a protected schema 5 field fill without exposing a password', () => {
+    const label = document.createElement('label');
+    label.textContent = 'Password';
+    const password = document.createElement('input');
+    password.type = 'password';
+    password.value = 'SuperSecretPassword!';
+    label.append(password);
+    document.body.append(label);
+
+    const message = createFieldFillMessage(password);
+
+    expect(message).toMatchObject({
+      type: 'RECORDED_FIELD_FILL',
+      payload: {
+        value: { kind: 'protected', reason: 'password' },
+        description: {
+          text: 'Preencheu o campo "Password" com um valor protegido',
+        },
+      },
+    });
+    expect(JSON.stringify(message)).not.toContain('SuperSecretPassword!');
+  });
+
+  it.each([
+    [{ type: 'password' }, 'password'],
+    [{ type: 'text', name: 'api_token' }, 'secret'],
+  ] as const)(
+    'classifies protected fields before the complete message path reads value %#',
+    (attributes, reason) => {
+      const field = document.createElement('input');
+      Object.entries(attributes).forEach(([name, value]) =>
+        field.setAttribute(name, value),
+      );
+      const valueGetter = vi.fn(() => {
+        throw new Error('Sensitive value must not be read');
+      });
+      Object.defineProperty(field, 'value', { get: valueGetter });
+      document.body.append(field);
+
+      expect(createFieldFillMessage(field)).toMatchObject({
+        payload: { value: { kind: 'protected', reason } },
+      });
+      expect(valueGetter).not.toHaveBeenCalled();
+    },
+  );
 });
 
 describe('createRecorderController', () => {
+  it('consolidates multiple input events into one field fill on change', () => {
+    const sendMessage = vi.fn();
+    const controller = createRecorderController(sendMessage);
+    const { username } = createFields();
+    connectController(controller);
+    controller.setActive(true);
+
+    username.value = 't';
+    username.dispatchEvent(new InputEvent('input', { bubbles: true }));
+    username.value = 'tester';
+    username.dispatchEvent(new InputEvent('input', { bubbles: true }));
+
+    expect(sendMessage).not.toHaveBeenCalled();
+
+    username.dispatchEvent(new Event('change', { bubbles: true }));
+
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+    expect(sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'RECORDED_FIELD_FILL',
+        payload: expect.objectContaining({
+          value: { kind: 'plain', value: 'tester' },
+        }),
+      }),
+    );
+  });
+
+  it('ignores unsupported fields, unchanged repeats and edits while stopped', () => {
+    const sendMessage = vi.fn();
+    const controller = createRecorderController(sendMessage);
+    const { username } = createFields();
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    document.body.append(checkbox);
+    connectController(controller);
+
+    username.value = 'stopped';
+    username.dispatchEvent(new InputEvent('input', { bubbles: true }));
+    username.dispatchEvent(new Event('change', { bubbles: true }));
+    controller.setActive(true);
+    checkbox.dispatchEvent(new InputEvent('input', { bubbles: true }));
+    checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+
+    username.value = 'tester';
+    username.dispatchEvent(new InputEvent('input', { bubbles: true }));
+    username.dispatchEvent(new Event('change', { bubbles: true }));
+    username.dispatchEvent(new InputEvent('input', { bubbles: true }));
+    username.dispatchEvent(new Event('change', { bubbles: true }));
+
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it('discards a pending edit when recording stops', () => {
+    const sendMessage = vi.fn();
+    const controller = createRecorderController(sendMessage);
+    const { username } = createFields();
+    connectController(controller);
+    controller.setActive(true);
+
+    username.value = 'tester';
+    username.dispatchEvent(new InputEvent('input', { bubbles: true }));
+    controller.setActive(false);
+    controller.setActive(true);
+    username.dispatchEvent(new Event('change', { bubbles: true }));
+
+    expect(sendMessage).not.toHaveBeenCalled();
+  });
+
   it('captures Tab only after focus moves to another element', () => {
     const sendMessage = vi.fn();
     const controller = createRecorderController(sendMessage);

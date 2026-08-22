@@ -1,6 +1,7 @@
 import type {
   ActiveTabContext,
   RecordedClick,
+  RecordedFieldFill,
   RecordedFocusNavigation,
 } from './recordingTypes';
 
@@ -14,6 +15,10 @@ export type ExtensionMessage =
   | {
       type: 'RECORDED_FOCUS_NAVIGATION';
       payload: RecordedFocusNavigation;
+    }
+  | {
+      type: 'RECORDED_FIELD_FILL';
+      payload: RecordedFieldFill;
     }
   | {
       type: 'DELETE_RECORDED_STEP';

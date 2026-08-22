@@ -1,7 +1,13 @@
 import { createClickDescription } from '../shared/descriptions/createClickDescription';
+import { createFieldFillDescription } from '../shared/descriptions/createFieldFillDescription';
 import { createFocusNavigationDescription } from '../shared/descriptions/createFocusNavigationDescription';
 import type { ExtensionMessage } from '../shared/messages';
 import { normalizeText } from './elementSemantics';
+import {
+  captureFieldValue,
+  isCapturableField,
+  type CapturableField,
+} from './fieldCapture';
 import { buildSelectorCandidates } from './selectorCandidates';
 
 const TAB_NAVIGATION_TIMEOUT_MS = 300;
@@ -20,6 +26,8 @@ export interface RecorderController {
   handleClick: (event: MouseEvent) => void;
   handleKeyDown: (event: KeyboardEvent) => void;
   handleFocusIn: (event: FocusEvent) => void;
+  handleInput: (event: Event) => void;
+  handleChange: (event: Event) => void;
   handlePointerDown: () => void;
   handleWindowBlur: () => void;
 }
@@ -93,10 +101,39 @@ export function createFocusNavigationMessage(
   };
 }
 
+export function createFieldFillMessage(
+  field: CapturableField,
+): Extract<ExtensionMessage, { type: 'RECORDED_FIELD_FILL' }> {
+  const value = captureFieldValue(field);
+  const selectors = buildSelectorCandidates(field);
+  const elementData = getElementData(field);
+
+  return {
+    type: 'RECORDED_FIELD_FILL',
+    payload: {
+      schemaVersion: 5,
+      id: crypto.randomUUID(),
+      type: 'field-fill',
+      url: window.location.href,
+      timestamp: Date.now(),
+      selectors,
+      element: elementData,
+      value,
+      description: createFieldFillDescription({
+        selectors,
+        element: elementData,
+        value,
+      }),
+    },
+  };
+}
+
 export function createRecorderController(
   sendMessage: SendMessage,
 ): RecorderController {
   let pendingTabNavigation: PendingTabNavigation | undefined;
+  let dirtyFields = new WeakSet<CapturableField>();
+  let lastCapturedPlainValues = new WeakMap<CapturableField, string>();
 
   const clearPendingTabNavigation = () => {
     if (!pendingTabNavigation) return;
@@ -109,7 +146,11 @@ export function createRecorderController(
     isActive: false,
     setActive(isActive) {
       controller.isActive = isActive;
-      if (!isActive) clearPendingTabNavigation();
+      if (!isActive) {
+        clearPendingTabNavigation();
+        dirtyFields = new WeakSet();
+        lastCapturedPlainValues = new WeakMap();
+      }
     },
     handleClick(event) {
       const element = getEventElement(event);
@@ -154,6 +195,42 @@ export function createRecorderController(
         createFocusNavigationMessage(element, navigation.direction),
       );
     },
+    handleInput(event) {
+      const element = getEventElement(event);
+      if (!controller.isActive || !element || !isCapturableField(element)) {
+        return;
+      }
+
+      dirtyFields.add(element);
+    },
+    handleChange(event) {
+      const element = getEventElement(event);
+      if (
+        !controller.isActive ||
+        !element ||
+        !isCapturableField(element) ||
+        !dirtyFields.has(element)
+      ) {
+        return;
+      }
+
+      dirtyFields.delete(element);
+      const message = createFieldFillMessage(element);
+      const { value } = message.payload;
+
+      if (
+        value.kind === 'plain' &&
+        lastCapturedPlainValues.get(element) === value.value
+      ) {
+        return;
+      }
+
+      if (value.kind === 'plain') {
+        lastCapturedPlainValues.set(element, value.value);
+      }
+
+      void sendMessage(message);
+    },
     handlePointerDown() {
       clearPendingTabNavigation();
     },
@@ -175,6 +252,8 @@ function installRecorder() {
   document.addEventListener('click', controller.handleClick, true);
   document.addEventListener('keydown', controller.handleKeyDown, true);
   document.addEventListener('focusin', controller.handleFocusIn, true);
+  document.addEventListener('input', controller.handleInput, true);
+  document.addEventListener('change', controller.handleChange, true);
   document.addEventListener('pointerdown', controller.handlePointerDown, true);
   window.addEventListener('blur', controller.handleWindowBlur);
   window.__flowsnapRecorder = controller;

@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ExtensionMessage } from './shared/messages';
-import type { RecordedClick } from './shared/recordingTypes';
+import type {
+  RecordedClick,
+  RecordedFieldFill,
+} from './shared/recordingTypes';
 
 const actionOnClicked = vi.fn();
 const runtimeOnInstalled = vi.fn();
@@ -42,6 +45,39 @@ function createRecordedClick(id: string): RecordedClick {
       target: { type: 'button', name: id },
       source: 'text',
       text: `Clicou no botão "${id}"`,
+      locale: 'pt-BR',
+    },
+  };
+}
+
+function createRecordedFieldFill(id: string): RecordedFieldFill {
+  return {
+    schemaVersion: 5,
+    id,
+    type: 'field-fill',
+    url: 'https://example.com/form',
+    timestamp: 1,
+    selectors: {
+      recommended: {
+        strategy: 'label',
+        value: 'Username',
+        score: 85,
+        isUnique: true,
+        validation: {
+          status: 'valid',
+          matchCount: 1,
+          matchesTarget: true,
+        },
+      },
+      alternatives: [],
+    },
+    element: { tagName: 'input', inputType: 'text' },
+    value: { kind: 'plain', value: 'tester' },
+    description: {
+      action: 'fieldFill',
+      target: { type: 'field', name: 'Username' },
+      source: 'label',
+      text: 'Preencheu o campo "Username" com "tester"',
       locale: 'pt-BR',
     },
   };
@@ -202,6 +238,26 @@ describe('extension action', () => {
 
     expect(response).toEqual({ success: true });
     expect(localStorageData.recordedSteps).toEqual([message.payload]);
+  });
+
+  it('stores a schema 5 field fill in the active tab recording', async () => {
+    const fill = createRecordedFieldFill('fill-username');
+    localStorageData = {
+      recordingState: {
+        isRecording: true,
+        tabId: 21,
+        origin: 'https://example.com',
+      },
+      recordedSteps: [],
+    };
+
+    const response = await dispatchMessage(
+      { type: 'RECORDED_FIELD_FILL', payload: fill },
+      { tab: { id: 21 } },
+    );
+
+    expect(response).toEqual({ success: true });
+    expect(localStorageData.recordedSteps).toEqual([fill]);
   });
 
   it('deletes one step and preserves mixed recordings in order', async () => {

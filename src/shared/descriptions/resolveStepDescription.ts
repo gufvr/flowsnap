@@ -1,4 +1,5 @@
 import type {
+  RecordedFieldValue,
   SelectorAnalysis,
   SelectorCandidate,
   SelectorStrategy,
@@ -12,6 +13,7 @@ import type {
   StepTargetType,
 } from '../stepDescriptionTypes';
 import { createClickDescription } from './createClickDescription';
+import { createFieldFillDescription } from './createFieldFillDescription';
 import { createFocusNavigationDescription } from './createFocusNavigationDescription';
 
 const SELECTOR_STRATEGIES: SelectorStrategy[] = [
@@ -56,6 +58,14 @@ const VALIDATION_STATUSES: SelectorValidationStatus[] = [
   'invalid',
 ];
 
+const SENSITIVE_FIELD_REASONS = [
+  'password',
+  'one-time-code',
+  'payment',
+  'personal-id',
+  'secret',
+] as const;
+
 const FALLBACK_CANDIDATE: SelectorCandidate = {
   strategy: 'css',
   value: '',
@@ -87,7 +97,9 @@ function isStepDescription(value: unknown): value is StepDescription {
   if (!isRecord(value) || !isRecord(value.target)) return false;
 
   return (
-    (value.action === 'click' || value.action === 'focusNavigation') &&
+    (value.action === 'click' ||
+      value.action === 'focusNavigation' ||
+      value.action === 'fieldFill') &&
     value.locale === 'pt-BR' &&
     isString(value.text) &&
     value.text.trim().length > 0 &&
@@ -191,6 +203,29 @@ function getElement(step: Record<string, unknown>) {
   };
 }
 
+function getFieldValue(step: Record<string, unknown>): RecordedFieldValue {
+  if (!isRecord(step.value)) {
+    return { kind: 'protected', reason: 'secret' };
+  }
+
+  if (step.value.kind === 'plain' && isString(step.value.value)) {
+    return {
+      kind: 'plain',
+      value: step.value.value,
+      ...(step.value.truncated === true ? { truncated: true } : {}),
+    };
+  }
+
+  if (
+    step.value.kind === 'protected' &&
+    includesValue(SENSITIVE_FIELD_REASONS, step.value.reason)
+  ) {
+    return { kind: 'protected', reason: step.value.reason };
+  }
+
+  return { kind: 'protected', reason: 'secret' };
+}
+
 function createFallbackDescription() {
   return createClickDescription({
     selectors: createAnalysis([]),
@@ -204,11 +239,15 @@ export function resolveStepDescription(step: unknown): StepDescription {
   const isKnownSchema =
     step.schemaVersion === 2 ||
     step.schemaVersion === 3 ||
-    step.schemaVersion === 4;
+    step.schemaVersion === 4 ||
+    step.schemaVersion === 5;
 
   if (!isKnownSchema) return createFallbackDescription();
 
-  if (step.schemaVersion === 4 && isStepDescription(step.description)) {
+  if (
+    (step.schemaVersion === 4 || step.schemaVersion === 5) &&
+    isStepDescription(step.description)
+  ) {
     return step.description;
   }
 
@@ -217,7 +256,16 @@ export function resolveStepDescription(step: unknown): StepDescription {
     element: getElement(step),
   };
 
-  return step.type === 'focus-navigation'
-    ? createFocusNavigationDescription(descriptionInput)
-    : createClickDescription(descriptionInput);
+  if (step.type === 'focus-navigation') {
+    return createFocusNavigationDescription(descriptionInput);
+  }
+
+  if (step.type === 'field-fill') {
+    return createFieldFillDescription({
+      ...descriptionInput,
+      value: getFieldValue(step),
+    });
+  }
+
+  return createClickDescription(descriptionInput);
 }

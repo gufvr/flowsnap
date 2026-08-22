@@ -38,6 +38,47 @@ describe('resolveStepDescription', () => {
     expect(resolveStepDescription(step)).toBe(validFocusNavigationDescription);
   });
 
+  it('uses a persisted schema 5 field fill description', () => {
+    const description = {
+      action: 'fieldFill' as const,
+      target: { type: 'field' as const, name: 'Username' },
+      source: 'label' as const,
+      text: 'Preencheu o campo "Username" com "tester"',
+      locale: 'pt-BR' as const,
+    };
+    const step = {
+      schemaVersion: 5,
+      type: 'field-fill',
+      description,
+    };
+
+    expect(resolveStepDescription(step)).toBe(description);
+  });
+
+  it('rebuilds incomplete schema 5 values conservatively', () => {
+    const step = {
+      schemaVersion: 5,
+      type: 'field-fill',
+      selectors: {
+        recommended: {
+          strategy: 'label',
+          value: 'Password',
+          score: 85,
+          isUnique: true,
+        },
+        alternatives: [],
+      },
+      element: { tagName: 'input', inputType: 'password' },
+      value: { corrupted: true },
+    };
+
+    expect(resolveStepDescription(step)).toMatchObject({
+      action: 'fieldFill',
+      text: 'Preencheu o campo "Password" com um valor protegido',
+    });
+    expect(step).not.toHaveProperty('description');
+  });
+
   it('rebuilds an incomplete focus navigation description safely', () => {
     const step = {
       schemaVersion: 4,
@@ -159,6 +200,19 @@ describe('resolveStepDescription', () => {
 
   it('resolves a mixed list without changing its order or records', () => {
     const steps = [
+      {
+        schemaVersion: 5,
+        type: 'field-fill',
+        selectors: {
+          recommended: {
+            strategy: 'label',
+            value: 'Username',
+            isUnique: true,
+          },
+        },
+        element: { tagName: 'input', inputType: 'text' },
+        value: { kind: 'plain', value: 'tester' },
+      },
       { schemaVersion: 4, description: validDescription },
       {
         schemaVersion: 4,
@@ -178,6 +232,7 @@ describe('resolveStepDescription', () => {
     const originalSteps = structuredClone(steps);
 
     expect(steps.map(resolveStepDescription).map(({ text }) => text)).toEqual([
+      'Preencheu o campo "Username" com "tester"',
       'Clicou no botão "Entrar"',
       'Navegou para o campo "Password"',
       'Clicou no link "Minha conta"',

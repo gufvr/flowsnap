@@ -1,5 +1,6 @@
 import type {
   ClickStepDescription,
+  FieldFillStepDescription,
   FocusNavigationStepDescription,
 } from './stepDescriptionTypes';
 
@@ -119,6 +120,39 @@ export interface RecordedFocusNavigation {
   description: FocusNavigationStepDescription;
 }
 
+export type SensitiveFieldReason =
+  | 'password'
+  | 'one-time-code'
+  | 'payment'
+  | 'personal-id'
+  | 'secret';
+
+export type RecordedFieldValue =
+  | {
+      kind: 'plain';
+      value: string;
+      truncated?: boolean;
+    }
+  | {
+      kind: 'protected';
+      reason: SensitiveFieldReason;
+    };
+
+export interface RecordedFieldFill {
+  schemaVersion: 5;
+  id: string;
+  type: 'field-fill';
+  url: string;
+  timestamp: number;
+  selectors: SelectorAnalysis;
+  element: {
+    tagName: string;
+    inputType?: string;
+  };
+  value: RecordedFieldValue;
+  description: FieldFillStepDescription;
+}
+
 export interface LegacyRecordedClick {
   id: string;
   type: 'click';
@@ -134,6 +168,7 @@ export interface LegacyRecordedClick {
 export type RecordedStep =
   | RecordedClick
   | RecordedFocusNavigation
+  | RecordedFieldFill
   | RecordedClickV3
   | RecordedClickV2
   | LegacyRecordedClick;

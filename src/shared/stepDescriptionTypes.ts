@@ -1,4 +1,4 @@
-export type StepDescriptionAction = "click" | "focusNavigation";
+export type StepDescriptionAction = "click" | "focusNavigation" | "fieldFill";
 
 export type StepTargetType =
   | "button"
@@ -38,6 +38,15 @@ export interface FocusNavigationStepDescription {
   locale: "pt-BR";
 }
 
+export interface FieldFillStepDescription {
+  action: "fieldFill";
+  target: StepDescriptionTarget;
+  source: DescriptionSource;
+  text: string;
+  locale: "pt-BR";
+}
+
 export type StepDescription =
   | ClickStepDescription
-  | FocusNavigationStepDescription;
+  | FocusNavigationStepDescription
+  | FieldFillStepDescription;

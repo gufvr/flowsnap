@@ -11,7 +11,12 @@ const RECORDED_STEPS_KEY = 'recordedSteps';
 
 type RecordedStepMessage = Extract<
   ExtensionMessage,
-  { type: 'RECORDED_CLICK' | 'RECORDED_FOCUS_NAVIGATION' }
+  {
+    type:
+      | 'RECORDED_CLICK'
+      | 'RECORDED_FOCUS_NAVIGATION'
+      | 'RECORDED_FIELD_FILL';
+  }
 >;
 
 type RecordedStepActionMessage = Extract<
@@ -200,7 +205,8 @@ chrome.runtime.onMessage.addListener(
       if (message.type === 'STOP_RECORDING') return stopRecording();
       if (
         message.type === 'RECORDED_CLICK' ||
-        message.type === 'RECORDED_FOCUS_NAVIGATION'
+        message.type === 'RECORDED_FOCUS_NAVIGATION' ||
+        message.type === 'RECORDED_FIELD_FILL'
       ) {
         return storeRecordedStep(message, sender);
       }

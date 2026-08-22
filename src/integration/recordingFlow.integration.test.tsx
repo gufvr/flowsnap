@@ -40,6 +40,8 @@ function createPracticePage(controller: RecorderController) {
   root.addEventListener('click', controller.handleClick, true);
   root.addEventListener('keydown', controller.handleKeyDown, true);
   root.addEventListener('focusin', controller.handleFocusIn, true);
+  root.addEventListener('input', controller.handleInput, true);
+  root.addEventListener('change', controller.handleChange, true);
   root.addEventListener('pointerdown', controller.handlePointerDown, true);
   document.body.append(root);
 
@@ -105,6 +107,31 @@ function createMixedSchemaSteps() {
         target: { type: 'field', name: 'Password' },
         source: 'label',
         text: 'Navegou para o campo "Password"',
+        locale: 'pt-BR',
+      },
+    },
+    {
+      schemaVersion: 5,
+      id: 'schema-5-fill',
+      type: 'field-fill',
+      url: 'https://qapracticehub.com/#forms',
+      timestamp: 3,
+      selectors: {
+        recommended: {
+          ...validSelector,
+          score: 85,
+          strategy: 'label',
+          value: 'Email',
+        },
+        alternatives: [],
+      },
+      element: { tagName: 'input', inputType: 'email' },
+      value: { kind: 'plain', value: 'tester@example.com' },
+      description: {
+        action: 'fieldFill',
+        target: { type: 'field', name: 'Email' },
+        source: 'label',
+        text: 'Preencheu o campo "Email" com "tester@example.com"',
         locale: 'pt-BR',
       },
     },
@@ -199,6 +226,7 @@ describe('integrated recording flow', () => {
     });
 
     await user.click(practicePage.username);
+    await user.keyboard('tester');
     await user.tab();
     await user.keyboard('SuperSecret!');
     await user.click(practicePage.login);
@@ -207,19 +235,33 @@ describe('integrated recording flow', () => {
       await screen.findByText('Clicou no campo "Username"'),
     ).toBeInTheDocument();
     expect(
+      screen.getByText('Preencheu o campo "Username" com "tester"'),
+    ).toBeInTheDocument();
+    expect(
       screen.getByText('Navegou para o campo "Password"'),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Preencheu o campo "Password" com um valor protegido',
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByText('Clicou no botão "Login"')).toBeInTheDocument();
-    expect(screen.getByText('3 passos capturados')).toBeInTheDocument();
+    expect(screen.getByText('5 passos capturados')).toBeInTheDocument();
 
     const storedAfterCapture = harness.getLocalValues();
-    expect(storedAfterCapture.recordedSteps).toHaveLength(3);
+    expect(storedAfterCapture.recordedSteps).toHaveLength(5);
     expect(JSON.stringify(storedAfterCapture)).not.toContain('SuperSecret!');
     expect(
       (storedAfterCapture.recordedSteps as Array<{ type: string }>).map(
         ({ type }) => type,
       ),
-    ).toEqual(['click', 'focus-navigation', 'click']);
+    ).toEqual([
+      'click',
+      'field-fill',
+      'focus-navigation',
+      'field-fill',
+      'click',
+    ]);
 
     firstRender.unmount();
     renderSidePanel();
@@ -227,7 +269,7 @@ describe('integrated recording flow', () => {
     expect(
       await screen.findByText('Navegou para o campo "Password"'),
     ).toBeInTheDocument();
-    expect(screen.getByText('3 passos capturados')).toBeInTheDocument();
+    expect(screen.getByText('5 passos capturados')).toBeInTheDocument();
     expect(screen.getByText('Status: Gravando')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Copiar seletor do passo 1' }));
@@ -235,22 +277,22 @@ describe('integrated recording flow', () => {
       'role=textbox;name=Username',
     );
 
-    await user.click(screen.getByRole('button', { name: 'Excluir passo 2' }));
+    await user.click(screen.getByRole('button', { name: 'Excluir passo 3' }));
     const deleteConfirmation = screen.getByRole('group', {
-      name: 'Confirmar exclusão do passo 2',
+      name: 'Confirmar exclusão do passo 3',
     });
     await user.click(within(deleteConfirmation).getByRole('button', { name: 'Cancelar' }));
-    expect(screen.getByText('3 passos capturados')).toBeInTheDocument();
+    expect(screen.getByText('5 passos capturados')).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'Excluir passo 2' }));
+    await user.click(screen.getByRole('button', { name: 'Excluir passo 3' }));
     await user.click(
       within(
-        screen.getByRole('group', { name: 'Confirmar exclusão do passo 2' }),
+        screen.getByRole('group', { name: 'Confirmar exclusão do passo 3' }),
       ).getByRole('button', { name: 'Excluir passo' }),
     );
 
     await waitFor(() => {
-      expect(screen.getByText('2 passos capturados')).toBeInTheDocument();
+      expect(screen.getByText('4 passos capturados')).toBeInTheDocument();
       expect(
         screen.queryByText('Navegou para o campo "Password"'),
       ).not.toBeInTheDocument();
@@ -291,10 +333,15 @@ describe('integrated recording flow', () => {
     await import('../background');
     renderSidePanel();
 
-    expect(await screen.findByText('6 passos capturados')).toBeInTheDocument();
+    expect(await screen.findByText('7 passos capturados')).toBeInTheDocument();
     expect(screen.getByText('Clicou no botão "Login"')).toBeInTheDocument();
     expect(
       screen.getByText('Navegou para o campo "Password"'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Preencheu o campo "Email" com "tester@example.com"',
+      ),
     ).toBeInTheDocument();
     expect(screen.getByText('Clicou no link "Minha conta"')).toBeInTheDocument();
     expect(
@@ -310,18 +357,18 @@ describe('integrated recording flow', () => {
       'data-testid=login-submit',
     );
 
-    await user.click(screen.getByRole('button', { name: 'Excluir passo 6' }));
+    await user.click(screen.getByRole('button', { name: 'Excluir passo 7' }));
     await user.click(
       within(
-        screen.getByRole('group', { name: 'Confirmar exclusão do passo 6' }),
+        screen.getByRole('group', { name: 'Confirmar exclusão do passo 7' }),
       ).getByRole('button', { name: 'Excluir passo' }),
     );
 
     await waitFor(() =>
-      expect(screen.getByText('5 passos capturados')).toBeInTheDocument(),
+      expect(screen.getByText('6 passos capturados')).toBeInTheDocument(),
     );
     expect(harness.getLocalValues().recordedSteps).toEqual(
-      originalSteps.slice(0, 5),
+      originalSteps.slice(0, 6),
     );
 
     await user.click(screen.getByRole('button', { name: 'Limpar tudo' }));

@@ -6,9 +6,11 @@
 
 Esse projeto é uma extensão Chrome pensada para gravar fluxos de navegação e, futuramente, exportá-los como testes automatizados para Cypress e Playwright.
 
-O Side Panel permite iniciar e parar uma sessão na aba ativa. O FlowSnap solicita acesso somente ao site atual e registra cliques e navegações por `Tab` localmente no navegador.
+O Side Panel permite iniciar e parar uma sessão na aba ativa. O FlowSnap solicita acesso somente ao site atual e registra cliques, preenchimentos de campos e navegações por `Tab` localmente no navegador.
 
-Cada passo armazena a URL, o horário, informações básicas do elemento e candidatos de seletor. `Tab` e `Shift+Tab` registram o elemento que recebeu foco; digitação e outras teclas não são capturadas.
+Cada passo armazena a URL, o horário, informações básicas do elemento e candidatos de seletor. `Tab` e `Shift+Tab` registram o elemento que recebeu foco. A digitação é consolidada em um único passo quando a alteração do campo é concluída, sem registrar cada tecla.
+
+Senhas, códigos temporários, dados de pagamento, documentos pessoais, tokens e outros segredos reconhecidos são registrados somente como valores protegidos. O conteúdo, seu tamanho e qualquer máscara ou hash não são persistidos. Seleções, caixas de seleção e campos de arquivo não fazem parte da captura de preenchimento.
 
 No Side Panel, cada passo pode ter seu seletor recomendado copiado ou ser excluído após confirmação. Também é possível limpar toda a lista sem interromper uma gravação ativa.
 
@@ -37,7 +39,7 @@ npm run build
 `npm run test:integration` executa a jornada da extensão com um Chrome em
 memória: início e parada da gravação, cliques, navegação por `Tab`, persistência,
 atualização reativa do Side Panel, cópia de seletores, exclusão e limpeza. A
-regressão também carrega schemas 4, 3, 2, legado e registros incompletos,
+regressão também carrega schemas 5, 4, 3, 2, legado e registros incompletos,
 confirmando a leitura sem migração do storage.
 
 O harness substitui somente as fronteiras fornecidas pelo navegador, como
