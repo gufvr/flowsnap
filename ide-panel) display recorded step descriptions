@@ -1,0 +1,183 @@
+[1mdiff --git a/src/App.test.tsx b/src/App.test.tsx[m
+[1mindex 595677f..7695ba9 100644[m
+[1m--- a/src/App.test.tsx[m
+[1m+++ b/src/App.test.tsx[m
+[36m@@ -32,6 +32,8 @@[m [mdescribe('App', () => {[m
+   beforeEach(() => {[m
+     storageGet.mockReset();[m
+     storageSet.mockReset();[m
+[32m+[m[32m    storageChangeAddListener.mockReset();[m
+[32m+[m[32m    storageChangeRemoveListener.mockReset();[m
+     storageGet.mockResolvedValue({});[m
+     storageSet.mockResolvedValue(undefined);[m
+     startRecordingSession.mockReset();[m
+[36m@@ -87,4 +89,27 @@[m [mdescribe('App', () => {[m
+     expect(await screen.findByRole('alert')).toHaveTextContent('Permissão negada');[m
+     expect(screen.getByText('Status: Parado')).toBeInTheDocument();[m
+   });[m
+[32m+[m
+[32m+[m[32m  it('shows persisted step descriptions and their count', async () => {[m
+[32m+[m[32m    storageGet.mockResolvedValue({[m
+[32m+[m[32m      recordingState: { isRecording: false },[m
+[32m+[m[32m      recordedSteps: [[m
+[32m+[m[32m        {[m
+[32m+[m[32m          schemaVersion: 4,[m
+[32m+[m[32m          id: 'login-click',[m
+[32m+[m[32m          description: {[m
+[32m+[m[32m            action: 'click',[m
+[32m+[m[32m            target: { type: 'button', name: 'Login' },[m
+[32m+[m[32m            source: 'accessibleName',[m
+[32m+[m[32m            text: 'Clicou no botão "Login"',[m
+[32m+[m[32m            locale: 'pt-BR',[m
+[32m+[m[32m          },[m
+[32m+[m[32m        },[m
+[32m+[m[32m      ],[m
+[32m+[m[32m    });[m
+[32m+[m[32m    renderApp();[m
+[32m+[m
+[32m+[m[32m    expect(await screen.findByText('Clicou no botão "Login"')).toBeInTheDocument();[m
+[32m+[m[32m    expect(screen.getByText('1 clique capturado')).toBeInTheDocument();[m
+[32m+[m[32m  });[m
+ });[m
+[1mdiff --git a/src/App.tsx b/src/App.tsx[m
+[1mindex 35ca791..5584ca8 100644[m
+[1m--- a/src/App.tsx[m
+[1m+++ b/src/App.tsx[m
+[36m@@ -1,8 +1,10 @@[m
+ import styled from 'styled-components';[m
+ import { BrandHeader } from './components/BrandHeader';[m
+[32m+[m[32mimport { RecordedStepsList } from './components/RecordedStepsList';[m
+ import { RecordingButton } from './components/RecordingButton';[m
+ import { StatusBanner } from './components/StatusBanner';[m
+ import { useRecordingState } from './hooks/useRecordingState';[m
+[32m+[m[32mimport { useRecordedSteps } from './hooks/useRecordedSteps';[m
+ import { closeSidePanel } from './services/closeSidePanel';[m
+ [m
+ const Panel = styled.main`[m
+[36m@@ -11,6 +13,12 @@[m [mconst Panel = styled.main`[m
+   background: ${({ theme }) => theme.colors.background};[m
+ `;[m
+ [m
+[32m+[m[32mconst Content = styled.div`[m
+[32m+[m[32m  display: flex;[m
+[32m+[m[32m  flex-direction: column;[m
+[32m+[m[32m  gap: ${({ theme }) => theme.spacing.lg};[m
+[32m+[m[32m`;[m
+[32m+[m
+ const RecordingCard = styled.section`[m
+   display: flex;[m
+   flex-direction: column;[m
+[36m@@ -36,22 +44,28 @@[m [mconst ErrorMessage = styled.p`[m
+ `;[m
+ [m
+ export function App() {[m
+[31m-  const { isRecording, isLoading, stepCount, error, toggleRecording } =[m
+[32m+[m[32m  const { isRecording, isLoading, error, toggleRecording } =[m
+     useRecordingState();[m
+[32m+[m[32m  const { steps, isLoading: areStepsLoading } = useRecordedSteps();[m
+[32m+[m[32m  const stepCountLabel =[m
+[32m+[m[32m    steps.length === 1 ? '1 clique capturado' : `${steps.length} cliques capturados`;[m
+ [m
+   return ([m
+     <Panel>[m
+       <BrandHeader onClose={closeSidePanel} />[m
+[31m-      <RecordingCard aria-label="Controle de gravação">[m
+[31m-        <StatusBanner isRecording={isRecording} isLoading={isLoading} />[m
+[31m-        <StepCount>{stepCount} cliques capturados</StepCount>[m
+[31m-        {error && <ErrorMessage role="alert">{error}</ErrorMessage>}[m
+[31m-        <RecordingButton[m
+[31m-          isRecording={isRecording}[m
+[31m-          isLoading={isLoading}[m
+[31m-          onClick={toggleRecording}[m
+[31m-        />[m
+[31m-      </RecordingCard>[m
+[32m+[m[32m      <Content>[m
+[32m+[m[32m        <RecordingCard aria-label="Controle de gravação">[m
+[32m+[m[32m          <StatusBanner isRecording={isRecording} isLoading={isLoading} />[m
+[32m+[m[32m          <StepCount>{stepCountLabel}</StepCount>[m
+[32m+[m[32m          {error && <ErrorMessage role="alert">{error}</ErrorMessage>}[m
+[32m+[m[32m          <RecordingButton[m
+[32m+[m[32m            isRecording={isRecording}[m
+[32m+[m[32m            isLoading={isLoading}[m
+[32m+[m[32m            onClick={toggleRecording}[m
+[32m+[m[32m          />[m
+[32m+[m[32m        </RecordingCard>[m
+[32m+[m[32m        <RecordedStepsList steps={steps} isLoading={areStepsLoading} />[m
+[32m+[m[32m      </Content>[m
+     </Panel>[m
+   );[m
+ }[m
+[1mdiff --git a/src/components/RecordedStepItem.tsx b/src/components/RecordedStepItem.tsx[m
+[1mnew file mode 100644[m
+[1mindex 0000000..3516cd4[m
+[1m--- /dev/null[m
+[1m+++ b/src/components/RecordedStepItem.tsx[m
+[36m@@ -0,0 +1,27 @@[m
+[32m+[m[32mimport styled from 'styled-components';[m
+[32m+[m[32mimport { resolveStepDescription } from '../shared/descriptions/resolveStepDescription';[m
+[32m+[m
+[32m+[m[32minterface RecordedStepItemProps {[m
+[32m+[m[32m  step: unknown;[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32mconst Item = styled.li`[m
+[32m+[m[32m  padding: ${({ theme }) => theme.spacing.md};[m
+[32m+[m[32m  color: ${({ theme }) => theme.colors.text};[m
+[32m+[m[32m  background: ${({ theme }) => theme.colors.background};[m
+[32m+[m[32m  border: 1px solid ${({ theme }) => theme.colors.border};[m
+[32m+[m[32m  border-radius: ${({ theme }) => theme.radii.md};[m
+[32m+[m[32m  font-size: ${({ theme }) => theme.fontSizes.small};[m
+[32m+[m[32m  line-height: 1.45;[m
+[32m+[m
+[32m+[m[32m  &::marker {[m
+[32m+[m[32m    color: ${({ theme }) => theme.colors.textMuted};[m
+[32m+[m[32m    font-weight: 700;[m
+[32m+[m[32m  }[m
+[32m+[m[32m`;[m
+[32m+[m
+[32m+[m[32mexport function RecordedStepItem({ step }: RecordedStepItemProps) {[m
+[32m+[m[32m  const description = resolveStepDescription(step);[m
+[32m+[m
+[32m+[m[32m  return <Item>{description.text}</Item>;[m
+[32m+[m[32m}[m
+[1mdiff --git a/src/components/RecordedStepsList.test.tsx b/src/components/RecordedStepsList.test.tsx[m
+[1mnew file mode 100644[m
+[1mindex 0000000..0b81066[m
+[1m--- /dev/null[m
+[1m+++ b/src/components/RecordedStepsList.test.tsx[m
+[36m@@ -0,0 +1,84 @@[m
+[32m+[m[32mimport { render, screen } from '@testing-library/react';[m
+[32m+[m[32mimport { ThemeProvider } from 'styled-components';[m
+[32m+[m[32mimport { describe, expect, it } from 'vitest';[m
+[32m+[m[32mimport { theme } from '../styles/theme';[m
+[32m+[m[32mimport { RecordedStepsList } from './RecordedStepsList';[m
+[32m+[m
+[32m+[m[32mfunction renderList(steps: readonly unknown[], isLoading = false) {[m
+[32m+[m[32m  return render([m
+[32m+[m[32m    <ThemeProvider theme={theme}>[m
+[32m+[m[32m      <RecordedStepsList steps={steps} isLoading={isLoading} />[m
+[32m+[m[32m    </ThemeProvider>,[m
+[32m+[m[32m  );[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32mconst schema4Step = {[m
+[32m+[m[32m  schemaVersion: 4,[m
+[32m+[m[32m  id: 'schema-4',[m
+[32m+[m[32m  description: {[m
+[32m+[m[32m    action: 'click',[m
+[32m+[m[32m    target: { type: 'button', name: 'Entrar' },[m
+[32m+[m[32m    source: 'accessibleName',[m
+[32m+[m[32m    text: 'Clicou no botão "Entrar"',[m
+[32m+[m[32m    locale: 'pt-BR',[m
+[32m+[m[32m  },[m
+[32m+[m[32m};[m
+[32m+[m
+[32m+[m[32mdescribe('RecordedStepsList', () => {[m
+[32m+[m[32m  it('shows its loading and empty states', () => {[m
+[32m+[m[32m    const { rerender } = renderList([], true);[m
+[32m+[m
+[32m+[m[32m    expect(screen.getByRole('status')).toHaveTextContent('Carregando passos');[m
+[32m+[m
+[32m+[m[32m    rerender([m
+[32m+[m[32m      <ThemeProvider theme={theme}>[m
+[32m+[m[32

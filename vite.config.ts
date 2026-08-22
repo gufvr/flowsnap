@@ -11,7 +11,6 @@ export default defineConfig({
       input: {
         sidePanel: resolve(import.meta.dirname, 'index.html'),
         background: resolve(import.meta.dirname, 'src/background.ts'),
-        recorder: resolve(import.meta.dirname, 'src/content/recorder.ts'),
       },
       output: {
         entryFileNames: 'assets/[name].js',
