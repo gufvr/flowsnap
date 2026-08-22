@@ -22,6 +22,15 @@ const schema4Step = {
     text: 'Clicou no botão "Entrar"',
     locale: 'pt-BR',
   },
+  selectors: {
+    recommended: {
+      strategy: 'role',
+      value: 'button:Entrar',
+      role: 'button',
+      name: 'Entrar',
+    },
+    alternatives: [],
+  },
 };
 
 describe('RecordedStepsList', () => {
@@ -63,12 +72,20 @@ describe('RecordedStepsList', () => {
     renderList(steps);
 
     expect(screen.getByLabelText('4 passos')).toBeInTheDocument();
-    expect(screen.getAllByRole('listitem').map((item) => item.textContent)).toEqual([
+    const descriptions = screen
+      .getAllByRole('listitem')
+      .map((item) => item.querySelector('p')?.textContent);
+
+    expect(descriptions).toEqual([
       'Clicou no botão "Entrar"',
       'Clicou no link "Minha conta"',
       'Clicou em uma caixa de seleção',
       'Clicou em um elemento',
     ]);
+    expect(screen.getByText('role=button;name=Entrar')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Copiar seletor do passo 1' }),
+    ).toBeEnabled();
   });
 
   it('uses a scrollable viewport for long flows', () => {

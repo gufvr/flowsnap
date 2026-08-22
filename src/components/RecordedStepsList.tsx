@@ -103,6 +103,7 @@ export function RecordedStepsList({
               <RecordedStepItem
                 key={getStepKey(step, index)}
                 step={step}
+                stepNumber={index + 1}
               />
             ))}
           </List>
