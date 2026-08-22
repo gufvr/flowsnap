@@ -55,6 +55,21 @@ export interface LegacySelectorCandidates {
 }
 
 export interface RecordedClick {
+  schemaVersion: 4;
+  id: string;
+  type: 'click';
+  url: string;
+  timestamp: number;
+  selectors: SelectorAnalysis;
+  element: {
+    tagName: string;
+    text?: string;
+    inputType?: string;
+  };
+  description: import('./stepDescriptionTypes').ClickStepDescription;
+}
+
+export interface RecordedClickV3 {
   schemaVersion: 3;
   id: string;
   type: 'click';
@@ -94,4 +109,8 @@ export interface LegacyRecordedClick {
   };
 }
 
-export type RecordedStep = RecordedClick | RecordedClickV2 | LegacyRecordedClick;
+export type RecordedStep =
+  | RecordedClick
+  | RecordedClickV3
+  | RecordedClickV2
+  | LegacyRecordedClick;

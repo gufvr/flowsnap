@@ -66,4 +66,32 @@ describe('recordingStorage', () => {
 
     await expect(loadRecordedSteps()).resolves.toEqual([previousRecording]);
   });
+
+  it('keeps schema version 3 recordings readable', async () => {
+    const previousRecording = {
+      schemaVersion: 3,
+      id: 'previous-click',
+      type: 'click',
+      url: 'https://example.com',
+      timestamp: 1,
+      selectors: {
+        recommended: {
+          strategy: 'id',
+          value: 'login',
+          score: 80,
+          isUnique: true,
+          validation: {
+            status: 'valid',
+            matchCount: 1,
+            matchesTarget: true,
+          },
+        },
+        alternatives: [],
+      },
+      element: { tagName: 'button' },
+    };
+    storageGet.mockResolvedValue({ recordedSteps: [previousRecording] });
+
+    await expect(loadRecordedSteps()).resolves.toEqual([previousRecording]);
+  });
 });

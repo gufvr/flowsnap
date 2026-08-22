@@ -1,4 +1,5 @@
 import type { ExtensionMessage } from '../shared/messages';
+import { createClickDescription } from '../shared/descriptions/createClickDescription';
 import { normalizeText } from './elementSemantics';
 import { buildSelectorCandidates } from './selectorCandidates';
 
@@ -13,22 +14,25 @@ declare global {
   }
 }
 
-function createClickMessage(element: Element): ExtensionMessage {
+export function createClickMessage(element: Element): ExtensionMessage {
+  const selectors = buildSelectorCandidates(element);
+  const elementData = {
+    tagName: element.tagName.toLowerCase(),
+    text: normalizeText(element.textContent),
+    inputType: element instanceof HTMLInputElement ? element.type : undefined,
+  };
+
   return {
     type: 'RECORDED_CLICK',
     payload: {
-      schemaVersion: 3,
+      schemaVersion: 4,
       id: crypto.randomUUID(),
       type: 'click',
       url: window.location.href,
       timestamp: Date.now(),
-      selectors: buildSelectorCandidates(element),
-      element: {
-        tagName: element.tagName.toLowerCase(),
-        text: normalizeText(element.textContent),
-        inputType:
-          element instanceof HTMLInputElement ? element.type : undefined,
-      },
+      selectors,
+      element: elementData,
+      description: createClickDescription({ selectors, element: elementData }),
     },
   };
 }
