@@ -30,8 +30,19 @@ npm run dev
 ```bash
 npm run lint
 npm test
+npm run test:integration
 npm run build
 ```
+
+`npm run test:integration` executa a jornada da extensão com um Chrome em
+memória: início e parada da gravação, cliques, navegação por `Tab`, persistência,
+atualização reativa do Side Panel, cópia de seletores, exclusão e limpeza. A
+regressão também carrega schemas 4, 3, 2, legado e registros incompletos,
+confirmando a leitura sem migração do storage.
+
+O harness substitui somente as fronteiras fornecidas pelo navegador, como
+`chrome.runtime`, `chrome.storage`, permissões, aba e clipboard. Os módulos do
+FlowSnap usados no fluxo permanecem reais.
 
 ## Carregando a extensão no Chrome
 

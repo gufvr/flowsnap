@@ -1,0 +1,254 @@
+import { vi } from 'vitest'
+
+type StorageValues = Record<string, unknown>
+
+type RuntimeListener = (
+  message: unknown,
+  sender: chrome.runtime.MessageSender,
+  sendResponse: (response: unknown) => void,
+) => boolean | void
+
+type StorageListener = (
+  changes: Record<string, chrome.storage.StorageChange>,
+  areaName: chrome.storage.AreaName,
+) => void
+
+interface RecorderController {
+  setActive(active: boolean): void
+}
+
+interface ChromeExtensionHarnessOptions {
+  local?: StorageValues
+  session?: StorageValues
+  tabId?: number
+  url?: string
+  permissionGranted?: boolean
+}
+
+function clone<T>(value: T): T {
+  return value === undefined ? value : structuredClone(value)
+}
+
+function selectStoredValues(values: StorageValues, keys: unknown): StorageValues {
+  if (keys === null || keys === undefined) {
+    return clone(values)
+  }
+
+  if (typeof keys === 'string') {
+    return keys in values ? { [keys]: clone(values[keys]) } : {}
+  }
+
+  if (Array.isArray(keys)) {
+    return Object.fromEntries(
+      keys
+        .filter((key): key is string => typeof key === 'string' && key in values)
+        .map((key) => [key, clone(values[key])]),
+    )
+  }
+
+  if (typeof keys === 'object') {
+    return Object.fromEntries(
+      Object.entries(keys as StorageValues).map(([key, fallback]) => [
+        key,
+        key in values ? clone(values[key]) : clone(fallback),
+      ]),
+    )
+  }
+
+  return {}
+}
+
+export function createChromeExtensionHarness(
+  options: ChromeExtensionHarnessOptions = {},
+) {
+  const tabId = options.tabId ?? 21
+  const url = options.url ?? 'https://qapracticehub.com/#forms'
+  const localValues = clone(options.local ?? {})
+  const sessionValues = {
+    activeTabContext: {
+      tabId,
+      windowId: 1,
+      url,
+    },
+    ...clone(options.session ?? {}),
+  }
+  const storageListeners = new Set<StorageListener>()
+  const recorders = new Map<number, RecorderController>()
+  let runtimeListener: RuntimeListener | undefined
+  let originalClipboardDescriptor: PropertyDescriptor | undefined
+
+  const notifyStorageListeners = (
+    previous: StorageValues,
+    next: StorageValues,
+    areaName: chrome.storage.AreaName,
+  ) => {
+    const changes = Object.fromEntries(
+      Object.keys(next).map((key) => [
+        key,
+        {
+          oldValue: clone(previous[key]),
+          newValue: clone(next[key]),
+        },
+      ]),
+    )
+
+    storageListeners.forEach((listener) => listener(changes, areaName))
+  }
+
+  const localGet = vi.fn(async (keys?: unknown) =>
+    selectStoredValues(localValues, keys),
+  )
+  const localSet = vi.fn(async (values: StorageValues) => {
+    const previous = clone(localValues)
+    Object.assign(localValues, clone(values))
+    notifyStorageListeners(previous, values, 'local')
+  })
+  const sessionGet = vi.fn(async (keys?: unknown) =>
+    selectStoredValues(sessionValues, keys),
+  )
+  const sessionSet = vi.fn(async (values: StorageValues) => {
+    const previous = clone(sessionValues)
+    Object.assign(sessionValues, clone(values))
+    notifyStorageListeners(previous, values, 'session')
+  })
+  const clipboardWrite = vi.fn(async (text: string) => {
+    void text
+  })
+  const permissionRequest = vi.fn(async () => options.permissionGranted ?? true)
+  const executeScript = vi.fn(async () => undefined)
+  const tabsSendMessage = vi.fn(async (targetTabId: number, message: unknown) => {
+    const type =
+      typeof message === 'object' && message !== null && 'type' in message
+        ? message.type
+        : undefined
+    const recorder = recorders.get(targetTabId)
+
+    if (type === 'ACTIVATE_CLICK_RECORDER') {
+      recorder?.setActive(true)
+    }
+
+    if (type === 'DEACTIVATE_CLICK_RECORDER') {
+      recorder?.setActive(false)
+    }
+
+    return { success: true }
+  })
+
+  const chromeApi = {
+    action: {
+      onClicked: { addListener: vi.fn() },
+    },
+    permissions: {
+      request: permissionRequest,
+    },
+    runtime: {
+      lastError: undefined,
+      onInstalled: { addListener: vi.fn() },
+      onMessage: {
+        addListener: vi.fn((listener: RuntimeListener) => {
+          runtimeListener = listener
+        }),
+        removeListener: vi.fn((listener: RuntimeListener) => {
+          if (runtimeListener === listener) {
+            runtimeListener = undefined
+          }
+        }),
+      },
+      onStartup: { addListener: vi.fn() },
+      sendMessage: vi.fn((message: unknown) =>
+        dispatchRuntimeMessage(message, {}),
+      ),
+    },
+    scripting: {
+      executeScript,
+    },
+    sidePanel: {
+      open: vi.fn(async () => undefined),
+      setPanelBehavior: vi.fn(async () => undefined),
+    },
+    storage: {
+      local: {
+        get: localGet,
+        set: localSet,
+      },
+      onChanged: {
+        addListener: vi.fn((listener: StorageListener) => {
+          storageListeners.add(listener)
+        }),
+        removeListener: vi.fn((listener: StorageListener) => {
+          storageListeners.delete(listener)
+        }),
+      },
+      session: {
+        get: sessionGet,
+        set: sessionSet,
+      },
+    },
+    tabs: {
+      sendMessage: tabsSendMessage,
+    },
+  }
+
+  function dispatchRuntimeMessage(
+    message: unknown,
+    sender: chrome.runtime.MessageSender,
+  ): Promise<unknown> {
+    return new Promise((resolve, reject) => {
+      if (!runtimeListener) {
+        reject(new Error('No background runtime listener is registered.'))
+        return
+      }
+
+      let responded = false
+      const keepChannelOpen = runtimeListener(message, sender, (response) => {
+        responded = true
+        resolve(response)
+      })
+
+      if (keepChannelOpen !== true && !responded) {
+        resolve(undefined)
+      }
+    })
+  }
+
+  return {
+    clipboardWrite,
+    chrome: chromeApi,
+    connectRecorder(controller: RecorderController, targetTabId = tabId) {
+      recorders.set(targetTabId, controller)
+    },
+    dispose() {
+      vi.unstubAllGlobals()
+
+      if (originalClipboardDescriptor) {
+        Object.defineProperty(navigator, 'clipboard', originalClipboardDescriptor)
+      } else {
+        Reflect.deleteProperty(navigator, 'clipboard')
+      }
+    },
+    executeScript,
+    getLocalValues() {
+      return clone(localValues)
+    },
+    install() {
+      vi.stubGlobal('chrome', chromeApi)
+      originalClipboardDescriptor = Object.getOwnPropertyDescriptor(
+        navigator,
+        'clipboard',
+      )
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: { writeText: clipboardWrite },
+      })
+    },
+    localGet,
+    localSet,
+    permissionRequest,
+    sendFromTab(message: unknown, targetTabId = tabId) {
+      return dispatchRuntimeMessage(message, {
+        tab: { id: targetTabId } as chrome.tabs.Tab,
+      })
+    },
+    tabsSendMessage,
+  }
+}

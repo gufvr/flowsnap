@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build && vite build --config vite.recorder.config.ts && node scripts/verify-extension-build.mjs",
     "lint": "eslint .",
     "test": "vitest run",
+    "test:integration": "vitest run src/integration",
     "test:watch": "vitest",
     "package:extension": "npm run build && bestzip flowsnap-extension.zip dist/*"
   },
