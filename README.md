@@ -1,4 +1,12 @@
-# FlowSnap
+<p align="center">
+  <img src="assets/qaquest.png" width="150" alt="logo">
+</p>
+
+<h1 align="center">FlowSnap</h1>
+
+Este projeto é uma extensão Chrome pensada para gravar fluxos de navegação e, futuramente, exportá-los como testes automatizados para Cypress e Playwright.
+
+<h1 aign="center">FlowSnap</h1>
 
 FlowSnap é uma extensão Chrome para gravar fluxos de navegação e, futuramente, exportá-los como testes automatizados.
 
