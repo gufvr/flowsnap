@@ -11,12 +11,16 @@ export interface ActiveTabContext {
 }
 
 export type SelectorStrategy = 'testId' | 'role' | 'label' | 'id' | 'text' | 'css';
+export type TestIdAttribute = 'data-testid' | 'data-cy' | 'data-test';
+export type SelectorWarning = 'dynamic-id';
 
 export interface SelectorCandidate {
   strategy: SelectorStrategy;
   value: string;
   score: number;
   isUnique: boolean;
+  attribute?: TestIdAttribute;
+  warnings?: SelectorWarning[];
 }
 
 export interface SelectorAnalysis {
