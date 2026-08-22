@@ -13,8 +13,9 @@ export interface ActiveTabContext {
 export type SelectorStrategy = 'testId' | 'role' | 'label' | 'id' | 'text' | 'css';
 export type TestIdAttribute = 'data-testid' | 'data-cy' | 'data-test';
 export type SelectorWarning = 'dynamic-id';
+export type SelectorValidationStatus = 'valid' | 'ambiguous' | 'invalid';
 
-export interface SelectorCandidate {
+export interface SelectorCandidateV2 {
   strategy: SelectorStrategy;
   value: string;
   score: number;
@@ -23,9 +24,26 @@ export interface SelectorCandidate {
   warnings?: SelectorWarning[];
 }
 
+export interface SelectorValidation {
+  status: SelectorValidationStatus;
+  matchCount: number;
+  matchesTarget: boolean;
+}
+
+export interface SelectorCandidate extends SelectorCandidateV2 {
+  role?: string;
+  name?: string;
+  validation: SelectorValidation;
+}
+
 export interface SelectorAnalysis {
   recommended: SelectorCandidate;
   alternatives: SelectorCandidate[];
+}
+
+export interface SelectorAnalysisV2 {
+  recommended: SelectorCandidateV2;
+  alternatives: SelectorCandidateV2[];
 }
 
 export interface LegacySelectorCandidates {
@@ -37,12 +55,26 @@ export interface LegacySelectorCandidates {
 }
 
 export interface RecordedClick {
-  schemaVersion: 2;
+  schemaVersion: 3;
   id: string;
   type: 'click';
   url: string;
   timestamp: number;
   selectors: SelectorAnalysis;
+  element: {
+    tagName: string;
+    text?: string;
+    inputType?: string;
+  };
+}
+
+export interface RecordedClickV2 {
+  schemaVersion: 2;
+  id: string;
+  type: 'click';
+  url: string;
+  timestamp: number;
+  selectors: SelectorAnalysisV2;
   element: {
     tagName: string;
     text?: string;
@@ -62,4 +94,4 @@ export interface LegacyRecordedClick {
   };
 }
 
-export type RecordedStep = RecordedClick | LegacyRecordedClick;
+export type RecordedStep = RecordedClick | RecordedClickV2 | LegacyRecordedClick;

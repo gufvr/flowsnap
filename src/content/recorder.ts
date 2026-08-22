@@ -1,5 +1,6 @@
 import type { ExtensionMessage } from '../shared/messages';
-import { buildSelectorCandidates, normalizeText } from './selectorCandidates';
+import { normalizeText } from './elementSemantics';
+import { buildSelectorCandidates } from './selectorCandidates';
 
 interface RecorderController {
   isActive: boolean;
@@ -16,7 +17,7 @@ function createClickMessage(element: Element): ExtensionMessage {
   return {
     type: 'RECORDED_CLICK',
     payload: {
-      schemaVersion: 2,
+      schemaVersion: 3,
       id: crypto.randomUUID(),
       type: 'click',
       url: window.location.href,

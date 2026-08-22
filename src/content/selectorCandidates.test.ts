@@ -13,6 +13,15 @@ function findCandidate(
   );
 }
 
+const VALID_CANDIDATE = {
+  isUnique: true,
+  validation: {
+    status: 'valid',
+    matchCount: 1,
+    matchesTarget: true,
+  },
+} as const;
+
 describe('buildSelectorCandidates', () => {
   it('preserves and prioritizes each supported test attribute', () => {
     document.body.innerHTML = `
@@ -33,21 +42,21 @@ describe('buildSelectorCandidates', () => {
         strategy: 'testId',
         value: 'save-flow',
         score: 100,
-        isUnique: true,
+        ...VALID_CANDIDATE,
         attribute: 'data-testid',
       },
       {
         strategy: 'testId',
         value: 'save-button',
         score: 98,
-        isUnique: true,
+        ...VALID_CANDIDATE,
         attribute: 'data-cy',
       },
       {
         strategy: 'testId',
         value: 'save-action',
         score: 96,
-        isUnique: true,
+        ...VALID_CANDIDATE,
         attribute: 'data-test',
       },
     ]);
@@ -64,7 +73,7 @@ describe('buildSelectorCandidates', () => {
       strategy: 'label',
       value: 'E-mail',
       score: 85,
-      isUnique: true,
+      ...VALID_CANDIDATE,
     });
   });
 
@@ -80,7 +89,7 @@ describe('buildSelectorCandidates', () => {
     expect(findCandidate(buildSelectorCandidates(input), 'label')).toMatchObject({
       strategy: 'label',
       value: 'Senha',
-      isUnique: true,
+      ...VALID_CANDIDATE,
     });
   });
 
@@ -94,7 +103,7 @@ describe('buildSelectorCandidates', () => {
       strategy: 'id',
       value: 'input-1787356814282',
       score: 30,
-      isUnique: true,
+      ...VALID_CANDIDATE,
       warnings: ['dynamic-id'],
     });
   });
@@ -107,7 +116,7 @@ describe('buildSelectorCandidates', () => {
       strategy: 'id',
       value: 'username',
       score: 80,
-      isUnique: true,
+      ...VALID_CANDIDATE,
       warnings: undefined,
     });
   });
@@ -149,7 +158,9 @@ describe('implicit input roles', () => {
       strategy: 'role',
       value: `${role}:Campo ${type}`,
       score: 90,
-      isUnique: true,
+      role,
+      name: `Campo ${type}`,
+      ...VALID_CANDIDATE,
     });
   });
 
@@ -185,7 +196,9 @@ describe('implicit input roles', () => {
         strategy: 'role',
         value: `combobox:Campo ${type}`,
         score: 90,
-        isUnique: true,
+        role: 'combobox',
+        name: `Campo ${type}`,
+        ...VALID_CANDIDATE,
       });
     },
   );
@@ -204,7 +217,7 @@ describe('implicit input roles', () => {
 
       expect(findCandidate(buildSelectorCandidates(input), 'role')).toMatchObject({
         value: `${role}:Campo ${type}`,
-        isUnique: true,
+        ...VALID_CANDIDATE,
       });
     },
   );
@@ -215,7 +228,7 @@ describe('implicit input roles', () => {
 
     expect(findCandidate(buildSelectorCandidates(input), 'role')).toMatchObject({
       value: 'textbox:Nome',
-      isUnique: true,
+      ...VALID_CANDIDATE,
     });
   });
 
@@ -228,7 +241,7 @@ describe('implicit input roles', () => {
 
     expect(findCandidate(buildSelectorCandidates(input), 'role')).toMatchObject({
       value: 'combobox:Nome',
-      isUnique: true,
+      ...VALID_CANDIDATE,
     });
   });
 });

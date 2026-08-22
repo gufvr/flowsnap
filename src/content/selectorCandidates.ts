@@ -1,115 +1,24 @@
 import type {
   SelectorAnalysis,
-  SelectorCandidate,
   TestIdAttribute,
 } from '../shared/recordingTypes';
+import {
+  getAccessibleName,
+  getImplicitRole,
+  getLabelText,
+  normalizeText,
+} from './elementSemantics';
 import { createSelectorAnalysis } from './selectorAnalysis';
+import {
+  validateSelectorCandidates,
+  type SelectorCandidateDraft,
+} from './selectorValidation';
 
 const TEST_ID_ATTRIBUTES: Array<{ attribute: TestIdAttribute; score: number }> = [
   { attribute: 'data-testid', score: 100 },
   { attribute: 'data-cy', score: 98 },
   { attribute: 'data-test', score: 96 },
 ];
-
-type LabelledControl = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
-
-export function normalizeText(value: string | null | undefined) {
-  return value?.replace(/\s+/g, ' ').trim().slice(0, 120) || undefined;
-}
-
-function isLabelledControl(element: Element): element is LabelledControl {
-  return (
-    element instanceof HTMLInputElement ||
-    element instanceof HTMLTextAreaElement ||
-    element instanceof HTMLSelectElement
-  );
-}
-
-function getLabelText(element: Element) {
-  if (!isLabelledControl(element) || !element.labels?.length) return undefined;
-  return normalizeText(element.labels[0].textContent);
-}
-
-const COMBOBOX_INPUT_TYPES = new Set(['email', 'search', 'tel', 'text', 'url']);
-
-function getImplicitInputRole(element: HTMLInputElement) {
-  const { type } = element;
-
-  if (element.hasAttribute('list') && COMBOBOX_INPUT_TYPES.has(type)) {
-    return 'combobox';
-  }
-
-  switch (type) {
-    case 'button':
-    case 'image':
-    case 'reset':
-    case 'submit':
-      return 'button';
-    case 'checkbox':
-      return 'checkbox';
-    case 'email':
-    case 'tel':
-    case 'text':
-    case 'url':
-      return 'textbox';
-    case 'number':
-      return 'spinbutton';
-    case 'radio':
-      return 'radio';
-    case 'range':
-      return 'slider';
-    case 'search':
-      return 'searchbox';
-    default:
-      return undefined;
-  }
-}
-
-function getImplicitRole(element: Element) {
-  const tagName = element.tagName.toLowerCase();
-
-  if (tagName === 'button') return 'button';
-  if (tagName === 'a' && element.hasAttribute('href')) return 'link';
-  if (tagName === 'select') return 'combobox';
-  if (tagName === 'textarea') return 'textbox';
-
-  if (element instanceof HTMLInputElement) return getImplicitInputRole(element);
-
-  return undefined;
-}
-
-function getAriaLabelledByText(element: Element) {
-  const labelledBy = element.getAttribute('aria-labelledby');
-  if (!labelledBy) return undefined;
-
-  const label = labelledBy
-    .split(/\s+/)
-    .map((id) => document.getElementById(id)?.textContent)
-    .filter(Boolean)
-    .join(' ');
-
-  return normalizeText(label);
-}
-
-function getAccessibleName(element: Element) {
-  const ariaLabel = normalizeText(element.getAttribute('aria-label'));
-  if (ariaLabel) return ariaLabel;
-
-  const ariaLabelledBy = getAriaLabelledByText(element);
-  if (ariaLabelledBy) return ariaLabelledBy;
-
-  const label = getLabelText(element);
-  if (label) return label;
-
-  if (
-    element instanceof HTMLInputElement &&
-    ['button', 'submit', 'reset'].includes(element.type)
-  ) {
-    return normalizeText(element.value);
-  }
-
-  return normalizeText(element.textContent);
-}
 
 function getUniqueCssSelector(element: Element) {
   const segments: string[] = [];
@@ -145,10 +54,6 @@ function getUniqueCssSelector(element: Element) {
   return segments.join(' > ');
 }
 
-function countMatchingElements(predicate: (candidate: Element) => boolean) {
-  return Array.from(document.querySelectorAll('*')).filter(predicate).length;
-}
-
 export function isLikelyDynamicId(id: string) {
   const normalizedId = id.trim();
   const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -166,7 +71,10 @@ export function isLikelyDynamicId(id: string) {
   );
 }
 
-function addTestIdCandidates(element: Element, candidates: SelectorCandidate[]) {
+function addTestIdCandidates(
+  element: Element,
+  candidates: SelectorCandidateDraft[],
+) {
   TEST_ID_ATTRIBUTES.forEach(({ attribute, score }) => {
     const value = normalizeText(element.getAttribute(attribute));
     if (!value) return;
@@ -175,21 +83,14 @@ function addTestIdCandidates(element: Element, candidates: SelectorCandidate[]) 
       strategy: 'testId',
       value,
       score,
-      isUnique:
-        countMatchingElements(
-          (candidate) => candidate.getAttribute(attribute) === value,
-        ) === 1,
       attribute,
     });
   });
 }
 
 export function buildSelectorCandidates(element: Element): SelectorAnalysis {
-  const candidates: SelectorCandidate[] = [];
+  const candidates: SelectorCandidateDraft[] = [];
   const rawId = element.id || undefined;
-  const idIsUnique = rawId
-    ? countMatchingElements((candidate) => candidate.id === rawId) === 1
-    : false;
   const role = element.getAttribute('role') ?? getImplicitRole(element);
   const accessibleName = getAccessibleName(element);
   const label = getLabelText(element);
@@ -203,13 +104,8 @@ export function buildSelectorCandidates(element: Element): SelectorAnalysis {
       strategy: 'role',
       value,
       score: 90,
-      isUnique:
-        countMatchingElements((candidate) => {
-          const candidateRole =
-            candidate.getAttribute('role') ?? getImplicitRole(candidate);
-          const candidateName = getAccessibleName(candidate);
-          return candidateRole === role && candidateName === accessibleName;
-        }) === 1,
+      role,
+      name: accessibleName,
     });
   }
 
@@ -218,8 +114,6 @@ export function buildSelectorCandidates(element: Element): SelectorAnalysis {
       strategy: 'label',
       value: label,
       score: 85,
-      isUnique:
-        countMatchingElements((candidate) => getLabelText(candidate) === label) === 1,
     });
   }
 
@@ -229,7 +123,6 @@ export function buildSelectorCandidates(element: Element): SelectorAnalysis {
       strategy: 'id',
       value: rawId,
       score: isDynamic ? 30 : 80,
-      isUnique: idIsUnique,
       warnings: isDynamic ? ['dynamic-id'] : undefined,
     });
   }
@@ -239,10 +132,6 @@ export function buildSelectorCandidates(element: Element): SelectorAnalysis {
       strategy: 'text',
       value: accessibleName,
       score: 60,
-      isUnique:
-        countMatchingElements(
-          (candidate) => getAccessibleName(candidate) === accessibleName,
-        ) === 1,
     });
   }
 
@@ -250,8 +139,7 @@ export function buildSelectorCandidates(element: Element): SelectorAnalysis {
     strategy: 'css',
     value: css,
     score: 40,
-    isUnique: true,
   });
 
-  return createSelectorAnalysis(candidates);
+  return createSelectorAnalysis(validateSelectorCandidates(candidates, element));
 }
