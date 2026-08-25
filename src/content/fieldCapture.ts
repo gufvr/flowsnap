@@ -26,15 +26,15 @@ function normalizeMetadata(value: string | null | undefined) {
     .trim();
 }
 
-function getFieldMetadata(field: CapturableField) {
+function getElementMetadata(element: Element) {
   return normalizeMetadata(
     [
-      field.getAttribute('autocomplete'),
-      field.getAttribute('name'),
-      field.id,
-      field.getAttribute('aria-label'),
-      field.getAttribute('placeholder'),
-      getLabelText(field),
+      element.getAttribute('autocomplete'),
+      element.getAttribute('name'),
+      element.id,
+      element.getAttribute('aria-label'),
+      element.getAttribute('placeholder'),
+      getLabelText(element),
     ]
       .filter(Boolean)
       .join(' '),
@@ -57,14 +57,20 @@ export function classifyFieldSensitivity(
     return 'password';
   }
 
-  const autocomplete = normalizeMetadata(field.getAttribute('autocomplete'));
+  return classifyElementSensitivity(field);
+}
+
+export function classifyElementSensitivity(
+  element: Element,
+): SensitiveFieldReason | undefined {
+  const autocomplete = normalizeMetadata(element.getAttribute('autocomplete'));
   if (autocomplete?.includes('password')) return 'password';
   if (autocomplete?.includes('one time code')) return 'one-time-code';
   if (autocomplete?.split(' ').some((token) => token.startsWith('cc'))) {
     return 'payment';
   }
 
-  const metadata = getFieldMetadata(field) ?? '';
+  const metadata = getElementMetadata(element) ?? '';
 
   if (/\b(password|senha|passwd|pwd|passcode)\b/.test(metadata)) {
     return 'password';

@@ -16,7 +16,13 @@ function isLabelledControl(element: Element): element is LabelledControl {
 
 export function getLabelText(element: Element) {
   if (!isLabelledControl(element) || !element.labels?.length) return undefined;
-  return normalizeText(element.labels[0].textContent);
+
+  const label = element.labels[0].cloneNode(true) as HTMLLabelElement;
+  label
+    .querySelectorAll('button, input, select, textarea')
+    .forEach((control) => control.remove());
+
+  return normalizeText(label.textContent);
 }
 
 function getImplicitInputRole(element: HTMLInputElement) {

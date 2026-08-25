@@ -1,4 +1,9 @@
-export type StepDescriptionAction = "click" | "focusNavigation" | "fieldFill";
+export type StepDescriptionAction =
+  | "click"
+  | "focusNavigation"
+  | "fieldFill"
+  | "selectionChange"
+  | "keyPress";
 
 export type StepTargetType =
   | "button"
@@ -46,7 +51,25 @@ export interface FieldFillStepDescription {
   locale: "pt-BR";
 }
 
+export interface SelectionChangeStepDescription {
+  action: "selectionChange";
+  target: StepDescriptionTarget;
+  source: DescriptionSource;
+  text: string;
+  locale: "pt-BR";
+}
+
+export interface KeyPressStepDescription {
+  action: "keyPress";
+  target: StepDescriptionTarget;
+  source: DescriptionSource;
+  text: string;
+  locale: "pt-BR";
+}
+
 export type StepDescription =
   | ClickStepDescription
   | FocusNavigationStepDescription
-  | FieldFillStepDescription;
+  | FieldFillStepDescription
+  | SelectionChangeStepDescription
+  | KeyPressStepDescription;

@@ -25,6 +25,12 @@ function createPracticePage(controller: RecorderController) {
   const passwordLabel = document.createElement('label');
   const password = document.createElement('input');
   const login = document.createElement('button');
+  const rememberLabel = document.createElement('label');
+  const remember = document.createElement('input');
+  const standardLabel = document.createElement('label');
+  const standard = document.createElement('input');
+  const countryLabel = document.createElement('label');
+  const country = document.createElement('select');
 
   username.id = 'username';
   usernameLabel.htmlFor = username.id;
@@ -35,17 +41,46 @@ function createPracticePage(controller: RecorderController) {
   passwordLabel.textContent = 'Password';
   login.type = 'button';
   login.textContent = 'Login';
+  remember.type = 'checkbox';
+  rememberLabel.textContent = 'Remember me';
+  rememberLabel.append(remember);
+  standard.type = 'radio';
+  standard.name = 'plan';
+  standardLabel.textContent = 'Standard';
+  standardLabel.append(standard);
+  countryLabel.textContent = 'Country';
+  country.append(new Option('Choose', ''), new Option('Brazil', 'BR'));
+  countryLabel.append(country);
 
-  root.append(usernameLabel, username, passwordLabel, password, login);
+  root.append(
+    usernameLabel,
+    username,
+    passwordLabel,
+    password,
+    login,
+    rememberLabel,
+    standardLabel,
+    countryLabel,
+  );
   root.addEventListener('click', controller.handleClick, true);
   root.addEventListener('keydown', controller.handleKeyDown, true);
+  root.addEventListener('keyup', controller.handleKeyUp, true);
   root.addEventListener('focusin', controller.handleFocusIn, true);
   root.addEventListener('input', controller.handleInput, true);
   root.addEventListener('change', controller.handleChange, true);
   root.addEventListener('pointerdown', controller.handlePointerDown, true);
   document.body.append(root);
 
-  return { root, username, password, login };
+  return {
+    root,
+    username,
+    password,
+    login,
+    rememberLabel,
+    remember,
+    standard,
+    country,
+  };
 }
 
 const validSelector = {
@@ -178,6 +213,58 @@ function createMixedSchemaSteps() {
       timestamp: 5,
       selector: { css: 'main > button' },
       element: { tagName: 'button', text: 'Legacy' },
+    },
+    {
+      schemaVersion: 6,
+      id: 'schema-6-selection',
+      type: 'selection-change',
+      url: 'https://qapracticehub.com/#forms',
+      timestamp: 6,
+      selectors: {
+        recommended: {
+          ...validSelector,
+          score: 85,
+          strategy: 'label',
+          value: 'Remember me',
+        },
+        alternatives: [],
+      },
+      element: { tagName: 'input', inputType: 'checkbox' },
+      control: { kind: 'checkbox', checked: true },
+      description: {
+        action: 'selectionChange',
+        target: { type: 'checkbox', name: 'Remember me' },
+        source: 'label',
+        text: 'Marcou a caixa de seleção "Remember me"',
+        locale: 'pt-BR',
+      },
+    },
+    {
+      schemaVersion: 6,
+      id: 'schema-6-key',
+      type: 'key-press',
+      url: 'https://qapracticehub.com/#forms',
+      timestamp: 7,
+      key: 'Enter',
+      selectors: {
+        recommended: {
+          ...validSelector,
+          score: 90,
+          strategy: 'role',
+          value: 'button:Login',
+          role: 'button',
+          name: 'Login',
+        },
+        alternatives: [],
+      },
+      element: { tagName: 'button', text: 'Login' },
+      description: {
+        action: 'keyPress',
+        target: { type: 'button', name: 'Login' },
+        source: 'accessibleName',
+        text: 'Pressionou Enter no botão "Login"',
+        locale: 'pt-BR',
+      },
     },
     { type: 'click' },
   ];
@@ -319,6 +406,59 @@ describe('integrated recording flow', () => {
     expect(controller.isActive).toBe(false);
   });
 
+  it('records one semantic outcome for selection controls and keyboard activation', async () => {
+    const user = userEvent.setup();
+    harness = createChromeExtensionHarness();
+    harness.install();
+    await import('../background');
+
+    const controller = createRecorderController((message) =>
+      harness?.sendFromTab(message),
+    );
+    harness.connectRecorder(controller);
+    practicePage = createPracticePage(controller);
+    renderSidePanel();
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Iniciar Gravação' }),
+    );
+    await user.click(practicePage.rememberLabel);
+    await user.click(practicePage.standard);
+    await user.selectOptions(practicePage.country, 'BR');
+    await user.click(practicePage.remember);
+    practicePage.login.focus();
+    await user.keyboard('{Enter}');
+
+    expect(
+      await screen.findByText('Marcou a caixa de seleção "Remember me"'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Desmarcou a caixa de seleção "Remember me"'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Selecionou a opção "Standard"')).toBeInTheDocument();
+    expect(
+      screen.getByText('Selecionou "Brazil" no seletor "Country"'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Pressionou Enter no botão "Login"'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('5 passos capturados')).toBeInTheDocument();
+
+    const storedSteps = harness.getLocalValues().recordedSteps as Array<{
+      type: string;
+    }>;
+    expect(storedSteps.map(({ type }) => type)).toEqual([
+      'selection-change',
+      'selection-change',
+      'selection-change',
+      'selection-change',
+      'key-press',
+    ]);
+
+    await user.click(screen.getByRole('button', { name: 'Parar Gravação' }));
+    expect(await screen.findByText('Status: Parado')).toBeInTheDocument();
+  });
+
   it('reads mixed and incomplete schemas without migrating their storage', async () => {
     const user = userEvent.setup();
     const mixedSteps = createMixedSchemaSteps();
@@ -333,7 +473,7 @@ describe('integrated recording flow', () => {
     await import('../background');
     renderSidePanel();
 
-    expect(await screen.findByText('7 passos capturados')).toBeInTheDocument();
+    expect(await screen.findByText('9 passos capturados')).toBeInTheDocument();
     expect(screen.getByText('Clicou no botão "Login"')).toBeInTheDocument();
     expect(
       screen.getByText('Navegou para o campo "Password"'),
@@ -348,6 +488,12 @@ describe('integrated recording flow', () => {
       screen.getByText('Clicou no botão "Submit order"'),
     ).toBeInTheDocument();
     expect(screen.getAllByText('Clicou em um elemento')).toHaveLength(2);
+    expect(
+      screen.getByText('Marcou a caixa de seleção "Remember me"'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Pressionou Enter no botão "Login"'),
+    ).toBeInTheDocument();
     expect(screen.getByText('Seletor indisponível')).toBeInTheDocument();
     expect(harness.localSet).not.toHaveBeenCalled();
     expect(harness.getLocalValues().recordedSteps).toEqual(originalSteps);
@@ -357,18 +503,18 @@ describe('integrated recording flow', () => {
       'data-testid=login-submit',
     );
 
-    await user.click(screen.getByRole('button', { name: 'Excluir passo 7' }));
+    await user.click(screen.getByRole('button', { name: 'Excluir passo 9' }));
     await user.click(
       within(
-        screen.getByRole('group', { name: 'Confirmar exclusão do passo 7' }),
+        screen.getByRole('group', { name: 'Confirmar exclusão do passo 9' }),
       ).getByRole('button', { name: 'Excluir passo' }),
     );
 
     await waitFor(() =>
-      expect(screen.getByText('6 passos capturados')).toBeInTheDocument(),
+      expect(screen.getByText('8 passos capturados')).toBeInTheDocument(),
     );
     expect(harness.getLocalValues().recordedSteps).toEqual(
-      originalSteps.slice(0, 6),
+      originalSteps.slice(0, 8),
     );
 
     await user.click(screen.getByRole('button', { name: 'Limpar tudo' }));

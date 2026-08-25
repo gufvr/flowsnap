@@ -2,6 +2,8 @@ import type {
   ClickStepDescription,
   FieldFillStepDescription,
   FocusNavigationStepDescription,
+  KeyPressStepDescription,
+  SelectionChangeStepDescription,
 } from './stepDescriptionTypes';
 
 export interface RecordingState {
@@ -153,6 +155,67 @@ export interface RecordedFieldFill {
   description: FieldFillStepDescription;
 }
 
+export type RecordedSelectValue =
+  | {
+      kind: 'plain';
+      options: Array<{ value: string; label: string }>;
+      truncated?: boolean;
+    }
+  | {
+      kind: 'protected';
+      reason: SensitiveFieldReason;
+    };
+
+export type RecordedSelectionControl =
+  | { kind: 'checkbox'; checked: boolean }
+  | { kind: 'radio'; checked: true }
+  | {
+      kind: 'select';
+      multiple: boolean;
+      selection: RecordedSelectValue;
+    };
+
+export interface RecordedSelectionChange {
+  schemaVersion: 6;
+  id: string;
+  type: 'selection-change';
+  url: string;
+  timestamp: number;
+  selectors: SelectorAnalysis;
+  element: {
+    tagName: string;
+    inputType?: string;
+  };
+  control: RecordedSelectionControl;
+  description: SelectionChangeStepDescription;
+}
+
+export type InteractionKey =
+  | 'Enter'
+  | 'Space'
+  | 'Escape'
+  | 'ArrowUp'
+  | 'ArrowDown'
+  | 'ArrowLeft'
+  | 'ArrowRight';
+
+export interface RecordedKeyPress {
+  schemaVersion: 6;
+  id: string;
+  type: 'key-press';
+  url: string;
+  timestamp: number;
+  key: InteractionKey;
+  modifiers?: { shift?: boolean };
+  selectors: SelectorAnalysis;
+  element: {
+    tagName: string;
+    text?: string;
+    inputType?: string;
+  };
+  description: KeyPressStepDescription;
+}
+
 export interface LegacyRecordedClick {
   id: string;
   type: 'click';
@@ -169,6 +232,8 @@ export type RecordedStep =
   | RecordedClick
   | RecordedFocusNavigation
   | RecordedFieldFill
+  | RecordedSelectionChange
+  | RecordedKeyPress
   | RecordedClickV3
   | RecordedClickV2
   | LegacyRecordedClick;

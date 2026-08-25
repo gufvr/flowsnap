@@ -1,16 +1,42 @@
 import { createClickDescription } from '../shared/descriptions/createClickDescription';
 import { createFieldFillDescription } from '../shared/descriptions/createFieldFillDescription';
 import { createFocusNavigationDescription } from '../shared/descriptions/createFocusNavigationDescription';
+import { createKeyPressDescription } from '../shared/descriptions/createKeyPressDescription';
+import { createSelectionChangeDescription } from '../shared/descriptions/createSelectionChangeDescription';
 import type { ExtensionMessage } from '../shared/messages';
-import { normalizeText } from './elementSemantics';
+import type { InteractionKey } from '../shared/recordingTypes';
+import { getImplicitRole, normalizeText } from './elementSemantics';
 import {
   captureFieldValue,
   isCapturableField,
   type CapturableField,
 } from './fieldCapture';
 import { buildSelectorCandidates } from './selectorCandidates';
+import {
+  captureSelectionControl,
+  getSelectionSignature,
+  isSelectionControl,
+  resolveSelectionControl,
+  type SelectionControl,
+} from './selectionCapture';
 
 const TAB_NAVIGATION_TIMEOUT_MS = 300;
+const SYNTHETIC_CLICK_TIMEOUT_MS = 500;
+const ARROW_KEYS = new Set<InteractionKey>([
+  'ArrowUp',
+  'ArrowDown',
+  'ArrowLeft',
+  'ArrowRight',
+]);
+const ARROW_INTERACTION_ROLES = new Set([
+  'combobox',
+  'listbox',
+  'menuitem',
+  'slider',
+  'spinbutton',
+  'tab',
+  'treeitem',
+]);
 
 type SendMessage = (message: ExtensionMessage) => void | Promise<unknown>;
 
@@ -20,11 +46,19 @@ interface PendingTabNavigation {
   timeoutId: number;
 }
 
+interface PendingSelectionKey {
+  control: SelectionControl;
+  key: InteractionKey;
+  modifiers?: { shift?: boolean };
+  timeoutId?: number;
+}
+
 export interface RecorderController {
   isActive: boolean;
   setActive: (isActive: boolean) => void;
   handleClick: (event: MouseEvent) => void;
   handleKeyDown: (event: KeyboardEvent) => void;
+  handleKeyUp: (event: KeyboardEvent) => void;
   handleFocusIn: (event: FocusEvent) => void;
   handleInput: (event: Event) => void;
   handleChange: (event: Event) => void;
@@ -49,7 +83,10 @@ function getElementData(element: Element) {
 function getEventElement(event: Event) {
   const pathElement = event
     .composedPath()
-    .find((eventTarget): eventTarget is Element => eventTarget instanceof Element);
+    .find(
+      (eventTarget): eventTarget is Element =>
+        eventTarget instanceof Element,
+    );
 
   if (pathElement) return pathElement;
   return event.target instanceof Element ? event.target : undefined;
@@ -128,12 +165,108 @@ export function createFieldFillMessage(
   };
 }
 
+export function createSelectionChangeMessage(
+  selectionControl: SelectionControl,
+):
+  | Extract<ExtensionMessage, { type: 'RECORDED_SELECTION_CHANGE' }>
+  | undefined {
+  const control = captureSelectionControl(selectionControl);
+  if (!control) return undefined;
+
+  const selectors = buildSelectorCandidates(selectionControl);
+  const elementData = getElementData(selectionControl);
+
+  return {
+    type: 'RECORDED_SELECTION_CHANGE',
+    payload: {
+      schemaVersion: 6,
+      id: crypto.randomUUID(),
+      type: 'selection-change',
+      url: window.location.href,
+      timestamp: Date.now(),
+      selectors,
+      element: elementData,
+      control,
+      description: createSelectionChangeDescription({
+        selectors,
+        element: elementData,
+        control,
+      }),
+    },
+  };
+}
+
+export function createKeyPressMessage(
+  element: Element,
+  key: InteractionKey,
+  modifiers?: { shift?: boolean },
+): Extract<ExtensionMessage, { type: 'RECORDED_KEY_PRESS' }> {
+  const selectors = buildSelectorCandidates(element);
+  const elementData = getElementData(element);
+
+  return {
+    type: 'RECORDED_KEY_PRESS',
+    payload: {
+      schemaVersion: 6,
+      id: crypto.randomUUID(),
+      type: 'key-press',
+      url: window.location.href,
+      timestamp: Date.now(),
+      key,
+      ...(modifiers ? { modifiers } : {}),
+      selectors,
+      element: elementData,
+      description: createKeyPressDescription({
+        selectors,
+        element: elementData,
+        key,
+        modifiers,
+      }),
+    },
+  };
+}
+
+function normalizeInteractionKey(key: string): InteractionKey | undefined {
+  if (key === ' ' || key === 'Space' || key === 'Spacebar') return 'Space';
+
+  return [
+    'Enter',
+    'Escape',
+    'ArrowUp',
+    'ArrowDown',
+    'ArrowLeft',
+    'ArrowRight',
+  ].includes(key)
+    ? (key as InteractionKey)
+    : undefined;
+}
+
+function canCaptureInteractionKey(element: Element, key: InteractionKey) {
+  if (key === 'Escape') return true;
+  if (isSelectionControl(element)) return true;
+
+  if (isCapturableField(element)) {
+    return !(element instanceof HTMLTextAreaElement) && key === 'Enter';
+  }
+
+  const role = element.getAttribute('role') ?? getImplicitRole(element);
+
+  if (ARROW_KEYS.has(key)) {
+    return Boolean(role && ARROW_INTERACTION_ROLES.has(role));
+  }
+
+  return role === 'button' || role === 'link' || role === 'menuitem';
+}
+
 export function createRecorderController(
   sendMessage: SendMessage,
 ): RecorderController {
   let pendingTabNavigation: PendingTabNavigation | undefined;
+  let pendingSelectionKey: PendingSelectionKey | undefined;
+  let syntheticClickTimeoutId: number | undefined;
   let dirtyFields = new WeakSet<CapturableField>();
   let lastCapturedPlainValues = new WeakMap<CapturableField, string>();
+  let lastSelectionSignatures = new WeakMap<SelectionControl, string>();
 
   const clearPendingTabNavigation = () => {
     if (!pendingTabNavigation) return;
@@ -142,19 +275,87 @@ export function createRecorderController(
     pendingTabNavigation = undefined;
   };
 
+  const clearPendingSelectionKey = () => {
+    if (pendingSelectionKey?.timeoutId !== undefined) {
+      window.clearTimeout(pendingSelectionKey.timeoutId);
+    }
+
+    pendingSelectionKey = undefined;
+  };
+
+  const clearSyntheticClickSuppression = () => {
+    if (syntheticClickTimeoutId !== undefined) {
+      window.clearTimeout(syntheticClickTimeoutId);
+    }
+
+    syntheticClickTimeoutId = undefined;
+  };
+
+  const suppressNextSyntheticClick = () => {
+    clearSyntheticClickSuppression();
+    syntheticClickTimeoutId = window.setTimeout(
+      clearSyntheticClickSuppression,
+      SYNTHETIC_CLICK_TIMEOUT_MS,
+    );
+  };
+
+  const recordFieldFill = (field: CapturableField) => {
+    dirtyFields.delete(field);
+    const message = createFieldFillMessage(field);
+    const { value } = message.payload;
+
+    if (
+      value.kind === 'plain' &&
+      lastCapturedPlainValues.get(field) === value.value
+    ) {
+      return false;
+    }
+
+    if (value.kind === 'plain') {
+      lastCapturedPlainValues.set(field, value.value);
+    }
+
+    void sendMessage(message);
+    return true;
+  };
+
+  const recordSelectionChange = (control: SelectionControl) => {
+    const message = createSelectionChangeMessage(control);
+    if (!message) return false;
+
+    const signature = getSelectionSignature(message.payload.control);
+    if (signature && lastSelectionSignatures.get(control) === signature) {
+      return false;
+    }
+
+    if (signature) lastSelectionSignatures.set(control, signature);
+    void sendMessage(message);
+    return true;
+  };
+
   const controller: RecorderController = {
     isActive: false,
     setActive(isActive) {
       controller.isActive = isActive;
       if (!isActive) {
         clearPendingTabNavigation();
+        clearPendingSelectionKey();
+        clearSyntheticClickSuppression();
         dirtyFields = new WeakSet();
         lastCapturedPlainValues = new WeakMap();
+        lastSelectionSignatures = new WeakMap();
       }
     },
     handleClick(event) {
       const element = getEventElement(event);
       if (!controller.isActive || !element) return;
+
+      if (resolveSelectionControl(element)) return;
+
+      if (event.detail === 0 && syntheticClickTimeoutId !== undefined) {
+        clearSyntheticClickSuppression();
+        return;
+      }
 
       void sendMessage(createClickMessage(element));
     },
@@ -162,25 +363,77 @@ export function createRecorderController(
       if (!controller.isActive) return;
 
       if (
-        event.key !== 'Tab' ||
-        event.ctrlKey ||
-        event.altKey ||
-        event.metaKey
+        event.key === 'Tab' &&
+        !event.ctrlKey &&
+        !event.altKey &&
+        !event.metaKey
       ) {
         clearPendingTabNavigation();
+        pendingTabNavigation = {
+          direction: event.shiftKey ? 'backward' : 'forward',
+          source: getEventElement(event),
+          timeoutId: window.setTimeout(
+            clearPendingTabNavigation,
+            TAB_NAVIGATION_TIMEOUT_MS,
+          ),
+        };
         return;
       }
 
       clearPendingTabNavigation();
+      if (event.ctrlKey || event.altKey || event.metaKey || event.repeat) return;
 
-      pendingTabNavigation = {
-        direction: event.shiftKey ? 'backward' : 'forward',
-        source: getEventElement(event),
-        timeoutId: window.setTimeout(
-          clearPendingTabNavigation,
-          TAB_NAVIGATION_TIMEOUT_MS,
-        ),
-      };
+      const key = normalizeInteractionKey(event.key);
+      const element = getEventElement(event);
+      if (!key || !element || !canCaptureInteractionKey(element, key)) return;
+
+      const selectionControl = resolveSelectionControl(element);
+      const modifiers = event.shiftKey ? { shift: true } : undefined;
+
+      if (selectionControl) {
+        clearPendingSelectionKey();
+        pendingSelectionKey = { control: selectionControl, key, modifiers };
+        return;
+      }
+
+      if (
+        key === 'Enter' &&
+        isCapturableField(element) &&
+        dirtyFields.has(element)
+      ) {
+        recordFieldFill(element);
+      }
+
+      void sendMessage(createKeyPressMessage(element, key, modifiers));
+      if (key === 'Enter' || key === 'Space') suppressNextSyntheticClick();
+    },
+    handleKeyUp(event) {
+      if (!controller.isActive || !pendingSelectionKey) return;
+
+      const key = normalizeInteractionKey(event.key);
+      const element = getEventElement(event);
+      if (
+        !key ||
+        key !== pendingSelectionKey.key ||
+        !element ||
+        resolveSelectionControl(element) !== pendingSelectionKey.control
+      ) {
+        return;
+      }
+
+      const pendingKey = pendingSelectionKey;
+      pendingKey.timeoutId = window.setTimeout(() => {
+        if (pendingSelectionKey !== pendingKey) return;
+
+        pendingSelectionKey = undefined;
+        void sendMessage(
+          createKeyPressMessage(
+            pendingKey.control,
+            pendingKey.key,
+            pendingKey.modifiers,
+          ),
+        );
+      }, 0);
     },
     handleFocusIn(event) {
       if (!controller.isActive || !pendingTabNavigation) return;
@@ -205,6 +458,18 @@ export function createRecorderController(
     },
     handleChange(event) {
       const element = getEventElement(event);
+      const selectionControl = element
+        ? resolveSelectionControl(element)
+        : undefined;
+
+      if (controller.isActive && selectionControl) {
+        if (pendingSelectionKey?.control === selectionControl) {
+          clearPendingSelectionKey();
+        }
+        recordSelectionChange(selectionControl);
+        return;
+      }
+
       if (
         !controller.isActive ||
         !element ||
@@ -214,28 +479,17 @@ export function createRecorderController(
         return;
       }
 
-      dirtyFields.delete(element);
-      const message = createFieldFillMessage(element);
-      const { value } = message.payload;
-
-      if (
-        value.kind === 'plain' &&
-        lastCapturedPlainValues.get(element) === value.value
-      ) {
-        return;
-      }
-
-      if (value.kind === 'plain') {
-        lastCapturedPlainValues.set(element, value.value);
-      }
-
-      void sendMessage(message);
+      recordFieldFill(element);
     },
     handlePointerDown() {
       clearPendingTabNavigation();
+      clearPendingSelectionKey();
+      clearSyntheticClickSuppression();
     },
     handleWindowBlur() {
       clearPendingTabNavigation();
+      clearPendingSelectionKey();
+      clearSyntheticClickSuppression();
     },
   };
 
@@ -251,6 +505,7 @@ function installRecorder() {
 
   document.addEventListener('click', controller.handleClick, true);
   document.addEventListener('keydown', controller.handleKeyDown, true);
+  document.addEventListener('keyup', controller.handleKeyUp, true);
   document.addEventListener('focusin', controller.handleFocusIn, true);
   document.addEventListener('input', controller.handleInput, true);
   document.addEventListener('change', controller.handleChange, true);
@@ -260,7 +515,9 @@ function installRecorder() {
 
   chrome.runtime.onMessage.addListener((message: ExtensionMessage) => {
     if (message.type === 'ACTIVATE_CLICK_RECORDER') controller.setActive(true);
-    if (message.type === 'DEACTIVATE_CLICK_RECORDER') controller.setActive(false);
+    if (message.type === 'DEACTIVATE_CLICK_RECORDER') {
+      controller.setActive(false);
+    }
   });
 }
 

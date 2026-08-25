@@ -1,5 +1,7 @@
 import type {
+  InteractionKey,
   RecordedFieldValue,
+  RecordedSelectionControl,
   SelectorAnalysis,
   SelectorCandidate,
   SelectorStrategy,
@@ -15,6 +17,8 @@ import type {
 import { createClickDescription } from './createClickDescription';
 import { createFieldFillDescription } from './createFieldFillDescription';
 import { createFocusNavigationDescription } from './createFocusNavigationDescription';
+import { createKeyPressDescription } from './createKeyPressDescription';
+import { createSelectionChangeDescription } from './createSelectionChangeDescription';
 
 const SELECTOR_STRATEGIES: SelectorStrategy[] = [
   'testId',
@@ -66,6 +70,16 @@ const SENSITIVE_FIELD_REASONS = [
   'secret',
 ] as const;
 
+const INTERACTION_KEYS: InteractionKey[] = [
+  'Enter',
+  'Space',
+  'Escape',
+  'ArrowUp',
+  'ArrowDown',
+  'ArrowLeft',
+  'ArrowRight',
+];
+
 const FALLBACK_CANDIDATE: SelectorCandidate = {
   strategy: 'css',
   value: '',
@@ -99,7 +113,9 @@ function isStepDescription(value: unknown): value is StepDescription {
   return (
     (value.action === 'click' ||
       value.action === 'focusNavigation' ||
-      value.action === 'fieldFill') &&
+      value.action === 'fieldFill' ||
+      value.action === 'selectionChange' ||
+      value.action === 'keyPress') &&
     value.locale === 'pt-BR' &&
     isString(value.text) &&
     value.text.trim().length > 0 &&
@@ -226,6 +242,74 @@ function getFieldValue(step: Record<string, unknown>): RecordedFieldValue {
   return { kind: 'protected', reason: 'secret' };
 }
 
+function getSelectionControl(
+  step: Record<string, unknown>,
+): RecordedSelectionControl | undefined {
+  if (!isRecord(step.control)) return undefined;
+
+  if (
+    step.control.kind === 'checkbox' &&
+    typeof step.control.checked === 'boolean'
+  ) {
+    return { kind: 'checkbox', checked: step.control.checked };
+  }
+
+  if (step.control.kind === 'radio' && step.control.checked === true) {
+    return { kind: 'radio', checked: true };
+  }
+
+  if (
+    step.control.kind !== 'select' ||
+    typeof step.control.multiple !== 'boolean' ||
+    !isRecord(step.control.selection)
+  ) {
+    return undefined;
+  }
+
+  if (
+    step.control.selection.kind === 'protected' &&
+    includesValue(SENSITIVE_FIELD_REASONS, step.control.selection.reason)
+  ) {
+    return {
+      kind: 'select',
+      multiple: step.control.multiple,
+      selection: {
+        kind: 'protected',
+        reason: step.control.selection.reason,
+      },
+    };
+  }
+
+  if (
+    step.control.selection.kind !== 'plain' ||
+    !Array.isArray(step.control.selection.options)
+  ) {
+    return undefined;
+  }
+
+  const storedOptions = step.control.selection.options;
+  const options = storedOptions
+    .filter(
+      (option): option is { value: string; label: string } =>
+        isRecord(option) && isString(option.value) && isString(option.label),
+    )
+    .map((option) => ({ value: option.value, label: option.label }));
+
+  if (options.length !== storedOptions.length) return undefined;
+
+  return {
+    kind: 'select',
+    multiple: step.control.multiple,
+    selection: {
+      kind: 'plain',
+      options,
+      ...(step.control.selection.truncated === true
+        ? { truncated: true }
+        : {}),
+    },
+  };
+}
+
 function createFallbackDescription() {
   return createClickDescription({
     selectors: createAnalysis([]),
@@ -240,12 +324,15 @@ export function resolveStepDescription(step: unknown): StepDescription {
     step.schemaVersion === 2 ||
     step.schemaVersion === 3 ||
     step.schemaVersion === 4 ||
-    step.schemaVersion === 5;
+    step.schemaVersion === 5 ||
+    step.schemaVersion === 6;
 
   if (!isKnownSchema) return createFallbackDescription();
 
   if (
-    (step.schemaVersion === 4 || step.schemaVersion === 5) &&
+    (step.schemaVersion === 4 ||
+      step.schemaVersion === 5 ||
+      step.schemaVersion === 6) &&
     isStepDescription(step.description)
   ) {
     return step.description;
@@ -264,6 +351,27 @@ export function resolveStepDescription(step: unknown): StepDescription {
     return createFieldFillDescription({
       ...descriptionInput,
       value: getFieldValue(step),
+    });
+  }
+
+  if (step.type === 'selection-change') {
+    const control = getSelectionControl(step);
+    if (!control) return createFallbackDescription();
+
+    return createSelectionChangeDescription({
+      ...descriptionInput,
+      control,
+    });
+  }
+
+  if (step.type === 'key-press' && includesValue(INTERACTION_KEYS, step.key)) {
+    return createKeyPressDescription({
+      ...descriptionInput,
+      key: step.key,
+      modifiers:
+        isRecord(step.modifiers) && step.modifiers.shift === true
+          ? { shift: true }
+          : undefined,
     });
   }
 

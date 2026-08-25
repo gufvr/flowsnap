@@ -79,6 +79,63 @@ describe('resolveStepDescription', () => {
     expect(step).not.toHaveProperty('description');
   });
 
+  it('resolves schema 6 selection and key descriptions', () => {
+    const selector = {
+      recommended: {
+        strategy: 'label',
+        value: 'Remember me',
+        score: 85,
+        isUnique: true,
+      },
+      alternatives: [],
+    };
+
+    expect(
+      resolveStepDescription({
+        schemaVersion: 6,
+        type: 'selection-change',
+        selectors: selector,
+        element: { tagName: 'input', inputType: 'checkbox' },
+        control: { kind: 'checkbox', checked: true },
+      }).text,
+    ).toBe('Marcou a caixa de seleção "Remember me"');
+    expect(
+      resolveStepDescription({
+        schemaVersion: 6,
+        type: 'key-press',
+        key: 'Enter',
+        selectors: {
+          recommended: {
+            ...selector.recommended,
+            strategy: 'role',
+            value: 'button:Login',
+            role: 'button',
+            name: 'Login',
+          },
+          alternatives: [],
+        },
+        element: { tagName: 'button', text: 'Login' },
+      }).text,
+    ).toBe('Pressionou Enter no botão "Login"');
+  });
+
+  it('falls back safely for incomplete schema 6 records', () => {
+    expect(
+      resolveStepDescription({
+        schemaVersion: 6,
+        type: 'selection-change',
+        control: { corrupted: true },
+      }).text,
+    ).toBe('Clicou em um elemento');
+    expect(
+      resolveStepDescription({
+        schemaVersion: 6,
+        type: 'key-press',
+        key: 'F13',
+      }).text,
+    ).toBe('Clicou em um elemento');
+  });
+
   it('rebuilds an incomplete focus navigation description safely', () => {
     const step = {
       schemaVersion: 4,
@@ -201,6 +258,19 @@ describe('resolveStepDescription', () => {
   it('resolves a mixed list without changing its order or records', () => {
     const steps = [
       {
+        schemaVersion: 6,
+        type: 'selection-change',
+        selectors: {
+          recommended: {
+            strategy: 'label',
+            value: 'Remember me',
+            isUnique: true,
+          },
+        },
+        element: { tagName: 'input', inputType: 'checkbox' },
+        control: { kind: 'checkbox', checked: true },
+      },
+      {
         schemaVersion: 5,
         type: 'field-fill',
         selectors: {
@@ -232,6 +302,7 @@ describe('resolveStepDescription', () => {
     const originalSteps = structuredClone(steps);
 
     expect(steps.map(resolveStepDescription).map(({ text }) => text)).toEqual([
+      'Marcou a caixa de seleção "Remember me"',
       'Preencheu o campo "Username" com "tester"',
       'Clicou no botão "Entrar"',
       'Navegou para o campo "Password"',

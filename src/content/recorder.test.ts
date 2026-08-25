@@ -12,6 +12,7 @@ const disconnectors: Array<() => void> = [];
 function connectController(controller: RecorderController) {
   document.addEventListener('click', controller.handleClick, true);
   document.addEventListener('keydown', controller.handleKeyDown, true);
+  document.addEventListener('keyup', controller.handleKeyUp, true);
   document.addEventListener('focusin', controller.handleFocusIn, true);
   document.addEventListener('input', controller.handleInput, true);
   document.addEventListener('change', controller.handleChange, true);
@@ -21,6 +22,7 @@ function connectController(controller: RecorderController) {
   disconnectors.push(() => {
     document.removeEventListener('click', controller.handleClick, true);
     document.removeEventListener('keydown', controller.handleKeyDown, true);
+    document.removeEventListener('keyup', controller.handleKeyUp, true);
     document.removeEventListener('focusin', controller.handleFocusIn, true);
     document.removeEventListener('input', controller.handleInput, true);
     document.removeEventListener('change', controller.handleChange, true);
@@ -206,17 +208,17 @@ describe('createRecorderController', () => {
     const sendMessage = vi.fn();
     const controller = createRecorderController(sendMessage);
     const { username } = createFields();
-    const checkbox = document.createElement('input');
-    checkbox.type = 'checkbox';
-    document.body.append(checkbox);
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    document.body.append(fileInput);
     connectController(controller);
 
     username.value = 'stopped';
     username.dispatchEvent(new InputEvent('input', { bubbles: true }));
     username.dispatchEvent(new Event('change', { bubbles: true }));
     controller.setActive(true);
-    checkbox.dispatchEvent(new InputEvent('input', { bubbles: true }));
-    checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+    fileInput.dispatchEvent(new InputEvent('input', { bubbles: true }));
+    fileInput.dispatchEvent(new Event('change', { bubbles: true }));
 
     username.value = 'tester';
     username.dispatchEvent(new InputEvent('input', { bubbles: true }));

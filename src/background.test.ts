@@ -3,6 +3,8 @@ import type { ExtensionMessage } from './shared/messages';
 import type {
   RecordedClick,
   RecordedFieldFill,
+  RecordedKeyPress,
+  RecordedSelectionChange,
 } from './shared/recordingTypes';
 
 const actionOnClicked = vi.fn();
@@ -78,6 +80,50 @@ function createRecordedFieldFill(id: string): RecordedFieldFill {
       target: { type: 'field', name: 'Username' },
       source: 'label',
       text: 'Preencheu o campo "Username" com "tester"',
+      locale: 'pt-BR',
+    },
+  };
+}
+
+function createRecordedSelection(id: string): RecordedSelectionChange {
+  const click = createRecordedClick(id);
+
+  return {
+    schemaVersion: 6,
+    id,
+    type: 'selection-change',
+    url: click.url,
+    timestamp: click.timestamp,
+    selectors: click.selectors,
+    element: { tagName: 'input', inputType: 'checkbox' },
+    control: { kind: 'checkbox', checked: true },
+    description: {
+      action: 'selectionChange',
+      target: { type: 'checkbox', name: 'Remember me' },
+      source: 'label',
+      text: 'Marcou a caixa de seleção "Remember me"',
+      locale: 'pt-BR',
+    },
+  };
+}
+
+function createRecordedKeyPress(id: string): RecordedKeyPress {
+  const click = createRecordedClick(id);
+
+  return {
+    schemaVersion: 6,
+    id,
+    type: 'key-press',
+    url: click.url,
+    timestamp: click.timestamp,
+    key: 'Enter',
+    selectors: click.selectors,
+    element: { tagName: 'button', text: 'Login' },
+    description: {
+      action: 'keyPress',
+      target: { type: 'button', name: 'Login' },
+      source: 'text',
+      text: 'Pressionou Enter no botão "Login"',
       locale: 'pt-BR',
     },
   };
@@ -258,6 +304,33 @@ describe('extension action', () => {
 
     expect(response).toEqual({ success: true });
     expect(localStorageData.recordedSteps).toEqual([fill]);
+  });
+
+  it('serializes schema 6 selection and key steps', async () => {
+    const selection = createRecordedSelection('select-remember');
+    const keyPress = createRecordedKeyPress('key-login');
+    localStorageData = {
+      recordingState: {
+        isRecording: true,
+        tabId: 21,
+        origin: 'https://example.com',
+      },
+      recordedSteps: [],
+    };
+
+    const selectionResponse = dispatchMessage(
+      { type: 'RECORDED_SELECTION_CHANGE', payload: selection },
+      { tab: { id: 21 } },
+    );
+    const keyResponse = dispatchMessage(
+      { type: 'RECORDED_KEY_PRESS', payload: keyPress },
+      { tab: { id: 21 } },
+    );
+
+    await expect(Promise.all([selectionResponse, keyResponse])).resolves.toEqual(
+      [{ success: true }, { success: true }],
+    );
+    expect(localStorageData.recordedSteps).toEqual([selection, keyPress]);
   });
 
   it('deletes one step and preserves mixed recordings in order', async () => {

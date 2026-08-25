@@ -3,6 +3,8 @@ import type {
   RecordedClick,
   RecordedFieldFill,
   RecordedFocusNavigation,
+  RecordedKeyPress,
+  RecordedSelectionChange,
 } from './recordingTypes';
 
 export type ExtensionMessage =
@@ -19,6 +21,14 @@ export type ExtensionMessage =
   | {
       type: 'RECORDED_FIELD_FILL';
       payload: RecordedFieldFill;
+    }
+  | {
+      type: 'RECORDED_SELECTION_CHANGE';
+      payload: RecordedSelectionChange;
+    }
+  | {
+      type: 'RECORDED_KEY_PRESS';
+      payload: RecordedKeyPress;
     }
   | {
       type: 'DELETE_RECORDED_STEP';
