@@ -36,7 +36,7 @@ export async function startRecordingSession(): Promise<RecordingState> {
   const origin = new URL(activeTab.url).origin;
   const message: ExtensionMessage = {
     type: 'START_RECORDING',
-    payload: { tabId: activeTab.id, origin },
+    payload: { tabId: activeTab.id, origin, url: activeTab.url },
   };
   const response = (await chrome.runtime.sendMessage(message)) as ExtensionResponse;
 
@@ -44,7 +44,12 @@ export async function startRecordingSession(): Promise<RecordingState> {
     throw new Error(response.error ?? 'Não foi possível iniciar a gravação.');
   }
 
-  return { isRecording: true, tabId: activeTab.id, origin };
+  return {
+    isRecording: true,
+    tabId: activeTab.id,
+    origin,
+    currentUrl: activeTab.url,
+  };
 }
 
 export async function stopRecordingSession(): Promise<RecordingState> {

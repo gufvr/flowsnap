@@ -29,6 +29,7 @@ export async function loadRecordingState(): Promise<RecordingState> {
       isRecording: storedState.isRecording,
       tabId: storedState.tabId,
       origin: storedState.origin,
+      currentUrl: storedState.currentUrl,
     };
   } catch {
     return DEFAULT_STATE;

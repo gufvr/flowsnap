@@ -1,5 +1,6 @@
 import type {
   InteractionKey,
+  NavigationTrigger,
   RecordedFieldValue,
   RecordedSelectionControl,
   SelectorAnalysis,
@@ -19,6 +20,7 @@ import { createColorChangeDescription } from './createColorChangeDescription';
 import { createFieldFillDescription } from './createFieldFillDescription';
 import { createFocusNavigationDescription } from './createFocusNavigationDescription';
 import { createKeyPressDescription } from './createKeyPressDescription';
+import { createNavigationDescription } from './createNavigationDescription';
 import { createRangeChangeDescription } from './createRangeChangeDescription';
 import { createSelectionChangeDescription } from './createSelectionChangeDescription';
 
@@ -82,6 +84,12 @@ const INTERACTION_KEYS: InteractionKey[] = [
   'ArrowRight',
 ];
 
+const NAVIGATION_TRIGGERS: NavigationTrigger[] = [
+  'fragment',
+  'history-api',
+  'history-traversal',
+];
+
 const FALLBACK_CANDIDATE: SelectorCandidate = {
   strategy: 'css',
   value: '',
@@ -110,7 +118,17 @@ function includesValue<T extends string>(
 }
 
 function isStepDescription(value: unknown): value is StepDescription {
-  if (!isRecord(value) || !isRecord(value.target)) return false;
+  if (!isRecord(value)) return false;
+
+  if (value.action === 'navigation') {
+    return (
+      value.locale === 'pt-BR' &&
+      isString(value.text) &&
+      value.text.trim().length > 0
+    );
+  }
+
+  if (!isRecord(value.target)) return false;
 
   return (
     (value.action === 'click' ||
@@ -331,7 +349,8 @@ export function resolveStepDescription(step: unknown): StepDescription {
     step.schemaVersion === 5 ||
     step.schemaVersion === 6 ||
     step.schemaVersion === 7 ||
-    step.schemaVersion === 8;
+    step.schemaVersion === 8 ||
+    step.schemaVersion === 9;
 
   if (!isKnownSchema) return createFallbackDescription();
 
@@ -340,7 +359,8 @@ export function resolveStepDescription(step: unknown): StepDescription {
       step.schemaVersion === 5 ||
       step.schemaVersion === 6 ||
       step.schemaVersion === 7 ||
-      step.schemaVersion === 8) &&
+      step.schemaVersion === 8 ||
+      step.schemaVersion === 9) &&
     isStepDescription(step.description)
   ) {
     return step.description;
@@ -350,6 +370,20 @@ export function resolveStepDescription(step: unknown): StepDescription {
     selectors: getSelectorAnalysis(step),
     element: getElement(step),
   };
+
+  if (step.type === 'navigation') {
+    return createNavigationDescription({
+      fromUrl: isString(step.fromUrl) ? step.fromUrl : undefined,
+      toUrl: isString(step.toUrl)
+        ? step.toUrl
+        : isString(step.url)
+          ? step.url
+          : undefined,
+      trigger: includesValue(NAVIGATION_TRIGGERS, step.trigger)
+        ? step.trigger
+        : undefined,
+    });
+  }
 
   if (step.type === 'focus-navigation') {
     return createFocusNavigationDescription(descriptionInput);

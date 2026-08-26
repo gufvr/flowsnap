@@ -240,6 +240,21 @@ function createMixedSchemaSteps() {
       element: { tagName: 'button', text: 'Legacy' },
     },
     {
+      schemaVersion: 9,
+      id: 'schema-9-navigation',
+      type: 'navigation',
+      url: 'https://qapracticehub.com/#buttons',
+      timestamp: 6,
+      fromUrl: 'https://qapracticehub.com/#forms',
+      toUrl: 'https://qapracticehub.com/#buttons',
+      trigger: 'fragment',
+      description: {
+        action: 'navigation',
+        text: 'Navegou para "/#buttons"',
+        locale: 'pt-BR',
+      },
+    },
+    {
       schemaVersion: 8,
       id: 'schema-8-color',
       type: 'color-change',
@@ -571,6 +586,93 @@ describe('integrated recording flow', () => {
     expect(await screen.findByText('Status: Parado')).toBeInTheDocument();
   });
 
+  it('records and deduplicates same-document navigation in the active top frame', async () => {
+    const user = userEvent.setup();
+    harness = createChromeExtensionHarness();
+    harness.install();
+    await import('../background');
+    renderSidePanel();
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Iniciar Gravação' }),
+    );
+
+    harness.emitReferenceFragmentUpdated(
+      'https://qapracticehub.com/#buttons',
+      { timeStamp: 10 },
+    );
+    harness.emitHistoryStateUpdated(
+      'https://qapracticehub.com/products?view=grid',
+      { timeStamp: 20 },
+    );
+    harness.emitHistoryStateUpdated(
+      'https://qapracticehub.com/#forms',
+      { timeStamp: 30, transitionQualifiers: ['forward_back'] },
+    );
+    harness.emitReferenceFragmentUpdated(
+      'https://qapracticehub.com/#forms',
+      { timeStamp: 31, transitionQualifiers: ['forward_back'] },
+    );
+    harness.emitHistoryStateUpdated(
+      'https://qapracticehub.com/ignored-frame',
+      { frameId: 2, timeStamp: 40 },
+    );
+
+    expect(
+      await screen.findByText('Navegou para "/#buttons"'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Navegou para "/products?view=grid"'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Navegou pelo histórico para "/#forms"'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('3 passos capturados')).toBeInTheDocument();
+    expect(screen.getAllByText('Seletor indisponível')).toHaveLength(3);
+
+    const storedSteps = harness.getLocalValues().recordedSteps as Array<{
+      fromUrl: string;
+      toUrl: string;
+      trigger: string;
+    }>;
+    expect(
+      storedSteps.map(({ fromUrl, toUrl, trigger }) => ({
+        fromUrl,
+        toUrl,
+        trigger,
+      })),
+    ).toEqual([
+      {
+        fromUrl: 'https://qapracticehub.com/#forms',
+        toUrl: 'https://qapracticehub.com/#buttons',
+        trigger: 'fragment',
+      },
+      {
+        fromUrl: 'https://qapracticehub.com/#buttons',
+        toUrl: 'https://qapracticehub.com/products?view=grid',
+        trigger: 'history-api',
+      },
+      {
+        fromUrl: 'https://qapracticehub.com/products?view=grid',
+        toUrl: 'https://qapracticehub.com/#forms',
+        trigger: 'history-traversal',
+      },
+    ]);
+
+    await user.click(screen.getByRole('button', { name: 'Parar Gravação' }));
+    const installedHarness = harness;
+    const readsBeforeStoppedNavigation = installedHarness.localGet.mock.calls.length;
+    harness.emitReferenceFragmentUpdated(
+      'https://qapracticehub.com/#stopped',
+    );
+    await waitFor(() => {
+      expect(installedHarness.localGet).toHaveBeenCalledTimes(
+        readsBeforeStoppedNavigation + 1,
+      );
+      expect(installedHarness.getLocalValues().recordedSteps).toHaveLength(3);
+    });
+  });
+
   it('reads mixed and incomplete schemas without migrating their storage', async () => {
     const user = userEvent.setup();
     const mixedSteps = createMixedSchemaSteps();
@@ -585,7 +687,7 @@ describe('integrated recording flow', () => {
     await import('../background');
     renderSidePanel();
 
-    expect(await screen.findByText('11 passos capturados')).toBeInTheDocument();
+    expect(await screen.findByText('12 passos capturados')).toBeInTheDocument();
     expect(screen.getByText('Clicou no botão "Login"')).toBeInTheDocument();
     expect(
       screen.getByText('Navegou para o campo "Password"'),
@@ -616,7 +718,8 @@ describe('integrated recording flow', () => {
         'Selecionou a cor "#663399" no seletor de cor "Color Picker"',
       ),
     ).toBeInTheDocument();
-    expect(screen.getByText('Seletor indisponível')).toBeInTheDocument();
+    expect(screen.getByText('Navegou para "/#buttons"')).toBeInTheDocument();
+    expect(screen.getAllByText('Seletor indisponível')).toHaveLength(2);
     expect(harness.localSet).not.toHaveBeenCalled();
     expect(harness.getLocalValues().recordedSteps).toEqual(originalSteps);
 
@@ -625,18 +728,18 @@ describe('integrated recording flow', () => {
       'data-testid=login-submit',
     );
 
-    await user.click(screen.getByRole('button', { name: 'Excluir passo 11' }));
+    await user.click(screen.getByRole('button', { name: 'Excluir passo 12' }));
     await user.click(
       within(
-        screen.getByRole('group', { name: 'Confirmar exclusão do passo 11' }),
+        screen.getByRole('group', { name: 'Confirmar exclusão do passo 12' }),
       ).getByRole('button', { name: 'Excluir passo' }),
     );
 
     await waitFor(() =>
-      expect(screen.getByText('10 passos capturados')).toBeInTheDocument(),
+      expect(screen.getByText('11 passos capturados')).toBeInTheDocument(),
     );
     expect(harness.getLocalValues().recordedSteps).toEqual(
-      originalSteps.slice(0, 10),
+      originalSteps.slice(0, 11),
     );
 
     await user.click(screen.getByRole('button', { name: 'Limpar tudo' }));

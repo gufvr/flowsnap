@@ -13,6 +13,16 @@ type StorageListener = (
   areaName: chrome.storage.AreaName,
 ) => void
 
+interface WebNavigationDetails {
+  tabId: number
+  frameId: number
+  url: string
+  timeStamp: number
+  transitionQualifiers: string[]
+}
+
+type WebNavigationListener = (details: WebNavigationDetails) => void
+
 interface RecorderController {
   setActive(active: boolean): void
 }
@@ -75,6 +85,8 @@ export function createChromeExtensionHarness(
   const storageListeners = new Set<StorageListener>()
   const recorders = new Map<number, RecorderController>()
   let runtimeListener: RuntimeListener | undefined
+  let historyStateUpdatedListener: WebNavigationListener | undefined
+  let referenceFragmentUpdatedListener: WebNavigationListener | undefined
   let originalClipboardDescriptor: PropertyDescriptor | undefined
 
   const notifyStorageListeners = (
@@ -187,6 +199,18 @@ export function createChromeExtensionHarness(
     tabs: {
       sendMessage: tabsSendMessage,
     },
+    webNavigation: {
+      onHistoryStateUpdated: {
+        addListener: vi.fn((listener: WebNavigationListener) => {
+          historyStateUpdatedListener = listener
+        }),
+      },
+      onReferenceFragmentUpdated: {
+        addListener: vi.fn((listener: WebNavigationListener) => {
+          referenceFragmentUpdatedListener = listener
+        }),
+      },
+    },
   }
 
   function dispatchRuntimeMessage(
@@ -227,6 +251,32 @@ export function createChromeExtensionHarness(
       }
     },
     executeScript,
+    emitHistoryStateUpdated(
+      destinationUrl: string,
+      details: Partial<Omit<WebNavigationDetails, 'url'>> = {},
+    ) {
+      historyStateUpdatedListener?.({
+        tabId,
+        frameId: 0,
+        timeStamp: Date.now(),
+        transitionQualifiers: [],
+        ...details,
+        url: destinationUrl,
+      })
+    },
+    emitReferenceFragmentUpdated(
+      destinationUrl: string,
+      details: Partial<Omit<WebNavigationDetails, 'url'>> = {},
+    ) {
+      referenceFragmentUpdatedListener?.({
+        tabId,
+        frameId: 0,
+        timeStamp: Date.now(),
+        transitionQualifiers: [],
+        ...details,
+        url: destinationUrl,
+      })
+    },
     getLocalValues() {
       return clone(localValues)
     },

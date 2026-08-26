@@ -13,6 +13,8 @@ const actionOnClicked = vi.fn();
 const runtimeOnInstalled = vi.fn();
 const runtimeOnStartup = vi.fn();
 const runtimeOnMessage = vi.fn();
+const historyStateUpdated = vi.fn();
+const referenceFragmentUpdated = vi.fn();
 const openSidePanel = vi.fn();
 const setPanelBehavior = vi.fn();
 const getSessionStorage = vi.fn();
@@ -193,6 +195,8 @@ describe('extension action', () => {
     runtimeOnInstalled.mockReset();
     runtimeOnStartup.mockReset();
     runtimeOnMessage.mockReset();
+    historyStateUpdated.mockReset();
+    referenceFragmentUpdated.mockReset();
     openSidePanel.mockReset();
     setPanelBehavior.mockReset();
     getSessionStorage.mockReset();
@@ -230,6 +234,10 @@ describe('extension action', () => {
       },
       scripting: { executeScript: vi.fn() },
       tabs: { sendMessage: vi.fn() },
+      webNavigation: {
+        onHistoryStateUpdated: { addListener: historyStateUpdated },
+        onReferenceFragmentUpdated: { addListener: referenceFragmentUpdated },
+      },
     });
 
     await import('./background');
@@ -500,5 +508,167 @@ describe('extension action', () => {
       { success: true },
     ]);
     expect(localStorageData.recordedSteps).toEqual([second]);
+  });
+
+  it('stores a top-frame fragment navigation for the recorded tab', async () => {
+    localStorageData = {
+      recordingState: {
+        isRecording: true,
+        tabId: 21,
+        origin: 'https://example.com',
+        currentUrl: 'https://example.com/#forms',
+      },
+      recordedSteps: [],
+    };
+    const listener = referenceFragmentUpdated.mock.calls[0][0];
+
+    listener({
+      tabId: 21,
+      frameId: 0,
+      url: 'https://example.com/#buttons',
+      timeStamp: 10,
+      transitionQualifiers: [],
+    });
+
+    await vi.waitFor(() =>
+      expect(localStorageData.recordedSteps).toHaveLength(1),
+    );
+    expect(localStorageData.recordedSteps).toEqual([
+      expect.objectContaining({
+        schemaVersion: 9,
+        type: 'navigation',
+        fromUrl: 'https://example.com/#forms',
+        toUrl: 'https://example.com/#buttons',
+        trigger: 'fragment',
+        description: expect.objectContaining({
+          text: 'Navegou para "/#buttons"',
+        }),
+      }),
+    ]);
+    expect(localStorageData.recordingState).toMatchObject({
+      currentUrl: 'https://example.com/#buttons',
+    });
+  });
+
+  it('serializes History API changes and deduplicates the final URL', async () => {
+    localStorageData = {
+      recordingState: {
+        isRecording: true,
+        tabId: 21,
+        origin: 'https://example.com',
+        currentUrl: 'https://example.com/start',
+      },
+      recordedSteps: [],
+    };
+    const historyListener = historyStateUpdated.mock.calls[0][0];
+    const fragmentListener = referenceFragmentUpdated.mock.calls[0][0];
+
+    historyListener({
+      tabId: 21,
+      frameId: 0,
+      url: 'https://example.com/products',
+      timeStamp: 20,
+      transitionQualifiers: [],
+    });
+    historyListener({
+      tabId: 21,
+      frameId: 0,
+      url: 'https://example.com/previous',
+      timeStamp: 30,
+      transitionQualifiers: ['forward_back'],
+    });
+    fragmentListener({
+      tabId: 21,
+      frameId: 0,
+      url: 'https://example.com/previous',
+      timeStamp: 31,
+      transitionQualifiers: ['forward_back'],
+    });
+
+    await vi.waitFor(() =>
+      expect(localStorageData.recordedSteps).toHaveLength(2),
+    );
+    expect(
+      (localStorageData.recordedSteps as Array<Record<string, unknown>>).map(
+        ({ fromUrl, toUrl, trigger }) => ({ fromUrl, toUrl, trigger }),
+      ),
+    ).toEqual([
+      {
+        fromUrl: 'https://example.com/start',
+        toUrl: 'https://example.com/products',
+        trigger: 'history-api',
+      },
+      {
+        fromUrl: 'https://example.com/products',
+        toUrl: 'https://example.com/previous',
+        trigger: 'history-traversal',
+      },
+    ]);
+  });
+
+  it('ignores subframes, other tabs and events while stopped', async () => {
+    localStorageData = {
+      recordingState: {
+        isRecording: true,
+        tabId: 21,
+        currentUrl: 'https://example.com/start',
+      },
+      recordedSteps: [],
+    };
+    const listener = historyStateUpdated.mock.calls[0][0];
+
+    listener({
+      tabId: 21,
+      frameId: 2,
+      url: 'https://example.com/frame',
+      timeStamp: 1,
+      transitionQualifiers: [],
+    });
+    listener({
+      tabId: 99,
+      frameId: 0,
+      url: 'https://example.com/other-tab',
+      timeStamp: 2,
+      transitionQualifiers: [],
+    });
+
+    await vi.waitFor(() => expect(getLocalStorage).toHaveBeenCalledTimes(1));
+    localStorageData.recordingState = { isRecording: false };
+    listener({
+      tabId: 21,
+      frameId: 0,
+      url: 'https://example.com/stopped',
+      timeStamp: 3,
+      transitionQualifiers: [],
+    });
+
+    await vi.waitFor(() => expect(getLocalStorage).toHaveBeenCalledTimes(2));
+    expect(localStorageData.recordedSteps).toEqual([]);
+    expect(setLocalStorage).not.toHaveBeenCalled();
+  });
+
+  it('establishes a baseline for an older active state without migrating steps', async () => {
+    localStorageData = {
+      recordingState: { isRecording: true, tabId: 21 },
+      recordedSteps: [createRecordedClick('existing')],
+    };
+    const listener = historyStateUpdated.mock.calls[0][0];
+
+    listener({
+      tabId: 21,
+      frameId: 0,
+      url: 'https://example.com/current',
+      timeStamp: 1,
+      transitionQualifiers: [],
+    });
+
+    await vi.waitFor(() =>
+      expect(localStorageData.recordingState).toMatchObject({
+        currentUrl: 'https://example.com/current',
+      }),
+    );
+    expect(localStorageData.recordedSteps).toEqual([
+      createRecordedClick('existing'),
+    ]);
   });
 });

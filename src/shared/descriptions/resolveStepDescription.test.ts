@@ -206,6 +206,32 @@ describe('resolveStepDescription', () => {
     ).toBe('Selecionou um valor protegido no seletor de cor "Color Picker"');
   });
 
+  it('uses and safely rebuilds schema 9 navigation descriptions', () => {
+    const description = {
+      action: 'navigation' as const,
+      text: 'Navegou para "/#buttons"',
+      locale: 'pt-BR' as const,
+    };
+
+    expect(
+      resolveStepDescription({
+        schemaVersion: 9,
+        type: 'navigation',
+        description,
+      }),
+    ).toBe(description);
+
+    expect(
+      resolveStepDescription({
+        schemaVersion: 9,
+        type: 'navigation',
+        fromUrl: 'https://example.com/current',
+        url: 'https://example.com/previous',
+        trigger: 'history-traversal',
+      }).text,
+    ).toBe('Navegou pelo histórico para "/previous"');
+  });
+
   it('rebuilds an incomplete focus navigation description safely', () => {
     const step = {
       schemaVersion: 4,
@@ -328,6 +354,13 @@ describe('resolveStepDescription', () => {
   it('resolves a mixed list without changing its order or records', () => {
     const steps = [
       {
+        schemaVersion: 9,
+        type: 'navigation',
+        fromUrl: 'https://example.com/#forms',
+        toUrl: 'https://example.com/#buttons',
+        trigger: 'fragment',
+      },
+      {
         schemaVersion: 8,
         type: 'color-change',
         selectors: {
@@ -398,6 +431,7 @@ describe('resolveStepDescription', () => {
     const originalSteps = structuredClone(steps);
 
     expect(steps.map(resolveStepDescription).map(({ text }) => text)).toEqual([
+      'Navegou para "/#buttons"',
       'Selecionou a cor "#663399" no seletor de cor "Color Picker"',
       'Ajustou o controle deslizante "Experience" para "7"',
       'Marcou a caixa de seleção "Remember me"',

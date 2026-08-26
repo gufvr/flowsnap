@@ -18,9 +18,21 @@ describe('recordingStorage', () => {
   });
 
   it('loads a valid persisted state', async () => {
-    storageGet.mockResolvedValue({ recordingState: { isRecording: true } });
+    storageGet.mockResolvedValue({
+      recordingState: {
+        isRecording: true,
+        tabId: 21,
+        origin: 'https://example.com',
+        currentUrl: 'https://example.com/#forms',
+      },
+    });
 
-    await expect(loadRecordingState()).resolves.toEqual({ isRecording: true });
+    await expect(loadRecordingState()).resolves.toEqual({
+      isRecording: true,
+      tabId: 21,
+      origin: 'https://example.com',
+      currentUrl: 'https://example.com/#forms',
+    });
   });
 
   it('falls back to stopped when reading fails', async () => {

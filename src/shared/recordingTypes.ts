@@ -4,6 +4,7 @@ import type {
   FieldFillStepDescription,
   FocusNavigationStepDescription,
   KeyPressStepDescription,
+  NavigationStepDescription,
   RangeChangeStepDescription,
   SelectionChangeStepDescription,
 } from './stepDescriptionTypes';
@@ -12,6 +13,7 @@ export interface RecordingState {
   isRecording: boolean;
   tabId?: number;
   origin?: string;
+  currentUrl?: string;
 }
 
 export interface ActiveTabContext {
@@ -187,6 +189,23 @@ export interface RecordedColorChange {
   description: ColorChangeStepDescription;
 }
 
+export type NavigationTrigger =
+  | 'fragment'
+  | 'history-api'
+  | 'history-traversal';
+
+export interface RecordedNavigation {
+  schemaVersion: 9;
+  id: string;
+  type: 'navigation';
+  url: string;
+  timestamp: number;
+  fromUrl: string;
+  toUrl: string;
+  trigger: NavigationTrigger;
+  description: NavigationStepDescription;
+}
+
 export type RecordedSelectValue =
   | {
       kind: 'plain';
@@ -266,6 +285,7 @@ export type RecordedStep =
   | RecordedFieldFill
   | RecordedRangeChange
   | RecordedColorChange
+  | RecordedNavigation
   | RecordedSelectionChange
   | RecordedKeyPress
   | RecordedClickV3

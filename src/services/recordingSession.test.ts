@@ -42,13 +42,18 @@ describe('recordingSession', () => {
       isRecording: true,
       tabId: 42,
       origin: 'https://example.com',
+      currentUrl: 'https://example.com/account',
     });
     expect(requestPermission).toHaveBeenCalledWith({
       origins: ['https://example.com/*'],
     });
     expect(sendMessage).toHaveBeenCalledWith({
       type: 'START_RECORDING',
-      payload: { tabId: 42, origin: 'https://example.com' },
+      payload: {
+        tabId: 42,
+        origin: 'https://example.com',
+        url: 'https://example.com/account',
+      },
     });
   });
 

@@ -5,6 +5,11 @@ import {
   getActiveTabContext,
   persistActiveTabContext,
 } from './services/activeTabContext';
+import {
+  createRecordedNavigation,
+  type SameDocumentNavigationDetails,
+  type SameDocumentNavigationSource,
+} from './services/navigationCapture';
 
 const RECORDING_STATE_KEY = 'recordingState';
 const RECORDED_STEPS_KEY = 'recordedSteps';
@@ -54,6 +59,7 @@ chrome.action.onClicked.addListener((tab) => {
 async function startRecording(
   tabId: number,
   origin: string,
+  url: string,
 ): Promise<ExtensionResponse> {
   try {
     await chrome.scripting.executeScript({
@@ -62,7 +68,12 @@ async function startRecording(
     });
     await chrome.tabs.sendMessage(tabId, { type: 'ACTIVATE_CLICK_RECORDER' });
 
-    const state: RecordingState = { isRecording: true, tabId, origin };
+    const state: RecordingState = {
+      isRecording: true,
+      tabId,
+      origin,
+      currentUrl: url,
+    };
     await chrome.storage.local.set({
       [RECORDING_STATE_KEY]: state,
       [RECORDED_STEPS_KEY]: [],
@@ -190,6 +201,65 @@ function performRecordedStepAction(message: RecordedStepActionMessage) {
   });
 }
 
+interface WebNavigationDetails extends SameDocumentNavigationDetails {
+  tabId: number;
+  frameId: number;
+}
+
+async function appendSameDocumentNavigation(
+  details: WebNavigationDetails,
+  source: SameDocumentNavigationSource,
+) {
+  const result = await chrome.storage.local.get([
+    RECORDING_STATE_KEY,
+    RECORDED_STEPS_KEY,
+  ]);
+  const state = result[RECORDING_STATE_KEY] as RecordingState | undefined;
+
+  if (!state?.isRecording || state.tabId !== details.tabId) return;
+
+  if (!state.currentUrl) {
+    await chrome.storage.local.set({
+      [RECORDING_STATE_KEY]: { ...state, currentUrl: details.url },
+    });
+    return;
+  }
+
+  if (state.currentUrl === details.url) return;
+
+  const storedSteps = result[RECORDED_STEPS_KEY];
+  const steps: RecordedStep[] = Array.isArray(storedSteps) ? storedSteps : [];
+  const navigation = createRecordedNavigation(
+    state.currentUrl,
+    details,
+    source,
+  );
+
+  await chrome.storage.local.set({
+    [RECORDING_STATE_KEY]: { ...state, currentUrl: details.url },
+    [RECORDED_STEPS_KEY]: [...steps, navigation],
+  });
+}
+
+function recordSameDocumentNavigation(
+  details: WebNavigationDetails,
+  source: SameDocumentNavigationSource,
+) {
+  if (details.frameId !== 0) return;
+
+  void enqueueRecordedStepOperation(() =>
+    appendSameDocumentNavigation(details, source),
+  ).catch(() => undefined);
+}
+
+chrome.webNavigation.onHistoryStateUpdated.addListener((details) => {
+  recordSameDocumentNavigation(details, 'history-api');
+});
+
+chrome.webNavigation.onReferenceFragmentUpdated.addListener((details) => {
+  recordSameDocumentNavigation(details, 'fragment');
+});
+
 chrome.runtime.onMessage.addListener(
   (
     message: ExtensionMessage,
@@ -198,7 +268,13 @@ chrome.runtime.onMessage.addListener(
   ) => {
     const handleMessage = async () => {
       if (message.type === 'START_RECORDING') {
-        return startRecording(message.payload.tabId, message.payload.origin);
+        return enqueueRecordedStepOperation(() =>
+          startRecording(
+            message.payload.tabId,
+            message.payload.origin,
+            message.payload.url,
+          ),
+        );
       }
 
       if (message.type === 'GET_ACTIVE_TAB_CONTEXT') {
@@ -206,7 +282,9 @@ chrome.runtime.onMessage.addListener(
         return { success: Boolean(activeTabContext), activeTabContext };
       }
 
-      if (message.type === 'STOP_RECORDING') return stopRecording();
+      if (message.type === 'STOP_RECORDING') {
+        return enqueueRecordedStepOperation(stopRecording);
+      }
       if (
         message.type === 'RECORDED_CLICK' ||
         message.type === 'RECORDED_FOCUS_NAVIGATION' ||

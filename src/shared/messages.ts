@@ -12,7 +12,7 @@ import type {
 export type ExtensionMessage =
   | {
       type: 'START_RECORDING';
-      payload: { tabId: number; origin: string };
+      payload: { tabId: number; origin: string; url: string };
     }
   | { type: 'STOP_RECORDING' }
   | { type: 'RECORDED_CLICK'; payload: RecordedClick }
