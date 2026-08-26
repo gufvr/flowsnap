@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createClickMessage,
+  createColorChangeMessage,
   createFieldFillMessage,
   createFocusNavigationMessage,
   createRangeChangeMessage,
@@ -172,6 +173,30 @@ describe('recording messages', () => {
         description: {
           action: 'rangeChange',
           text: 'Ajustou o controle deslizante "Experience (Range Slider)" para "7"',
+        },
+      },
+    });
+  });
+
+  it('creates a schema 8 color change with its final value and description', () => {
+    const label = document.createElement('label');
+    label.textContent = 'Color Picker';
+    const color = document.createElement('input');
+    color.type = 'color';
+    color.value = '#663399';
+    label.append(color);
+    document.body.append(label);
+
+    expect(createColorChangeMessage(color)).toMatchObject({
+      type: 'RECORDED_COLOR_CHANGE',
+      payload: {
+        schemaVersion: 8,
+        type: 'color-change',
+        element: { tagName: 'input', inputType: 'color' },
+        value: { kind: 'plain', value: '#663399' },
+        description: {
+          action: 'colorChange',
+          text: 'Selecionou a cor "#663399" no seletor de cor "Color Picker"',
         },
       },
     });

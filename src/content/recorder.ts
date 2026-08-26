@@ -1,4 +1,5 @@
 import { createClickDescription } from '../shared/descriptions/createClickDescription';
+import { createColorChangeDescription } from '../shared/descriptions/createColorChangeDescription';
 import { createFieldFillDescription } from '../shared/descriptions/createFieldFillDescription';
 import { createFocusNavigationDescription } from '../shared/descriptions/createFocusNavigationDescription';
 import { createKeyPressDescription } from '../shared/descriptions/createKeyPressDescription';
@@ -7,6 +8,12 @@ import { createSelectionChangeDescription } from '../shared/descriptions/createS
 import type { ExtensionMessage } from '../shared/messages';
 import type { InteractionKey } from '../shared/recordingTypes';
 import { getImplicitRole, normalizeText } from './elementSemantics';
+import {
+  captureColorValue,
+  isColorControl,
+  resolveColorControl,
+  type ColorControl,
+} from './colorCapture';
 import {
   captureFieldValue,
   isCapturableField,
@@ -209,6 +216,36 @@ export function createRangeChangeMessage(
   };
 }
 
+export function createColorChangeMessage(
+  control: ColorControl,
+): Extract<ExtensionMessage, { type: 'RECORDED_COLOR_CHANGE' }> {
+  const value = captureColorValue(control);
+  const selectors = buildSelectorCandidates(control);
+  const elementData = {
+    tagName: 'input' as const,
+    inputType: 'color' as const,
+  };
+
+  return {
+    type: 'RECORDED_COLOR_CHANGE',
+    payload: {
+      schemaVersion: 8,
+      id: crypto.randomUUID(),
+      type: 'color-change',
+      url: window.location.href,
+      timestamp: Date.now(),
+      selectors,
+      element: elementData,
+      value,
+      description: createColorChangeDescription({
+        selectors,
+        element: elementData,
+        value,
+      }),
+    },
+  };
+}
+
 export function createSelectionChangeMessage(
   selectionControl: SelectionControl,
 ):
@@ -312,6 +349,8 @@ export function createRecorderController(
   let lastCapturedPlainValues = new WeakMap<CapturableField, string>();
   let dirtyRanges = new WeakSet<RangeControl>();
   let lastCapturedRangeValues = new WeakMap<RangeControl, string>();
+  let dirtyColors = new WeakSet<ColorControl>();
+  let lastCapturedColorValues = new WeakMap<ColorControl, string>();
   let lastSelectionSignatures = new WeakMap<SelectionControl, string>();
 
   const clearPendingTabNavigation = () => {
@@ -399,6 +438,26 @@ export function createRecorderController(
     return true;
   };
 
+  const recordColorChange = (control: ColorControl) => {
+    dirtyColors.delete(control);
+    const message = createColorChangeMessage(control);
+    const { value } = message.payload;
+
+    if (
+      value.kind === 'plain' &&
+      lastCapturedColorValues.get(control) === value.value
+    ) {
+      return false;
+    }
+
+    if (value.kind === 'plain') {
+      lastCapturedColorValues.set(control, value.value);
+    }
+
+    void sendMessage(message);
+    return true;
+  };
+
   const controller: RecorderController = {
     isActive: false,
     setActive(isActive) {
@@ -411,6 +470,8 @@ export function createRecorderController(
         lastCapturedPlainValues = new WeakMap();
         dirtyRanges = new WeakSet();
         lastCapturedRangeValues = new WeakMap();
+        dirtyColors = new WeakSet();
+        lastCapturedColorValues = new WeakMap();
         lastSelectionSignatures = new WeakMap();
       }
     },
@@ -418,6 +479,7 @@ export function createRecorderController(
       const eventElement = getEventElement(event);
       if (!controller.isActive || !eventElement) return;
 
+      if (resolveColorControl(eventElement)) return;
       if (isRangeControl(eventElement)) return;
       if (resolveSelectionControl(eventElement)) return;
 
@@ -526,6 +588,11 @@ export function createRecorderController(
       const element = getEventElement(event);
       if (!controller.isActive || !element) return;
 
+      if (isColorControl(element)) {
+        dirtyColors.add(element);
+        return;
+      }
+
       if (isRangeControl(element)) {
         dirtyRanges.add(element);
         return;
@@ -548,6 +615,11 @@ export function createRecorderController(
           clearPendingSelectionKey();
         }
         recordSelectionChange(selectionControl);
+        return;
+      }
+
+      if (controller.isActive && element && isColorControl(element)) {
+        if (dirtyColors.has(element)) recordColorChange(element);
         return;
       }
 

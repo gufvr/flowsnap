@@ -1,5 +1,6 @@
 import type {
   ClickStepDescription,
+  ColorChangeStepDescription,
   FieldFillStepDescription,
   FocusNavigationStepDescription,
   KeyPressStepDescription,
@@ -171,6 +172,21 @@ export interface RecordedRangeChange {
   description: RangeChangeStepDescription;
 }
 
+export interface RecordedColorChange {
+  schemaVersion: 8;
+  id: string;
+  type: 'color-change';
+  url: string;
+  timestamp: number;
+  selectors: SelectorAnalysis;
+  element: {
+    tagName: 'input';
+    inputType: 'color';
+  };
+  value: RecordedFieldValue;
+  description: ColorChangeStepDescription;
+}
+
 export type RecordedSelectValue =
   | {
       kind: 'plain';
@@ -249,6 +265,7 @@ export type RecordedStep =
   | RecordedFocusNavigation
   | RecordedFieldFill
   | RecordedRangeChange
+  | RecordedColorChange
   | RecordedSelectionChange
   | RecordedKeyPress
   | RecordedClickV3

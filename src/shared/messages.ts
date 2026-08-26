@@ -1,5 +1,6 @@
 import type {
   ActiveTabContext,
+  RecordedColorChange,
   RecordedClick,
   RecordedFieldFill,
   RecordedFocusNavigation,
@@ -26,6 +27,10 @@ export type ExtensionMessage =
   | {
       type: 'RECORDED_RANGE_CHANGE';
       payload: RecordedRangeChange;
+    }
+  | {
+      type: 'RECORDED_COLOR_CHANGE';
+      payload: RecordedColorChange;
     }
   | {
       type: 'RECORDED_SELECTION_CHANGE';

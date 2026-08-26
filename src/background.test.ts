@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ExtensionMessage } from './shared/messages';
 import type {
+  RecordedColorChange,
   RecordedClick,
   RecordedFieldFill,
   RecordedKeyPress,
@@ -147,6 +148,28 @@ function createRecordedRangeChange(id: string): RecordedRangeChange {
       target: { type: 'field', name: 'Experience' },
       source: 'label',
       text: 'Ajustou o controle deslizante "Experience" para "7"',
+      locale: 'pt-BR',
+    },
+  };
+}
+
+function createRecordedColorChange(id: string): RecordedColorChange {
+  const click = createRecordedClick(id);
+
+  return {
+    schemaVersion: 8,
+    id,
+    type: 'color-change',
+    url: click.url,
+    timestamp: click.timestamp,
+    selectors: click.selectors,
+    element: { tagName: 'input', inputType: 'color' },
+    value: { kind: 'plain', value: '#663399' },
+    description: {
+      action: 'colorChange',
+      target: { type: 'field', name: 'Color Picker' },
+      source: 'label',
+      text: 'Selecionou a cor "#663399" no seletor de cor "Color Picker"',
       locale: 'pt-BR',
     },
   };
@@ -374,6 +397,26 @@ describe('extension action', () => {
 
     expect(response).toEqual({ success: true });
     expect(localStorageData.recordedSteps).toEqual([rangeChange]);
+  });
+
+  it('stores a schema 8 color change in the active tab recording', async () => {
+    const colorChange = createRecordedColorChange('color-theme');
+    localStorageData = {
+      recordingState: {
+        isRecording: true,
+        tabId: 21,
+        origin: 'https://example.com',
+      },
+      recordedSteps: [],
+    };
+
+    const response = await dispatchMessage(
+      { type: 'RECORDED_COLOR_CHANGE', payload: colorChange },
+      { tab: { id: 21 } },
+    );
+
+    expect(response).toEqual({ success: true });
+    expect(localStorageData.recordedSteps).toEqual([colorChange]);
   });
 
   it('deletes one step and preserves mixed recordings in order', async () => {

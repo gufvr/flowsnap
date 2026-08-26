@@ -33,6 +33,8 @@ function createPracticePage(controller: RecorderController) {
   const country = document.createElement('select');
   const experienceLabel = document.createElement('label');
   const experience = document.createElement('input');
+  const colorLabel = document.createElement('label');
+  const color = document.createElement('input');
   const noisyContainer = document.createElement('section');
 
   username.id = 'username';
@@ -58,6 +60,10 @@ function createPracticePage(controller: RecorderController) {
   experience.type = 'range';
   experience.value = '5';
   experienceLabel.append(experience);
+  colorLabel.textContent = 'Color Picker';
+  color.type = 'color';
+  color.value = '#000000';
+  colorLabel.append(color);
   noisyContainer.innerHTML = `
     <h2>Gender (Radio Buttons)</h2>
     <span>Male</span><span>Female</span><span>Other</span>
@@ -75,6 +81,7 @@ function createPracticePage(controller: RecorderController) {
     standardLabel,
     countryLabel,
     experienceLabel,
+    colorLabel,
     noisyContainer,
   );
   root.addEventListener('click', controller.handleClick, true);
@@ -96,6 +103,7 @@ function createPracticePage(controller: RecorderController) {
     standard,
     country,
     experience,
+    color,
     noisyContainer,
   };
 }
@@ -230,6 +238,31 @@ function createMixedSchemaSteps() {
       timestamp: 5,
       selector: { css: 'main > button' },
       element: { tagName: 'button', text: 'Legacy' },
+    },
+    {
+      schemaVersion: 8,
+      id: 'schema-8-color',
+      type: 'color-change',
+      url: 'https://qapracticehub.com/#forms',
+      timestamp: 6,
+      selectors: {
+        recommended: {
+          ...validSelector,
+          score: 85,
+          strategy: 'label',
+          value: 'Color Picker',
+        },
+        alternatives: [],
+      },
+      element: { tagName: 'input', inputType: 'color' },
+      value: { kind: 'plain', value: '#663399' },
+      description: {
+        action: 'colorChange',
+        target: { type: 'field', name: 'Color Picker' },
+        source: 'label',
+        text: 'Selecionou a cor "#663399" no seletor de cor "Color Picker"',
+        locale: 'pt-BR',
+      },
     },
     {
       schemaVersion: 7,
@@ -477,6 +510,17 @@ describe('integrated recording flow', () => {
       new Event('change', { bubbles: true }),
     );
     practicePage.experience.click();
+    practicePage.color.click();
+    practicePage.color.value = '#ff0000';
+    practicePage.color.dispatchEvent(
+      new InputEvent('input', { bubbles: true }),
+    );
+    practicePage.color.value = '#663399';
+    practicePage.color.dispatchEvent(
+      new InputEvent('input', { bubbles: true }),
+    );
+    practicePage.color.dispatchEvent(new Event('change', { bubbles: true }));
+    practicePage.color.click();
     await user.click(practicePage.rememberLabel);
     await user.click(practicePage.standard);
     await user.selectOptions(practicePage.country, 'BR');
@@ -502,7 +546,12 @@ describe('integrated recording flow', () => {
         'Ajustou o controle deslizante "Experience (Range Slider)" para "7"',
       ),
     ).toBeInTheDocument();
-    expect(screen.getByText('6 passos capturados')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Selecionou a cor "#663399" no seletor de cor "Color Picker"',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText('7 passos capturados')).toBeInTheDocument();
 
     const storedSteps = harness.getLocalValues().recordedSteps as Array<{
       type: string;
@@ -510,6 +559,7 @@ describe('integrated recording flow', () => {
     expect(JSON.stringify(storedSteps)).not.toContain('Gender (Radio Buttons)');
     expect(storedSteps.map(({ type }) => type)).toEqual([
       'range-change',
+      'color-change',
       'selection-change',
       'selection-change',
       'selection-change',
@@ -535,7 +585,7 @@ describe('integrated recording flow', () => {
     await import('../background');
     renderSidePanel();
 
-    expect(await screen.findByText('10 passos capturados')).toBeInTheDocument();
+    expect(await screen.findByText('11 passos capturados')).toBeInTheDocument();
     expect(screen.getByText('Clicou no botão "Login"')).toBeInTheDocument();
     expect(
       screen.getByText('Navegou para o campo "Password"'),
@@ -561,6 +611,11 @@ describe('integrated recording flow', () => {
         'Ajustou o controle deslizante "Experience (Range Slider)" para "7"',
       ),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Selecionou a cor "#663399" no seletor de cor "Color Picker"',
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByText('Seletor indisponível')).toBeInTheDocument();
     expect(harness.localSet).not.toHaveBeenCalled();
     expect(harness.getLocalValues().recordedSteps).toEqual(originalSteps);
@@ -570,18 +625,18 @@ describe('integrated recording flow', () => {
       'data-testid=login-submit',
     );
 
-    await user.click(screen.getByRole('button', { name: 'Excluir passo 10' }));
+    await user.click(screen.getByRole('button', { name: 'Excluir passo 11' }));
     await user.click(
       within(
-        screen.getByRole('group', { name: 'Confirmar exclusão do passo 10' }),
+        screen.getByRole('group', { name: 'Confirmar exclusão do passo 11' }),
       ).getByRole('button', { name: 'Excluir passo' }),
     );
 
     await waitFor(() =>
-      expect(screen.getByText('9 passos capturados')).toBeInTheDocument(),
+      expect(screen.getByText('10 passos capturados')).toBeInTheDocument(),
     );
     expect(harness.getLocalValues().recordedSteps).toEqual(
-      originalSteps.slice(0, 9),
+      originalSteps.slice(0, 10),
     );
 
     await user.click(screen.getByRole('button', { name: 'Limpar tudo' }));

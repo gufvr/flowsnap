@@ -172,6 +172,40 @@ describe('resolveStepDescription', () => {
     );
   });
 
+  it('uses and safely rebuilds schema 8 color descriptions', () => {
+    const description = {
+      action: 'colorChange' as const,
+      target: { type: 'field' as const, name: 'Color Picker' },
+      source: 'label' as const,
+      text: 'Selecionou a cor "#663399" no seletor de cor "Color Picker"',
+      locale: 'pt-BR' as const,
+    };
+
+    expect(
+      resolveStepDescription({
+        schemaVersion: 8,
+        type: 'color-change',
+        description,
+      }),
+    ).toBe(description);
+
+    expect(
+      resolveStepDescription({
+        schemaVersion: 8,
+        type: 'color-change',
+        selectors: {
+          recommended: {
+            strategy: 'label',
+            value: 'Color Picker',
+            isUnique: true,
+          },
+        },
+        element: { tagName: 'input', inputType: 'color' },
+        value: { corrupted: true },
+      }).text,
+    ).toBe('Selecionou um valor protegido no seletor de cor "Color Picker"');
+  });
+
   it('rebuilds an incomplete focus navigation description safely', () => {
     const step = {
       schemaVersion: 4,
@@ -294,6 +328,19 @@ describe('resolveStepDescription', () => {
   it('resolves a mixed list without changing its order or records', () => {
     const steps = [
       {
+        schemaVersion: 8,
+        type: 'color-change',
+        selectors: {
+          recommended: {
+            strategy: 'label',
+            value: 'Color Picker',
+            isUnique: true,
+          },
+        },
+        element: { tagName: 'input', inputType: 'color' },
+        value: { kind: 'plain', value: '#663399' },
+      },
+      {
         schemaVersion: 7,
         type: 'range-change',
         selectors: {
@@ -351,6 +398,7 @@ describe('resolveStepDescription', () => {
     const originalSteps = structuredClone(steps);
 
     expect(steps.map(resolveStepDescription).map(({ text }) => text)).toEqual([
+      'Selecionou a cor "#663399" no seletor de cor "Color Picker"',
       'Ajustou o controle deslizante "Experience" para "7"',
       'Marcou a caixa de seleção "Remember me"',
       'Preencheu o campo "Username" com "tester"',

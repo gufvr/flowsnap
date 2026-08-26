@@ -197,14 +197,12 @@ describe('semantic interaction recording', () => {
     });
   });
 
-  it('ignores repeated range values and leaves color as a generic click', () => {
+  it('ignores repeated range values and records separate final values', () => {
     const sendMessage = vi.fn();
     const controller = createRecorderController(sendMessage);
     const range = document.createElement('input');
     range.type = 'range';
-    const color = document.createElement('input');
-    color.type = 'color';
-    document.body.append(range, color);
+    document.body.append(range);
     connectController(controller);
     controller.setActive(true);
 
@@ -216,12 +214,10 @@ describe('semantic interaction recording', () => {
     range.value = '61';
     range.dispatchEvent(new InputEvent('input', { bubbles: true }));
     range.dispatchEvent(new Event('change', { bubbles: true }));
-    color.click();
 
     expect(sendMessage.mock.calls.map(([message]) => message.type)).toEqual([
       'RECORDED_RANGE_CHANGE',
       'RECORDED_RANGE_CHANGE',
-      'RECORDED_CLICK',
     ]);
     expect(sendMessage.mock.calls[1][0]).toMatchObject({
       payload: { value: { kind: 'plain', value: '61' } },
@@ -242,6 +238,87 @@ describe('semantic interaction recording', () => {
     controller.setActive(false);
     controller.setActive(true);
     range.dispatchEvent(new Event('change', { bubbles: true }));
+
+    expect(sendMessage).not.toHaveBeenCalled();
+  });
+
+  it('consolidates color input events without recording its click', () => {
+    const sendMessage = vi.fn();
+    const controller = createRecorderController(sendMessage);
+    const label = document.createElement('label');
+    label.textContent = 'Color Picker';
+    const color = document.createElement('input');
+    color.type = 'color';
+    label.append(color);
+    document.body.append(label);
+    connectController(controller);
+    controller.setActive(true);
+
+    color.click();
+    color.value = '#ff0000';
+    color.dispatchEvent(new InputEvent('input', { bubbles: true }));
+    color.value = '#663399';
+    color.dispatchEvent(new InputEvent('input', { bubbles: true }));
+    color.dispatchEvent(new Event('change', { bubbles: true }));
+    color.click();
+
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+    expect(sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'RECORDED_COLOR_CHANGE',
+        payload: expect.objectContaining({
+          schemaVersion: 8,
+          value: { kind: 'plain', value: '#663399' },
+        }),
+      }),
+    );
+  });
+
+  it('ignores a cancelled color click and repeated final values', () => {
+    const sendMessage = vi.fn();
+    const controller = createRecorderController(sendMessage);
+    const label = document.createElement('label');
+    const labelText = document.createElement('span');
+    labelText.textContent = 'Color Picker';
+    const color = document.createElement('input');
+    color.type = 'color';
+    label.append(labelText, color);
+    document.body.append(label);
+    connectController(controller);
+    controller.setActive(true);
+
+    labelText.click();
+    color.click();
+    color.value = '#112233';
+    color.dispatchEvent(new InputEvent('input', { bubbles: true }));
+    color.dispatchEvent(new Event('change', { bubbles: true }));
+    color.dispatchEvent(new InputEvent('input', { bubbles: true }));
+    color.dispatchEvent(new Event('change', { bubbles: true }));
+    color.value = '#445566';
+    color.dispatchEvent(new InputEvent('input', { bubbles: true }));
+    color.dispatchEvent(new Event('change', { bubbles: true }));
+
+    expect(sendMessage).toHaveBeenCalledTimes(2);
+    expect(sendMessage.mock.calls.map(([message]) => message.payload.value)).toEqual([
+      { kind: 'plain', value: '#112233' },
+      { kind: 'plain', value: '#445566' },
+    ]);
+  });
+
+  it('discards a pending color adjustment when recording stops', () => {
+    const sendMessage = vi.fn();
+    const controller = createRecorderController(sendMessage);
+    const color = document.createElement('input');
+    color.type = 'color';
+    document.body.append(color);
+    connectController(controller);
+    controller.setActive(true);
+
+    color.value = '#abcdef';
+    color.dispatchEvent(new InputEvent('input', { bubbles: true }));
+    controller.setActive(false);
+    controller.setActive(true);
+    color.dispatchEvent(new Event('change', { bubbles: true }));
 
     expect(sendMessage).not.toHaveBeenCalled();
   });

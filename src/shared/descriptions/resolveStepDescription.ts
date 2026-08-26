@@ -15,6 +15,7 @@ import type {
   StepTargetType,
 } from '../stepDescriptionTypes';
 import { createClickDescription } from './createClickDescription';
+import { createColorChangeDescription } from './createColorChangeDescription';
 import { createFieldFillDescription } from './createFieldFillDescription';
 import { createFocusNavigationDescription } from './createFocusNavigationDescription';
 import { createKeyPressDescription } from './createKeyPressDescription';
@@ -113,6 +114,7 @@ function isStepDescription(value: unknown): value is StepDescription {
 
   return (
     (value.action === 'click' ||
+      value.action === 'colorChange' ||
       value.action === 'focusNavigation' ||
       value.action === 'fieldFill' ||
       value.action === 'rangeChange' ||
@@ -328,7 +330,8 @@ export function resolveStepDescription(step: unknown): StepDescription {
     step.schemaVersion === 4 ||
     step.schemaVersion === 5 ||
     step.schemaVersion === 6 ||
-    step.schemaVersion === 7;
+    step.schemaVersion === 7 ||
+    step.schemaVersion === 8;
 
   if (!isKnownSchema) return createFallbackDescription();
 
@@ -336,7 +339,8 @@ export function resolveStepDescription(step: unknown): StepDescription {
     (step.schemaVersion === 4 ||
       step.schemaVersion === 5 ||
       step.schemaVersion === 6 ||
-      step.schemaVersion === 7) &&
+      step.schemaVersion === 7 ||
+      step.schemaVersion === 8) &&
     isStepDescription(step.description)
   ) {
     return step.description;
@@ -360,6 +364,13 @@ export function resolveStepDescription(step: unknown): StepDescription {
 
   if (step.type === 'range-change') {
     return createRangeChangeDescription({
+      ...descriptionInput,
+      value: getFieldValue(step),
+    });
+  }
+
+  if (step.type === 'color-change') {
+    return createColorChangeDescription({
       ...descriptionInput,
       value: getFieldValue(step),
     });
