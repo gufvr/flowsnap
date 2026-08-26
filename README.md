@@ -10,6 +10,8 @@ O Side Panel permite iniciar e parar uma sessão na aba ativa. O FlowSnap solici
 
 Cada passo armazena a URL, o horário, informações básicas do elemento e candidatos de seletor. `Tab` e `Shift+Tab` registram o elemento que recebeu foco. A digitação é consolidada em um único passo quando a alteração do campo é concluída, sem registrar cada tecla.
 
+Nos cliques, o FlowSnap prioriza o controle interativo nativo ou customizado que contém o ponto acionado. Containers estruturais sem sinais de interação são ignorados, evitando descrições extensas e seletores frágeis criados a partir do texto agregado da página.
+
 Senhas, códigos temporários, dados de pagamento, documentos pessoais, tokens e outros segredos reconhecidos são registrados somente como valores protegidos. O conteúdo, seu tamanho e qualquer máscara ou hash não são persistidos. Seleções, caixas de seleção e campos de arquivo não fazem parte da captura de preenchimento.
 
 Checkbox, radio e select são descritos pelo estado final, sem duplicar o clique ou a tecla que causou a mudança. `Enter`, `Space`, `Escape` e setas são registradas somente quando representam uma interação, sem transformar digitação comum ou movimentação do cursor em passos.
@@ -39,7 +41,7 @@ npm run build
 ```
 
 `npm run test:integration` executa a jornada da extensão com um Chrome em
-memória: início e parada da gravação, cliques, navegação por `Tab`, persistência,
+memória: início e parada da gravação, cliques, descarte de containers estruturais, navegação por `Tab`, persistência,
 atualização reativa do Side Panel, cópia de seletores, exclusão e limpeza. A
 regressão também carrega schemas 6, 5, 4, 3, 2, legado e registros incompletos,
 confirmando a leitura sem migração do storage.

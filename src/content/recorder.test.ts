@@ -177,6 +177,83 @@ describe('recording messages', () => {
 });
 
 describe('createRecorderController', () => {
+  it('ignores a direct click on a structural container with aggregate text', () => {
+    const sendMessage = vi.fn();
+    const controller = createRecorderController(sendMessage);
+    const container = document.createElement('section');
+    container.innerHTML = `
+      <h2>Gender (Radio Buttons)</h2>
+      <span>Male</span><span>Female</span><span>Other</span>
+      <h2>Skills (Checkboxes)</h2>
+      <span>Selenium</span><span>Playwright</span><span>Cypress</span>
+    `;
+    document.body.append(container);
+    connectController(controller);
+    controller.setActive(true);
+
+    container.click();
+
+    expect(sendMessage).not.toHaveBeenCalled();
+  });
+
+  it('records the interactive ancestor when a nested child receives the click', () => {
+    const sendMessage = vi.fn();
+    const controller = createRecorderController(sendMessage);
+    const button = document.createElement('button');
+    button.innerHTML = '<span>Salvar fluxo</span>';
+    const child = button.querySelector('span')!;
+    document.body.append(button);
+    connectController(controller);
+    controller.setActive(true);
+
+    child.click();
+
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+    expect(sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'RECORDED_CLICK',
+        payload: expect.objectContaining({
+          element: expect.objectContaining({ tagName: 'button' }),
+          description: expect.objectContaining({
+            text: 'Clicou no botão "Salvar fluxo"',
+          }),
+        }),
+      }),
+    );
+  });
+
+  it('uses a stable custom identifier instead of aggregate component text', () => {
+    const sendMessage = vi.fn();
+    const controller = createRecorderController(sendMessage);
+    const component = document.createElement('div');
+    component.dataset.testid = 'settings-card';
+    component.innerHTML = '<span>Conta</span><span>Segurança</span>';
+    const child = component.querySelector('span')!;
+    document.body.append(component);
+    connectController(controller);
+    controller.setActive(true);
+
+    child.click();
+
+    expect(sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload: expect.objectContaining({
+          element: { tagName: 'div', text: undefined, inputType: undefined },
+          selectors: expect.objectContaining({
+            recommended: expect.objectContaining({
+              strategy: 'testId',
+              value: 'settings-card',
+            }),
+          }),
+          description: expect.objectContaining({
+            text: 'Clicou no elemento "Settings card"',
+            source: 'testId',
+          }),
+        }),
+      }),
+    );
+  });
+
   it('consolidates multiple input events into one field fill on change', () => {
     const sendMessage = vi.fn();
     const controller = createRecorderController(sendMessage);

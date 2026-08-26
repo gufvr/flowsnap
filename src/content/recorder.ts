@@ -12,6 +12,7 @@ import {
   type CapturableField,
 } from './fieldCapture';
 import { buildSelectorCandidates } from './selectorCandidates';
+import { getClickTargetText, resolveClickTarget } from './clickTarget';
 import {
   captureSelectionControl,
   getSelectionSignature,
@@ -80,6 +81,13 @@ function getElementData(element: Element) {
   };
 }
 
+function getClickElementData(element: Element) {
+  return {
+    ...getElementData(element),
+    text: getClickTargetText(element),
+  };
+}
+
 function getEventElement(event: Event) {
   const pathElement = event
     .composedPath()
@@ -94,7 +102,7 @@ function getEventElement(event: Event) {
 
 export function createClickMessage(element: Element): ExtensionMessage {
   const selectors = buildSelectorCandidates(element);
-  const elementData = getElementData(element);
+  const elementData = getClickElementData(element);
 
   return {
     type: 'RECORDED_CLICK',
@@ -347,17 +355,20 @@ export function createRecorderController(
       }
     },
     handleClick(event) {
-      const element = getEventElement(event);
-      if (!controller.isActive || !element) return;
+      const eventElement = getEventElement(event);
+      if (!controller.isActive || !eventElement) return;
 
-      if (resolveSelectionControl(element)) return;
+      if (resolveSelectionControl(eventElement)) return;
 
       if (event.detail === 0 && syntheticClickTimeoutId !== undefined) {
         clearSyntheticClickSuppression();
         return;
       }
 
-      void sendMessage(createClickMessage(element));
+      const clickTarget = resolveClickTarget(eventElement);
+      if (!clickTarget) return;
+
+      void sendMessage(createClickMessage(clickTarget));
     },
     handleKeyDown(event) {
       if (!controller.isActive) return;

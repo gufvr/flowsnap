@@ -131,6 +131,34 @@ describe('buildSelectorCandidates', () => {
       'a:nth-of-type(2)',
     );
   });
+
+  it('does not create a text selector from aggregate descendant text', () => {
+    document.body.innerHTML = `
+      <div data-testid="preferences-card">
+        <h2>Preferences</h2><span>Theme</span><span>Notifications</span>
+      </div>
+    `;
+    const container = document.querySelector('div')!;
+    const analysis = buildSelectorCandidates(container);
+
+    expect(analysis.recommended).toMatchObject({
+      strategy: 'testId',
+      value: 'preferences-card',
+    });
+    expect(findCandidate(analysis, 'text')).toBeUndefined();
+  });
+
+  it('keeps a text selector for an explicitly interactive role', () => {
+    document.body.innerHTML = `
+      <div role="button"><span>Abrir preferências</span></div>
+    `;
+    const button = document.querySelector('div')!;
+
+    expect(findCandidate(buildSelectorCandidates(button), 'text')).toMatchObject({
+      strategy: 'text',
+      value: 'Abrir preferências',
+    });
+  });
 });
 
 describe('implicit input roles', () => {

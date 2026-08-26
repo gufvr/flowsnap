@@ -9,6 +9,7 @@ import {
   normalizeText,
 } from './elementSemantics';
 import { createSelectorAnalysis } from './selectorAnalysis';
+import { canUseTextSelector } from './clickTarget';
 import {
   validateSelectorCandidates,
   type SelectorCandidateDraft,
@@ -127,7 +128,7 @@ export function buildSelectorCandidates(element: Element): SelectorAnalysis {
     });
   }
 
-  if (accessibleName) {
+  if (accessibleName && canUseTextSelector(element, role ?? undefined)) {
     candidates.push({
       strategy: 'text',
       value: accessibleName,

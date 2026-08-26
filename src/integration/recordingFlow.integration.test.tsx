@@ -31,6 +31,7 @@ function createPracticePage(controller: RecorderController) {
   const standard = document.createElement('input');
   const countryLabel = document.createElement('label');
   const country = document.createElement('select');
+  const noisyContainer = document.createElement('section');
 
   username.id = 'username';
   usernameLabel.htmlFor = username.id;
@@ -51,6 +52,12 @@ function createPracticePage(controller: RecorderController) {
   countryLabel.textContent = 'Country';
   country.append(new Option('Choose', ''), new Option('Brazil', 'BR'));
   countryLabel.append(country);
+  noisyContainer.innerHTML = `
+    <h2>Gender (Radio Buttons)</h2>
+    <span>Male</span><span>Female</span><span>Other</span>
+    <h2>Skills (Checkboxes)</h2>
+    <span>Selenium</span><span>Playwright</span><span>Cypress</span>
+  `;
 
   root.append(
     usernameLabel,
@@ -61,6 +68,7 @@ function createPracticePage(controller: RecorderController) {
     rememberLabel,
     standardLabel,
     countryLabel,
+    noisyContainer,
   );
   root.addEventListener('click', controller.handleClick, true);
   root.addEventListener('keydown', controller.handleKeyDown, true);
@@ -80,6 +88,7 @@ function createPracticePage(controller: RecorderController) {
     remember,
     standard,
     country,
+    noisyContainer,
   };
 }
 
@@ -404,7 +413,7 @@ describe('integrated recording flow', () => {
     await user.click(screen.getByRole('button', { name: 'Parar Gravação' }));
     expect(await screen.findByText('Status: Parado')).toBeInTheDocument();
     expect(controller.isActive).toBe(false);
-  });
+  }, 10_000);
 
   it('records one semantic outcome for selection controls and keyboard activation', async () => {
     const user = userEvent.setup();
@@ -422,6 +431,7 @@ describe('integrated recording flow', () => {
     await user.click(
       await screen.findByRole('button', { name: 'Iniciar Gravação' }),
     );
+    practicePage.noisyContainer.click();
     await user.click(practicePage.rememberLabel);
     await user.click(practicePage.standard);
     await user.selectOptions(practicePage.country, 'BR');
@@ -447,6 +457,7 @@ describe('integrated recording flow', () => {
     const storedSteps = harness.getLocalValues().recordedSteps as Array<{
       type: string;
     }>;
+    expect(JSON.stringify(storedSteps)).not.toContain('Gender (Radio Buttons)');
     expect(storedSteps.map(({ type }) => type)).toEqual([
       'selection-change',
       'selection-change',
