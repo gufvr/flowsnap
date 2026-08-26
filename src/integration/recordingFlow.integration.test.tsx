@@ -255,6 +255,21 @@ function createMixedSchemaSteps() {
       },
     },
     {
+      schemaVersion: 10,
+      id: 'schema-10-reload',
+      type: 'navigation',
+      url: 'https://qapracticehub.com/account',
+      timestamp: 6,
+      fromUrl: 'https://qapracticehub.com/account',
+      toUrl: 'https://qapracticehub.com/account',
+      trigger: 'reload',
+      description: {
+        action: 'navigation',
+        text: 'Recarregou "/account"',
+        locale: 'pt-BR',
+      },
+    },
+    {
       schemaVersion: 8,
       id: 'schema-8-color',
       type: 'color-change',
@@ -673,6 +688,89 @@ describe('integrated recording flow', () => {
     });
   });
 
+  it('records complete navigation and reload while resuming capture in each document', async () => {
+    const user = userEvent.setup();
+    harness = createChromeExtensionHarness();
+    harness.install();
+    await import('../background');
+    renderSidePanel();
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Iniciar Gravação' }),
+    );
+
+    harness.emitCommitted('https://qapracticehub.com/account', {
+      documentId: 'document-account',
+      timeStamp: 100,
+      transitionType: 'link',
+    });
+    const accountController = createRecorderController((message) =>
+      harness?.sendFromTab(message),
+    );
+    harness.connectRecorder(accountController);
+    practicePage = createPracticePage(accountController);
+    harness.emitDOMContentLoaded('https://qapracticehub.com/account', {
+      documentId: 'document-account',
+      timeStamp: 110,
+    });
+
+    expect(
+      await screen.findByText('Navegou para "/account"'),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(accountController.isActive).toBe(true));
+    await user.click(practicePage.login);
+    expect(
+      await screen.findByText('Clicou no botão "Login"'),
+    ).toBeInTheDocument();
+
+    harness.emitCommitted('https://qapracticehub.com/account', {
+      documentId: 'document-reload',
+      timeStamp: 200,
+      transitionType: 'reload',
+    });
+    practicePage.root.remove();
+    const reloadController = createRecorderController((message) =>
+      harness?.sendFromTab(message),
+    );
+    harness.connectRecorder(reloadController);
+    practicePage = createPracticePage(reloadController);
+    harness.emitCompleted('https://qapracticehub.com/account', {
+      documentId: 'document-reload',
+      timeStamp: 220,
+    });
+
+    expect(
+      await screen.findByText('Recarregou "/account"'),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(reloadController.isActive).toBe(true));
+    await user.click(practicePage.username);
+
+    expect(
+      await screen.findByText('Clicou no campo "Username"'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('4 passos capturados')).toBeInTheDocument();
+    expect(harness.executeScript).toHaveBeenCalledTimes(3);
+    expect(harness.getLocalValues().recordingState).toMatchObject({
+      isRecording: true,
+      currentUrl: 'https://qapracticehub.com/account',
+      currentDocumentId: 'document-reload',
+      recorderDocumentId: 'document-reload',
+    });
+    expect(
+      (
+        harness.getLocalValues().recordedSteps as Array<{
+          schemaVersion: number;
+          type: string;
+        }>
+      ).map(({ schemaVersion, type }) => ({ schemaVersion, type })),
+    ).toEqual([
+      { schemaVersion: 10, type: 'navigation' },
+      { schemaVersion: 4, type: 'click' },
+      { schemaVersion: 10, type: 'navigation' },
+      { schemaVersion: 4, type: 'click' },
+    ]);
+  });
+
   it('reads mixed and incomplete schemas without migrating their storage', async () => {
     const user = userEvent.setup();
     const mixedSteps = createMixedSchemaSteps();
@@ -687,7 +785,7 @@ describe('integrated recording flow', () => {
     await import('../background');
     renderSidePanel();
 
-    expect(await screen.findByText('12 passos capturados')).toBeInTheDocument();
+    expect(await screen.findByText('13 passos capturados')).toBeInTheDocument();
     expect(screen.getByText('Clicou no botão "Login"')).toBeInTheDocument();
     expect(
       screen.getByText('Navegou para o campo "Password"'),
@@ -719,7 +817,8 @@ describe('integrated recording flow', () => {
       ),
     ).toBeInTheDocument();
     expect(screen.getByText('Navegou para "/#buttons"')).toBeInTheDocument();
-    expect(screen.getAllByText('Seletor indisponível')).toHaveLength(2);
+    expect(screen.getByText('Recarregou "/account"')).toBeInTheDocument();
+    expect(screen.getAllByText('Seletor indisponível')).toHaveLength(3);
     expect(harness.localSet).not.toHaveBeenCalled();
     expect(harness.getLocalValues().recordedSteps).toEqual(originalSteps);
 
@@ -728,18 +827,18 @@ describe('integrated recording flow', () => {
       'data-testid=login-submit',
     );
 
-    await user.click(screen.getByRole('button', { name: 'Excluir passo 12' }));
+    await user.click(screen.getByRole('button', { name: 'Excluir passo 13' }));
     await user.click(
       within(
-        screen.getByRole('group', { name: 'Confirmar exclusão do passo 12' }),
+        screen.getByRole('group', { name: 'Confirmar exclusão do passo 13' }),
       ).getByRole('button', { name: 'Excluir passo' }),
     );
 
     await waitFor(() =>
-      expect(screen.getByText('11 passos capturados')).toBeInTheDocument(),
+      expect(screen.getByText('12 passos capturados')).toBeInTheDocument(),
     );
     expect(harness.getLocalValues().recordedSteps).toEqual(
-      originalSteps.slice(0, 11),
+      originalSteps.slice(0, 12),
     );
 
     await user.click(screen.getByRole('button', { name: 'Limpar tudo' }));

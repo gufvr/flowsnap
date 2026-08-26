@@ -24,6 +24,8 @@ describe('recordingStorage', () => {
         tabId: 21,
         origin: 'https://example.com',
         currentUrl: 'https://example.com/#forms',
+        currentDocumentId: 'document-current',
+        recorderDocumentId: 'document-recorder',
       },
     });
 
@@ -32,6 +34,8 @@ describe('recordingStorage', () => {
       tabId: 21,
       origin: 'https://example.com',
       currentUrl: 'https://example.com/#forms',
+      currentDocumentId: 'document-current',
+      recorderDocumentId: 'document-recorder',
     });
   });
 

@@ -13,6 +13,9 @@ const actionOnClicked = vi.fn();
 const runtimeOnInstalled = vi.fn();
 const runtimeOnStartup = vi.fn();
 const runtimeOnMessage = vi.fn();
+const navigationCommitted = vi.fn();
+const navigationDOMContentLoaded = vi.fn();
+const navigationCompleted = vi.fn();
 const historyStateUpdated = vi.fn();
 const referenceFragmentUpdated = vi.fn();
 const openSidePanel = vi.fn();
@@ -21,6 +24,8 @@ const getSessionStorage = vi.fn();
 const setSessionStorage = vi.fn();
 const getLocalStorage = vi.fn();
 const setLocalStorage = vi.fn();
+const executeScript = vi.fn();
+const tabsSendMessage = vi.fn();
 
 let localStorageData: Record<string, unknown>;
 
@@ -195,6 +200,9 @@ describe('extension action', () => {
     runtimeOnInstalled.mockReset();
     runtimeOnStartup.mockReset();
     runtimeOnMessage.mockReset();
+    navigationCommitted.mockReset();
+    navigationDOMContentLoaded.mockReset();
+    navigationCompleted.mockReset();
     historyStateUpdated.mockReset();
     referenceFragmentUpdated.mockReset();
     openSidePanel.mockReset();
@@ -203,6 +211,8 @@ describe('extension action', () => {
     setSessionStorage.mockReset();
     getLocalStorage.mockReset();
     setLocalStorage.mockReset();
+    executeScript.mockReset();
+    tabsSendMessage.mockReset();
     localStorageData = {};
     openSidePanel.mockResolvedValue(undefined);
     getSessionStorage.mockResolvedValue({});
@@ -219,6 +229,8 @@ describe('extension action', () => {
       Object.assign(localStorageData, values);
       return Promise.resolve();
     });
+    executeScript.mockResolvedValue(undefined);
+    tabsSendMessage.mockResolvedValue({ success: true });
 
     vi.stubGlobal('chrome', {
       action: { onClicked: { addListener: actionOnClicked } },
@@ -232,9 +244,12 @@ describe('extension action', () => {
         session: { get: getSessionStorage, set: setSessionStorage },
         local: { get: getLocalStorage, set: setLocalStorage },
       },
-      scripting: { executeScript: vi.fn() },
-      tabs: { sendMessage: vi.fn() },
+      scripting: { executeScript },
+      tabs: { sendMessage: tabsSendMessage },
       webNavigation: {
+        onCommitted: { addListener: navigationCommitted },
+        onDOMContentLoaded: { addListener: navigationDOMContentLoaded },
+        onCompleted: { addListener: navigationCompleted },
         onHistoryStateUpdated: { addListener: historyStateUpdated },
         onReferenceFragmentUpdated: { addListener: referenceFragmentUpdated },
       },
@@ -670,5 +685,205 @@ describe('extension action', () => {
     expect(localStorageData.recordedSteps).toEqual([
       createRecordedClick('existing'),
     ]);
+  });
+
+  it('stores one schema 10 step per committed document, including reloads', async () => {
+    localStorageData = {
+      recordingState: {
+        isRecording: true,
+        tabId: 21,
+        origin: 'https://example.com',
+        currentUrl: 'https://example.com/start',
+      },
+      recordedSteps: [],
+    };
+    const listener = navigationCommitted.mock.calls[0][0];
+    const nextDocument = {
+      tabId: 21,
+      frameId: 0,
+      documentId: 'document-next',
+      documentLifecycle: 'active',
+      url: 'https://example.com/next',
+      timeStamp: 100,
+      transitionType: 'link',
+      transitionQualifiers: [],
+    };
+
+    listener(nextDocument);
+    listener(nextDocument);
+    listener({
+      ...nextDocument,
+      documentId: 'document-reload',
+      timeStamp: 200,
+      transitionType: 'reload',
+    });
+
+    await vi.waitFor(() =>
+      expect(localStorageData.recordedSteps).toHaveLength(2),
+    );
+    expect(
+      (localStorageData.recordedSteps as Array<Record<string, unknown>>).map(
+        ({ schemaVersion, fromUrl, toUrl, trigger }) => ({
+          schemaVersion,
+          fromUrl,
+          toUrl,
+          trigger,
+        }),
+      ),
+    ).toEqual([
+      {
+        schemaVersion: 10,
+        fromUrl: 'https://example.com/start',
+        toUrl: 'https://example.com/next',
+        trigger: 'document',
+      },
+      {
+        schemaVersion: 10,
+        fromUrl: 'https://example.com/next',
+        toUrl: 'https://example.com/next',
+        trigger: 'reload',
+      },
+    ]);
+    expect(localStorageData.recordingState).toEqual({
+      isRecording: true,
+      tabId: 21,
+      origin: 'https://example.com',
+      currentUrl: 'https://example.com/next',
+      currentDocumentId: 'document-reload',
+    });
+  });
+
+  it('reinjects once when the committed document becomes ready', async () => {
+    localStorageData = {
+      recordingState: {
+        isRecording: true,
+        tabId: 21,
+        origin: 'https://example.com',
+        currentUrl: 'https://example.com/next',
+        currentDocumentId: 'document-next',
+      },
+      recordedSteps: [],
+    };
+    const readyDetails = {
+      tabId: 21,
+      frameId: 0,
+      documentId: 'document-next',
+      documentLifecycle: 'active',
+      url: 'https://example.com/next',
+      timeStamp: 120,
+    };
+
+    navigationDOMContentLoaded.mock.calls[0][0](readyDetails);
+    navigationCompleted.mock.calls[0][0](readyDetails);
+
+    await vi.waitFor(() =>
+      expect(localStorageData.recordingState).toMatchObject({
+        recorderDocumentId: 'document-next',
+      }),
+    );
+    expect(executeScript).toHaveBeenCalledOnce();
+    expect(executeScript).toHaveBeenCalledWith({
+      target: { tabId: 21 },
+      files: ['assets/recorder.js'],
+    });
+    expect(tabsSendMessage).toHaveBeenCalledOnce();
+    expect(tabsSendMessage).toHaveBeenCalledWith(21, {
+      type: 'ACTIVATE_CLICK_RECORDER',
+    });
+  });
+
+  it('retries reinjection on completion after DOM-ready injection fails', async () => {
+    executeScript.mockRejectedValueOnce(new Error('Document not ready'));
+    localStorageData = {
+      recordingState: {
+        isRecording: true,
+        tabId: 21,
+        origin: 'https://example.com',
+        currentUrl: 'https://example.com/next',
+        currentDocumentId: 'document-next',
+      },
+      recordedSteps: [],
+    };
+    const details = {
+      tabId: 21,
+      frameId: 0,
+      documentId: 'document-next',
+      documentLifecycle: 'active',
+      url: 'https://example.com/next',
+      timeStamp: 120,
+    };
+
+    navigationDOMContentLoaded.mock.calls[0][0](details);
+    navigationCompleted.mock.calls[0][0](details);
+
+    await vi.waitFor(() => expect(executeScript).toHaveBeenCalledTimes(2));
+    expect(tabsSendMessage).toHaveBeenCalledOnce();
+    expect(localStorageData.recordingState).toMatchObject({
+      recorderDocumentId: 'document-next',
+    });
+  });
+
+  it('ignores documents outside the recorded tab, frame, lifecycle or origin', async () => {
+    localStorageData = {
+      recordingState: {
+        isRecording: true,
+        tabId: 21,
+        origin: 'https://example.com',
+        currentUrl: 'https://example.com/start',
+      },
+      recordedSteps: [],
+    };
+    const listener = navigationCommitted.mock.calls[0][0];
+    const details = {
+      tabId: 21,
+      frameId: 0,
+      documentId: 'ignored-document',
+      documentLifecycle: 'active',
+      url: 'https://example.com/ignored',
+      timeStamp: 100,
+      transitionType: 'link',
+      transitionQualifiers: [],
+    };
+
+    listener({ ...details, tabId: 99 });
+    listener({ ...details, frameId: 2 });
+    listener({ ...details, documentLifecycle: 'prerender' });
+    listener({ ...details, url: 'https://other.example/ignored' });
+
+    await vi.waitFor(() => expect(getLocalStorage).toHaveBeenCalledTimes(2));
+    expect(localStorageData.recordedSteps).toEqual([]);
+    expect(setLocalStorage).not.toHaveBeenCalled();
+    expect(executeScript).not.toHaveBeenCalled();
+  });
+
+  it('does not resume a stale document or a stopped recording', async () => {
+    localStorageData = {
+      recordingState: {
+        isRecording: true,
+        tabId: 21,
+        origin: 'https://example.com',
+        currentUrl: 'https://example.com/current',
+        currentDocumentId: 'document-current',
+      },
+      recordedSteps: [],
+    };
+    const listener = navigationCompleted.mock.calls[0][0];
+    const details = {
+      tabId: 21,
+      frameId: 0,
+      documentId: 'document-stale',
+      documentLifecycle: 'active',
+      url: 'https://example.com/stale',
+      timeStamp: 120,
+    };
+
+    listener(details);
+    await vi.waitFor(() => expect(getLocalStorage).toHaveBeenCalledTimes(1));
+    localStorageData.recordingState = { isRecording: false };
+    listener({ ...details, documentId: 'document-current' });
+
+    await vi.waitFor(() => expect(getLocalStorage).toHaveBeenCalledTimes(2));
+    expect(executeScript).not.toHaveBeenCalled();
+    expect(tabsSendMessage).not.toHaveBeenCalled();
   });
 });

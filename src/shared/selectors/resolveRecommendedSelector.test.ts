@@ -98,6 +98,15 @@ describe('resolveRecommendedSelector', () => {
     ).toBeUndefined();
     expect(
       resolveRecommendedSelector({
+        schemaVersion: 10,
+        type: 'navigation',
+        selectors: {
+          recommended: { strategy: 'css', value: 'body' },
+        },
+      }),
+    ).toBeUndefined();
+    expect(
+      resolveRecommendedSelector({
         schemaVersion: 99,
         selectors: { recommended: { strategy: 'css', value: 'button' } },
       }),

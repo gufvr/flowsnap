@@ -1,4 +1,5 @@
 import type {
+  DocumentNavigationTrigger,
   InteractionKey,
   NavigationTrigger,
   RecordedFieldValue,
@@ -87,6 +88,12 @@ const INTERACTION_KEYS: InteractionKey[] = [
 const NAVIGATION_TRIGGERS: NavigationTrigger[] = [
   'fragment',
   'history-api',
+  'history-traversal',
+];
+
+const DOCUMENT_NAVIGATION_TRIGGERS: DocumentNavigationTrigger[] = [
+  'document',
+  'reload',
   'history-traversal',
 ];
 
@@ -350,7 +357,8 @@ export function resolveStepDescription(step: unknown): StepDescription {
     step.schemaVersion === 6 ||
     step.schemaVersion === 7 ||
     step.schemaVersion === 8 ||
-    step.schemaVersion === 9;
+    step.schemaVersion === 9 ||
+    step.schemaVersion === 10;
 
   if (!isKnownSchema) return createFallbackDescription();
 
@@ -360,7 +368,8 @@ export function resolveStepDescription(step: unknown): StepDescription {
       step.schemaVersion === 6 ||
       step.schemaVersion === 7 ||
       step.schemaVersion === 8 ||
-      step.schemaVersion === 9) &&
+      step.schemaVersion === 9 ||
+      step.schemaVersion === 10) &&
     isStepDescription(step.description)
   ) {
     return step.description;
@@ -372,6 +381,15 @@ export function resolveStepDescription(step: unknown): StepDescription {
   };
 
   if (step.type === 'navigation') {
+    const trigger =
+      step.schemaVersion === 10
+        ? includesValue(DOCUMENT_NAVIGATION_TRIGGERS, step.trigger)
+          ? step.trigger
+          : undefined
+        : includesValue(NAVIGATION_TRIGGERS, step.trigger)
+          ? step.trigger
+          : undefined;
+
     return createNavigationDescription({
       fromUrl: isString(step.fromUrl) ? step.fromUrl : undefined,
       toUrl: isString(step.toUrl)
@@ -379,9 +397,7 @@ export function resolveStepDescription(step: unknown): StepDescription {
         : isString(step.url)
           ? step.url
           : undefined,
-      trigger: includesValue(NAVIGATION_TRIGGERS, step.trigger)
-        ? step.trigger
-        : undefined,
+      trigger,
     });
   }
 

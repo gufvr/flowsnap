@@ -19,6 +19,9 @@ interface WebNavigationDetails {
   url: string
   timeStamp: number
   transitionQualifiers: string[]
+  documentId?: string
+  documentLifecycle?: string
+  transitionType?: string
 }
 
 type WebNavigationListener = (details: WebNavigationDetails) => void
@@ -85,6 +88,9 @@ export function createChromeExtensionHarness(
   const storageListeners = new Set<StorageListener>()
   const recorders = new Map<number, RecorderController>()
   let runtimeListener: RuntimeListener | undefined
+  let committedListener: WebNavigationListener | undefined
+  let domContentLoadedListener: WebNavigationListener | undefined
+  let completedListener: WebNavigationListener | undefined
   let historyStateUpdatedListener: WebNavigationListener | undefined
   let referenceFragmentUpdatedListener: WebNavigationListener | undefined
   let originalClipboardDescriptor: PropertyDescriptor | undefined
@@ -200,6 +206,21 @@ export function createChromeExtensionHarness(
       sendMessage: tabsSendMessage,
     },
     webNavigation: {
+      onCommitted: {
+        addListener: vi.fn((listener: WebNavigationListener) => {
+          committedListener = listener
+        }),
+      },
+      onDOMContentLoaded: {
+        addListener: vi.fn((listener: WebNavigationListener) => {
+          domContentLoadedListener = listener
+        }),
+      },
+      onCompleted: {
+        addListener: vi.fn((listener: WebNavigationListener) => {
+          completedListener = listener
+        }),
+      },
       onHistoryStateUpdated: {
         addListener: vi.fn((listener: WebNavigationListener) => {
           historyStateUpdatedListener = listener
@@ -251,6 +272,52 @@ export function createChromeExtensionHarness(
       }
     },
     executeScript,
+    emitCommitted(
+      destinationUrl: string,
+      details: Partial<Omit<WebNavigationDetails, 'url'>> = {},
+    ) {
+      committedListener?.({
+        tabId,
+        frameId: 0,
+        documentId: 'document-committed',
+        documentLifecycle: 'active',
+        timeStamp: Date.now(),
+        transitionQualifiers: [],
+        transitionType: 'link',
+        ...details,
+        url: destinationUrl,
+      })
+    },
+    emitCompleted(
+      destinationUrl: string,
+      details: Partial<Omit<WebNavigationDetails, 'url'>> = {},
+    ) {
+      completedListener?.({
+        tabId,
+        frameId: 0,
+        documentId: 'document-committed',
+        documentLifecycle: 'active',
+        timeStamp: Date.now(),
+        transitionQualifiers: [],
+        ...details,
+        url: destinationUrl,
+      })
+    },
+    emitDOMContentLoaded(
+      destinationUrl: string,
+      details: Partial<Omit<WebNavigationDetails, 'url'>> = {},
+    ) {
+      domContentLoadedListener?.({
+        tabId,
+        frameId: 0,
+        documentId: 'document-committed',
+        documentLifecycle: 'active',
+        timeStamp: Date.now(),
+        transitionQualifiers: [],
+        ...details,
+        url: destinationUrl,
+      })
+    },
     emitHistoryStateUpdated(
       destinationUrl: string,
       details: Partial<Omit<WebNavigationDetails, 'url'>> = {},

@@ -14,6 +14,8 @@ export interface RecordingState {
   tabId?: number;
   origin?: string;
   currentUrl?: string;
+  currentDocumentId?: string;
+  recorderDocumentId?: string;
 }
 
 export interface ActiveTabContext {
@@ -206,6 +208,23 @@ export interface RecordedNavigation {
   description: NavigationStepDescription;
 }
 
+export type DocumentNavigationTrigger =
+  | 'document'
+  | 'reload'
+  | 'history-traversal';
+
+export interface RecordedDocumentNavigation {
+  schemaVersion: 10;
+  id: string;
+  type: 'navigation';
+  url: string;
+  timestamp: number;
+  fromUrl: string;
+  toUrl: string;
+  trigger: DocumentNavigationTrigger;
+  description: NavigationStepDescription;
+}
+
 export type RecordedSelectValue =
   | {
       kind: 'plain';
@@ -286,6 +305,7 @@ export type RecordedStep =
   | RecordedRangeChange
   | RecordedColorChange
   | RecordedNavigation
+  | RecordedDocumentNavigation
   | RecordedSelectionChange
   | RecordedKeyPress
   | RecordedClickV3

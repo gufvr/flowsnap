@@ -26,6 +26,16 @@ describe('createNavigationDescription', () => {
     ).toBe('Navegou pelo histórico para "/previous"');
   });
 
+  it('describes a full document reload', () => {
+    expect(
+      createNavigationDescription({
+        fromUrl: 'https://example.com/account',
+        toUrl: 'https://example.com/account',
+        trigger: 'reload',
+      }).text,
+    ).toBe('Recarregou "/account"');
+  });
+
   it('falls back safely when the destination is incomplete', () => {
     expect(createNavigationDescription({}).text).toBe(
       'Navegou para uma nova URL',

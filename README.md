@@ -6,7 +6,7 @@
 
 Esse projeto é uma extensão Chrome pensada para gravar fluxos de navegação e, futuramente, exportá-los como testes automatizados para Cypress e Playwright.
 
-O Side Panel permite iniciar e parar uma sessão na aba ativa. O FlowSnap solicita acesso somente ao site atual e registra cliques, preenchimentos de campos, ajustes de range, seleções de cor, seleções, mudanças em checkbox e radio, teclas de interação, navegações por `Tab` e mudanças de URL na mesma página localmente no navegador.
+O Side Panel permite iniciar e parar uma sessão na aba ativa. O FlowSnap solicita acesso somente ao site atual e registra cliques, preenchimentos de campos, ajustes de range, seleções de cor, seleções, mudanças em checkbox e radio, teclas de interação, navegações por `Tab`, mudanças de URL na mesma página, carregamentos de novos documentos e recarregamentos localmente no navegador.
 
 Cada passo armazena a URL, o horário, informações básicas do elemento e candidatos de seletor. `Tab` e `Shift+Tab` registram o elemento que recebeu foco. A digitação é consolidada em um único passo quando a alteração do campo é concluída, sem registrar cada tecla.
 
@@ -20,7 +20,7 @@ Ranges nativos são consolidados pelo valor final de cada alteração. Os evento
 
 Seletores de cor nativos também são consolidados no valor final confirmado. Os eventos intermediários e o clique que abre o seletor não criam passos adicionais, e cancelar sem alterar a cor não registra uma ação.
 
-Mudanças de fragmento e da History API na aba gravada geram passos de navegação sem seletor. Eventos duplicados, iframes, outras abas, recarregamentos e carregamentos de novos documentos não fazem parte desta primeira release. O FlowSnap usa a permissão `webNavigation` somente para observar essas mudanças de URL.
+Mudanças de fragmento e da History API na aba gravada geram passos de navegação sem seletor. Navegações completas e recarregamentos na mesma origem autorizada também são registrados, e o recorder é retomado automaticamente quando o novo documento fica disponível. O `documentId` do Chrome evita duplicidade entre eventos de carregamento. Iframes, outras abas, novas janelas e outras origens permanecem fora da gravação. O FlowSnap usa a permissão `webNavigation` somente para observar essas mudanças de URL.
 
 No Side Panel, cada passo pode ter seu seletor recomendado copiado ou ser excluído após confirmação. Também é possível limpar toda a lista sem interromper uma gravação ativa.
 
@@ -47,13 +47,13 @@ npm run build
 ```
 
 `npm run test:integration` executa a jornada da extensão com um Chrome em
-memória: início e parada da gravação, cliques, descarte de containers estruturais, navegação por `Tab`, mudanças de URL na mesma página, persistência,
+memória: início e parada da gravação, cliques, descarte de containers estruturais, navegação por `Tab`, mudanças de URL na mesma página, navegações completas, recarregamentos, retomada do recorder, persistência,
 atualização reativa do Side Panel, cópia de seletores, exclusão e limpeza. A
-regressão também carrega schemas 9, 8, 7, 6, 5, 4, 3, 2, legado e registros incompletos,
+regressão também carrega schemas 10, 9, 8, 7, 6, 5, 4, 3, 2, legado e registros incompletos,
 confirmando a leitura sem migração do storage.
 
 O harness substitui somente as fronteiras fornecidas pelo navegador, como
-`chrome.runtime`, `chrome.storage`, permissões, aba e clipboard. Os módulos do
+`chrome.runtime`, `chrome.storage`, `chrome.webNavigation`, permissões, aba e clipboard. Os módulos do
 FlowSnap usados no fluxo permanecem reais.
 
 ## Carregando a extensão no Chrome

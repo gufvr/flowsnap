@@ -1,4 +1,5 @@
 import type {
+  DocumentNavigationTrigger,
   NavigationTrigger,
 } from '../recordingTypes';
 import type { NavigationStepDescription } from '../stepDescriptionTypes';
@@ -8,7 +9,7 @@ const MAX_DESTINATION_LENGTH = 200;
 export interface NavigationDescriptionInput {
   fromUrl?: string;
   toUrl?: string;
-  trigger?: NavigationTrigger;
+  trigger?: NavigationTrigger | DocumentNavigationTrigger;
 }
 
 function formatDestination(fromUrl?: string, toUrl?: string) {
@@ -36,7 +37,11 @@ export function createNavigationDescription({
   const destination = formatDestination(fromUrl, toUrl);
   let text: string;
 
-  if (trigger === 'history-traversal') {
+  if (trigger === 'reload') {
+    text = destination
+      ? `Recarregou "${destination}"`
+      : 'Recarregou a página';
+  } else if (trigger === 'history-traversal') {
     text = destination
       ? `Navegou pelo histórico para "${destination}"`
       : 'Navegou pelo histórico';

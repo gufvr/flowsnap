@@ -6,7 +6,9 @@ import {
   persistActiveTabContext,
 } from './services/activeTabContext';
 import {
+  createRecordedDocumentNavigation,
   createRecordedNavigation,
+  type CommittedDocumentNavigationDetails,
   type SameDocumentNavigationDetails,
   type SameDocumentNavigationSource,
 } from './services/navigationCapture';
@@ -206,6 +208,35 @@ interface WebNavigationDetails extends SameDocumentNavigationDetails {
   frameId: number;
 }
 
+interface CommittedWebNavigationDetails
+  extends CommittedDocumentNavigationDetails {
+  tabId: number;
+  frameId: number;
+  documentLifecycle: string;
+}
+
+interface ReadyWebNavigationDetails {
+  tabId: number;
+  frameId: number;
+  documentId: string;
+  documentLifecycle: string;
+  url: string;
+}
+
+function isHttpOrigin(url: string, origin?: string) {
+  if (!origin) return false;
+
+  try {
+    const parsedUrl = new URL(url);
+    return (
+      (parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:') &&
+      parsedUrl.origin === origin
+    );
+  } catch {
+    return false;
+  }
+}
+
 async function appendSameDocumentNavigation(
   details: WebNavigationDetails,
   source: SameDocumentNavigationSource,
@@ -251,6 +282,105 @@ function recordSameDocumentNavigation(
     appendSameDocumentNavigation(details, source),
   ).catch(() => undefined);
 }
+
+async function appendCommittedDocumentNavigation(
+  details: CommittedWebNavigationDetails,
+) {
+  const result = await chrome.storage.local.get([
+    RECORDING_STATE_KEY,
+    RECORDED_STEPS_KEY,
+  ]);
+  const state = result[RECORDING_STATE_KEY] as RecordingState | undefined;
+
+  if (
+    !state?.isRecording ||
+    state.tabId !== details.tabId ||
+    state.currentDocumentId === details.documentId ||
+    !isHttpOrigin(details.url, state.origin)
+  ) {
+    return;
+  }
+
+  const nextState: RecordingState = {
+    ...state,
+    currentUrl: details.url,
+    currentDocumentId: details.documentId,
+  };
+  delete nextState.recorderDocumentId;
+
+  if (!state.currentUrl) {
+    await chrome.storage.local.set({ [RECORDING_STATE_KEY]: nextState });
+    return;
+  }
+
+  const storedSteps = result[RECORDED_STEPS_KEY];
+  const steps: RecordedStep[] = Array.isArray(storedSteps) ? storedSteps : [];
+  const navigation = createRecordedDocumentNavigation(state.currentUrl, details);
+
+  await chrome.storage.local.set({
+    [RECORDING_STATE_KEY]: nextState,
+    [RECORDED_STEPS_KEY]: [...steps, navigation],
+  });
+}
+
+function recordCommittedDocumentNavigation(
+  details: CommittedWebNavigationDetails,
+) {
+  if (details.frameId !== 0 || details.documentLifecycle !== 'active') return;
+
+  void enqueueRecordedStepOperation(() =>
+    appendCommittedDocumentNavigation(details),
+  ).catch(() => undefined);
+}
+
+async function resumeRecorderInDocument(details: ReadyWebNavigationDetails) {
+  const result = await chrome.storage.local.get(RECORDING_STATE_KEY);
+  const state = result[RECORDING_STATE_KEY] as RecordingState | undefined;
+
+  if (
+    !state?.isRecording ||
+    state.tabId !== details.tabId ||
+    state.currentDocumentId !== details.documentId ||
+    state.recorderDocumentId === details.documentId ||
+    !isHttpOrigin(details.url, state.origin)
+  ) {
+    return;
+  }
+
+  await chrome.scripting.executeScript({
+    target: { tabId: details.tabId },
+    files: ['assets/recorder.js'],
+  });
+  await chrome.tabs.sendMessage(details.tabId, {
+    type: 'ACTIVATE_CLICK_RECORDER',
+  });
+  await chrome.storage.local.set({
+    [RECORDING_STATE_KEY]: {
+      ...state,
+      recorderDocumentId: details.documentId,
+    },
+  });
+}
+
+function recordDocumentReady(details: ReadyWebNavigationDetails) {
+  if (details.frameId !== 0 || details.documentLifecycle !== 'active') return;
+
+  void enqueueRecordedStepOperation(() =>
+    resumeRecorderInDocument(details),
+  ).catch(() => undefined);
+}
+
+chrome.webNavigation.onCommitted.addListener((details) => {
+  recordCommittedDocumentNavigation(details);
+});
+
+chrome.webNavigation.onDOMContentLoaded.addListener((details) => {
+  recordDocumentReady(details);
+});
+
+chrome.webNavigation.onCompleted.addListener((details) => {
+  recordDocumentReady(details);
+});
 
 chrome.webNavigation.onHistoryStateUpdated.addListener((details) => {
   recordSameDocumentNavigation(details, 'history-api');
