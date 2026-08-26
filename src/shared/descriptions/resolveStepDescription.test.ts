@@ -136,6 +136,42 @@ describe('resolveStepDescription', () => {
     ).toBe('Clicou em um elemento');
   });
 
+  it('uses and safely rebuilds schema 7 range descriptions', () => {
+    const description = {
+      action: 'rangeChange' as const,
+      target: { type: 'field' as const, name: 'Experience' },
+      source: 'label' as const,
+      text: 'Ajustou o controle deslizante "Experience" para "7"',
+      locale: 'pt-BR' as const,
+    };
+
+    expect(
+      resolveStepDescription({
+        schemaVersion: 7,
+        type: 'range-change',
+        description,
+      }),
+    ).toBe(description);
+
+    expect(
+      resolveStepDescription({
+        schemaVersion: 7,
+        type: 'range-change',
+        selectors: {
+          recommended: {
+            strategy: 'label',
+            value: 'Experience',
+            isUnique: true,
+          },
+        },
+        element: { tagName: 'input', inputType: 'range' },
+        value: { corrupted: true },
+      }).text,
+    ).toBe(
+      'Ajustou o controle deslizante "Experience" para um valor protegido',
+    );
+  });
+
   it('rebuilds an incomplete focus navigation description safely', () => {
     const step = {
       schemaVersion: 4,
@@ -258,6 +294,19 @@ describe('resolveStepDescription', () => {
   it('resolves a mixed list without changing its order or records', () => {
     const steps = [
       {
+        schemaVersion: 7,
+        type: 'range-change',
+        selectors: {
+          recommended: {
+            strategy: 'label',
+            value: 'Experience',
+            isUnique: true,
+          },
+        },
+        element: { tagName: 'input', inputType: 'range' },
+        value: { kind: 'plain', value: '7' },
+      },
+      {
         schemaVersion: 6,
         type: 'selection-change',
         selectors: {
@@ -302,6 +351,7 @@ describe('resolveStepDescription', () => {
     const originalSteps = structuredClone(steps);
 
     expect(steps.map(resolveStepDescription).map(({ text }) => text)).toEqual([
+      'Ajustou o controle deslizante "Experience" para "7"',
       'Marcou a caixa de seleção "Remember me"',
       'Preencheu o campo "Username" com "tester"',
       'Clicou no botão "Entrar"',

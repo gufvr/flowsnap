@@ -4,6 +4,7 @@ import type {
   RecordedClick,
   RecordedFieldFill,
   RecordedKeyPress,
+  RecordedRangeChange,
   RecordedSelectionChange,
 } from './shared/recordingTypes';
 
@@ -124,6 +125,28 @@ function createRecordedKeyPress(id: string): RecordedKeyPress {
       target: { type: 'button', name: 'Login' },
       source: 'text',
       text: 'Pressionou Enter no botão "Login"',
+      locale: 'pt-BR',
+    },
+  };
+}
+
+function createRecordedRangeChange(id: string): RecordedRangeChange {
+  const click = createRecordedClick(id);
+
+  return {
+    schemaVersion: 7,
+    id,
+    type: 'range-change',
+    url: click.url,
+    timestamp: click.timestamp,
+    selectors: click.selectors,
+    element: { tagName: 'input', inputType: 'range' },
+    value: { kind: 'plain', value: '7' },
+    description: {
+      action: 'rangeChange',
+      target: { type: 'field', name: 'Experience' },
+      source: 'label',
+      text: 'Ajustou o controle deslizante "Experience" para "7"',
       locale: 'pt-BR',
     },
   };
@@ -331,6 +354,26 @@ describe('extension action', () => {
       [{ success: true }, { success: true }],
     );
     expect(localStorageData.recordedSteps).toEqual([selection, keyPress]);
+  });
+
+  it('stores a schema 7 range change in the active tab recording', async () => {
+    const rangeChange = createRecordedRangeChange('range-experience');
+    localStorageData = {
+      recordingState: {
+        isRecording: true,
+        tabId: 21,
+        origin: 'https://example.com',
+      },
+      recordedSteps: [],
+    };
+
+    const response = await dispatchMessage(
+      { type: 'RECORDED_RANGE_CHANGE', payload: rangeChange },
+      { tab: { id: 21 } },
+    );
+
+    expect(response).toEqual({ success: true });
+    expect(localStorageData.recordedSteps).toEqual([rangeChange]);
   });
 
   it('deletes one step and preserves mixed recordings in order', async () => {

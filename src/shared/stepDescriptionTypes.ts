@@ -2,6 +2,7 @@ export type StepDescriptionAction =
   | "click"
   | "focusNavigation"
   | "fieldFill"
+  | "rangeChange"
   | "selectionChange"
   | "keyPress";
 
@@ -51,6 +52,14 @@ export interface FieldFillStepDescription {
   locale: "pt-BR";
 }
 
+export interface RangeChangeStepDescription {
+  action: "rangeChange";
+  target: StepDescriptionTarget;
+  source: DescriptionSource;
+  text: string;
+  locale: "pt-BR";
+}
+
 export interface SelectionChangeStepDescription {
   action: "selectionChange";
   target: StepDescriptionTarget;
@@ -71,5 +80,6 @@ export type StepDescription =
   | ClickStepDescription
   | FocusNavigationStepDescription
   | FieldFillStepDescription
+  | RangeChangeStepDescription
   | SelectionChangeStepDescription
   | KeyPressStepDescription;

@@ -3,6 +3,7 @@ import type {
   FieldFillStepDescription,
   FocusNavigationStepDescription,
   KeyPressStepDescription,
+  RangeChangeStepDescription,
   SelectionChangeStepDescription,
 } from './stepDescriptionTypes';
 
@@ -155,6 +156,21 @@ export interface RecordedFieldFill {
   description: FieldFillStepDescription;
 }
 
+export interface RecordedRangeChange {
+  schemaVersion: 7;
+  id: string;
+  type: 'range-change';
+  url: string;
+  timestamp: number;
+  selectors: SelectorAnalysis;
+  element: {
+    tagName: 'input';
+    inputType: 'range';
+  };
+  value: RecordedFieldValue;
+  description: RangeChangeStepDescription;
+}
+
 export type RecordedSelectValue =
   | {
       kind: 'plain';
@@ -232,6 +248,7 @@ export type RecordedStep =
   | RecordedClick
   | RecordedFocusNavigation
   | RecordedFieldFill
+  | RecordedRangeChange
   | RecordedSelectionChange
   | RecordedKeyPress
   | RecordedClickV3

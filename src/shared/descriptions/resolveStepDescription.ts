@@ -18,6 +18,7 @@ import { createClickDescription } from './createClickDescription';
 import { createFieldFillDescription } from './createFieldFillDescription';
 import { createFocusNavigationDescription } from './createFocusNavigationDescription';
 import { createKeyPressDescription } from './createKeyPressDescription';
+import { createRangeChangeDescription } from './createRangeChangeDescription';
 import { createSelectionChangeDescription } from './createSelectionChangeDescription';
 
 const SELECTOR_STRATEGIES: SelectorStrategy[] = [
@@ -114,6 +115,7 @@ function isStepDescription(value: unknown): value is StepDescription {
     (value.action === 'click' ||
       value.action === 'focusNavigation' ||
       value.action === 'fieldFill' ||
+      value.action === 'rangeChange' ||
       value.action === 'selectionChange' ||
       value.action === 'keyPress') &&
     value.locale === 'pt-BR' &&
@@ -325,14 +327,16 @@ export function resolveStepDescription(step: unknown): StepDescription {
     step.schemaVersion === 3 ||
     step.schemaVersion === 4 ||
     step.schemaVersion === 5 ||
-    step.schemaVersion === 6;
+    step.schemaVersion === 6 ||
+    step.schemaVersion === 7;
 
   if (!isKnownSchema) return createFallbackDescription();
 
   if (
     (step.schemaVersion === 4 ||
       step.schemaVersion === 5 ||
-      step.schemaVersion === 6) &&
+      step.schemaVersion === 6 ||
+      step.schemaVersion === 7) &&
     isStepDescription(step.description)
   ) {
     return step.description;
@@ -349,6 +353,13 @@ export function resolveStepDescription(step: unknown): StepDescription {
 
   if (step.type === 'field-fill') {
     return createFieldFillDescription({
+      ...descriptionInput,
+      value: getFieldValue(step),
+    });
+  }
+
+  if (step.type === 'range-change') {
+    return createRangeChangeDescription({
       ...descriptionInput,
       value: getFieldValue(step),
     });

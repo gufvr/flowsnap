@@ -31,6 +31,8 @@ function createPracticePage(controller: RecorderController) {
   const standard = document.createElement('input');
   const countryLabel = document.createElement('label');
   const country = document.createElement('select');
+  const experienceLabel = document.createElement('label');
+  const experience = document.createElement('input');
   const noisyContainer = document.createElement('section');
 
   username.id = 'username';
@@ -52,6 +54,10 @@ function createPracticePage(controller: RecorderController) {
   countryLabel.textContent = 'Country';
   country.append(new Option('Choose', ''), new Option('Brazil', 'BR'));
   countryLabel.append(country);
+  experienceLabel.textContent = 'Experience (Range Slider)';
+  experience.type = 'range';
+  experience.value = '5';
+  experienceLabel.append(experience);
   noisyContainer.innerHTML = `
     <h2>Gender (Radio Buttons)</h2>
     <span>Male</span><span>Female</span><span>Other</span>
@@ -68,6 +74,7 @@ function createPracticePage(controller: RecorderController) {
     rememberLabel,
     standardLabel,
     countryLabel,
+    experienceLabel,
     noisyContainer,
   );
   root.addEventListener('click', controller.handleClick, true);
@@ -88,6 +95,7 @@ function createPracticePage(controller: RecorderController) {
     remember,
     standard,
     country,
+    experience,
     noisyContainer,
   };
 }
@@ -222,6 +230,31 @@ function createMixedSchemaSteps() {
       timestamp: 5,
       selector: { css: 'main > button' },
       element: { tagName: 'button', text: 'Legacy' },
+    },
+    {
+      schemaVersion: 7,
+      id: 'schema-7-range',
+      type: 'range-change',
+      url: 'https://qapracticehub.com/#forms',
+      timestamp: 6,
+      selectors: {
+        recommended: {
+          ...validSelector,
+          score: 85,
+          strategy: 'label',
+          value: 'Experience (Range Slider)',
+        },
+        alternatives: [],
+      },
+      element: { tagName: 'input', inputType: 'range' },
+      value: { kind: 'plain', value: '7' },
+      description: {
+        action: 'rangeChange',
+        target: { type: 'field', name: 'Experience (Range Slider)' },
+        source: 'label',
+        text: 'Ajustou o controle deslizante "Experience (Range Slider)" para "7"',
+        locale: 'pt-BR',
+      },
     },
     {
       schemaVersion: 6,
@@ -432,6 +465,18 @@ describe('integrated recording flow', () => {
       await screen.findByRole('button', { name: 'Iniciar Gravação' }),
     );
     practicePage.noisyContainer.click();
+    practicePage.experience.value = '6';
+    practicePage.experience.dispatchEvent(
+      new InputEvent('input', { bubbles: true }),
+    );
+    practicePage.experience.value = '7';
+    practicePage.experience.dispatchEvent(
+      new InputEvent('input', { bubbles: true }),
+    );
+    practicePage.experience.dispatchEvent(
+      new Event('change', { bubbles: true }),
+    );
+    practicePage.experience.click();
     await user.click(practicePage.rememberLabel);
     await user.click(practicePage.standard);
     await user.selectOptions(practicePage.country, 'BR');
@@ -452,13 +497,19 @@ describe('integrated recording flow', () => {
     expect(
       screen.getByText('Pressionou Enter no botão "Login"'),
     ).toBeInTheDocument();
-    expect(screen.getByText('5 passos capturados')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Ajustou o controle deslizante "Experience (Range Slider)" para "7"',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText('6 passos capturados')).toBeInTheDocument();
 
     const storedSteps = harness.getLocalValues().recordedSteps as Array<{
       type: string;
     }>;
     expect(JSON.stringify(storedSteps)).not.toContain('Gender (Radio Buttons)');
     expect(storedSteps.map(({ type }) => type)).toEqual([
+      'range-change',
       'selection-change',
       'selection-change',
       'selection-change',
@@ -484,7 +535,7 @@ describe('integrated recording flow', () => {
     await import('../background');
     renderSidePanel();
 
-    expect(await screen.findByText('9 passos capturados')).toBeInTheDocument();
+    expect(await screen.findByText('10 passos capturados')).toBeInTheDocument();
     expect(screen.getByText('Clicou no botão "Login"')).toBeInTheDocument();
     expect(
       screen.getByText('Navegou para o campo "Password"'),
@@ -505,6 +556,11 @@ describe('integrated recording flow', () => {
     expect(
       screen.getByText('Pressionou Enter no botão "Login"'),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Ajustou o controle deslizante "Experience (Range Slider)" para "7"',
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByText('Seletor indisponível')).toBeInTheDocument();
     expect(harness.localSet).not.toHaveBeenCalled();
     expect(harness.getLocalValues().recordedSteps).toEqual(originalSteps);
@@ -514,18 +570,18 @@ describe('integrated recording flow', () => {
       'data-testid=login-submit',
     );
 
-    await user.click(screen.getByRole('button', { name: 'Excluir passo 9' }));
+    await user.click(screen.getByRole('button', { name: 'Excluir passo 10' }));
     await user.click(
       within(
-        screen.getByRole('group', { name: 'Confirmar exclusão do passo 9' }),
+        screen.getByRole('group', { name: 'Confirmar exclusão do passo 10' }),
       ).getByRole('button', { name: 'Excluir passo' }),
     );
 
     await waitFor(() =>
-      expect(screen.getByText('8 passos capturados')).toBeInTheDocument(),
+      expect(screen.getByText('9 passos capturados')).toBeInTheDocument(),
     );
     expect(harness.getLocalValues().recordedSteps).toEqual(
-      originalSteps.slice(0, 8),
+      originalSteps.slice(0, 9),
     );
 
     await user.click(screen.getByRole('button', { name: 'Limpar tudo' }));

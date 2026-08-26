@@ -16,6 +16,7 @@ type RecordedStepMessage = Extract<
       | 'RECORDED_CLICK'
       | 'RECORDED_FOCUS_NAVIGATION'
       | 'RECORDED_FIELD_FILL'
+      | 'RECORDED_RANGE_CHANGE'
       | 'RECORDED_SELECTION_CHANGE'
       | 'RECORDED_KEY_PRESS';
   }
@@ -209,6 +210,7 @@ chrome.runtime.onMessage.addListener(
         message.type === 'RECORDED_CLICK' ||
         message.type === 'RECORDED_FOCUS_NAVIGATION' ||
         message.type === 'RECORDED_FIELD_FILL' ||
+        message.type === 'RECORDED_RANGE_CHANGE' ||
         message.type === 'RECORDED_SELECTION_CHANGE' ||
         message.type === 'RECORDED_KEY_PRESS'
       ) {

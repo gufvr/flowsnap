@@ -4,6 +4,7 @@ import type {
   RecordedFieldFill,
   RecordedFocusNavigation,
   RecordedKeyPress,
+  RecordedRangeChange,
   RecordedSelectionChange,
 } from './recordingTypes';
 
@@ -21,6 +22,10 @@ export type ExtensionMessage =
   | {
       type: 'RECORDED_FIELD_FILL';
       payload: RecordedFieldFill;
+    }
+  | {
+      type: 'RECORDED_RANGE_CHANGE';
+      payload: RecordedRangeChange;
     }
   | {
       type: 'RECORDED_SELECTION_CHANGE';

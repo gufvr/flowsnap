@@ -134,7 +134,8 @@ export function resolveRecommendedSelector(
     step.schemaVersion === 3 ||
     step.schemaVersion === 4 ||
     step.schemaVersion === 5 ||
-    step.schemaVersion === 6;
+    step.schemaVersion === 6 ||
+    step.schemaVersion === 7;
 
   if (isRankedSchema && isRecord(step.selectors)) {
     return adaptCandidate(step.selectors.recommended);

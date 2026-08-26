@@ -137,6 +137,115 @@ describe('semantic interaction recording', () => {
     });
   });
 
+  it('consolidates range input events into one final schema 7 change', () => {
+    const sendMessage = vi.fn();
+    const controller = createRecorderController(sendMessage);
+    const label = document.createElement('label');
+    label.textContent = 'Experience (Range Slider)';
+    const range = document.createElement('input');
+    range.type = 'range';
+    label.append(range);
+    document.body.append(label);
+    connectController(controller);
+    controller.setActive(true);
+
+    range.value = '6';
+    range.dispatchEvent(new InputEvent('input', { bubbles: true }));
+    range.value = '7';
+    range.dispatchEvent(new InputEvent('input', { bubbles: true }));
+    range.dispatchEvent(new Event('change', { bubbles: true }));
+    range.click();
+
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+    expect(sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'RECORDED_RANGE_CHANGE',
+        payload: expect.objectContaining({
+          schemaVersion: 7,
+          value: { kind: 'plain', value: '7' },
+        }),
+      }),
+    );
+  });
+
+  it('records the range outcome instead of its ArrowRight key or click', () => {
+    const sendMessage = vi.fn();
+    const controller = createRecorderController(sendMessage);
+    const range = document.createElement('input');
+    range.type = 'range';
+    range.setAttribute('aria-label', 'Experience');
+    document.body.append(range);
+    connectController(controller);
+    controller.setActive(true);
+    range.focus();
+
+    range.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }),
+    );
+    range.value = '51';
+    range.dispatchEvent(new InputEvent('input', { bubbles: true }));
+    range.dispatchEvent(new Event('change', { bubbles: true }));
+    range.dispatchEvent(
+      new KeyboardEvent('keyup', { key: 'ArrowRight', bubbles: true }),
+    );
+    range.click();
+
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+    expect(sendMessage.mock.calls[0][0]).toMatchObject({
+      type: 'RECORDED_RANGE_CHANGE',
+      payload: { value: { kind: 'plain', value: '51' } },
+    });
+  });
+
+  it('ignores repeated range values and leaves color as a generic click', () => {
+    const sendMessage = vi.fn();
+    const controller = createRecorderController(sendMessage);
+    const range = document.createElement('input');
+    range.type = 'range';
+    const color = document.createElement('input');
+    color.type = 'color';
+    document.body.append(range, color);
+    connectController(controller);
+    controller.setActive(true);
+
+    range.value = '60';
+    range.dispatchEvent(new InputEvent('input', { bubbles: true }));
+    range.dispatchEvent(new Event('change', { bubbles: true }));
+    range.dispatchEvent(new InputEvent('input', { bubbles: true }));
+    range.dispatchEvent(new Event('change', { bubbles: true }));
+    range.value = '61';
+    range.dispatchEvent(new InputEvent('input', { bubbles: true }));
+    range.dispatchEvent(new Event('change', { bubbles: true }));
+    color.click();
+
+    expect(sendMessage.mock.calls.map(([message]) => message.type)).toEqual([
+      'RECORDED_RANGE_CHANGE',
+      'RECORDED_RANGE_CHANGE',
+      'RECORDED_CLICK',
+    ]);
+    expect(sendMessage.mock.calls[1][0]).toMatchObject({
+      payload: { value: { kind: 'plain', value: '61' } },
+    });
+  });
+
+  it('discards a pending range adjustment when recording stops', () => {
+    const sendMessage = vi.fn();
+    const controller = createRecorderController(sendMessage);
+    const range = document.createElement('input');
+    range.type = 'range';
+    document.body.append(range);
+    connectController(controller);
+    controller.setActive(true);
+
+    range.value = '70';
+    range.dispatchEvent(new InputEvent('input', { bubbles: true }));
+    controller.setActive(false);
+    controller.setActive(true);
+    range.dispatchEvent(new Event('change', { bubbles: true }));
+
+    expect(sendMessage).not.toHaveBeenCalled();
+  });
+
   it('prefers the checkbox state over Space and its synthetic click', async () => {
     const user = userEvent.setup();
     const sendMessage = vi.fn();

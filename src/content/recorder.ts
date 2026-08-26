@@ -2,6 +2,7 @@ import { createClickDescription } from '../shared/descriptions/createClickDescri
 import { createFieldFillDescription } from '../shared/descriptions/createFieldFillDescription';
 import { createFocusNavigationDescription } from '../shared/descriptions/createFocusNavigationDescription';
 import { createKeyPressDescription } from '../shared/descriptions/createKeyPressDescription';
+import { createRangeChangeDescription } from '../shared/descriptions/createRangeChangeDescription';
 import { createSelectionChangeDescription } from '../shared/descriptions/createSelectionChangeDescription';
 import type { ExtensionMessage } from '../shared/messages';
 import type { InteractionKey } from '../shared/recordingTypes';
@@ -13,6 +14,11 @@ import {
 } from './fieldCapture';
 import { buildSelectorCandidates } from './selectorCandidates';
 import { getClickTargetText, resolveClickTarget } from './clickTarget';
+import {
+  captureRangeValue,
+  isRangeControl,
+  type RangeControl,
+} from './rangeCapture';
 import {
   captureSelectionControl,
   getSelectionSignature,
@@ -173,6 +179,36 @@ export function createFieldFillMessage(
   };
 }
 
+export function createRangeChangeMessage(
+  control: RangeControl,
+): Extract<ExtensionMessage, { type: 'RECORDED_RANGE_CHANGE' }> {
+  const value = captureRangeValue(control);
+  const selectors = buildSelectorCandidates(control);
+  const elementData = {
+    tagName: 'input' as const,
+    inputType: 'range' as const,
+  };
+
+  return {
+    type: 'RECORDED_RANGE_CHANGE',
+    payload: {
+      schemaVersion: 7,
+      id: crypto.randomUUID(),
+      type: 'range-change',
+      url: window.location.href,
+      timestamp: Date.now(),
+      selectors,
+      element: elementData,
+      value,
+      description: createRangeChangeDescription({
+        selectors,
+        element: elementData,
+        value,
+      }),
+    },
+  };
+}
+
 export function createSelectionChangeMessage(
   selectionControl: SelectionControl,
 ):
@@ -274,6 +310,8 @@ export function createRecorderController(
   let syntheticClickTimeoutId: number | undefined;
   let dirtyFields = new WeakSet<CapturableField>();
   let lastCapturedPlainValues = new WeakMap<CapturableField, string>();
+  let dirtyRanges = new WeakSet<RangeControl>();
+  let lastCapturedRangeValues = new WeakMap<RangeControl, string>();
   let lastSelectionSignatures = new WeakMap<SelectionControl, string>();
 
   const clearPendingTabNavigation = () => {
@@ -341,6 +379,26 @@ export function createRecorderController(
     return true;
   };
 
+  const recordRangeChange = (control: RangeControl) => {
+    dirtyRanges.delete(control);
+    const message = createRangeChangeMessage(control);
+    const { value } = message.payload;
+
+    if (
+      value.kind === 'plain' &&
+      lastCapturedRangeValues.get(control) === value.value
+    ) {
+      return false;
+    }
+
+    if (value.kind === 'plain') {
+      lastCapturedRangeValues.set(control, value.value);
+    }
+
+    void sendMessage(message);
+    return true;
+  };
+
   const controller: RecorderController = {
     isActive: false,
     setActive(isActive) {
@@ -351,6 +409,8 @@ export function createRecorderController(
         clearSyntheticClickSuppression();
         dirtyFields = new WeakSet();
         lastCapturedPlainValues = new WeakMap();
+        dirtyRanges = new WeakSet();
+        lastCapturedRangeValues = new WeakMap();
         lastSelectionSignatures = new WeakMap();
       }
     },
@@ -358,6 +418,7 @@ export function createRecorderController(
       const eventElement = getEventElement(event);
       if (!controller.isActive || !eventElement) return;
 
+      if (isRangeControl(eventElement)) return;
       if (resolveSelectionControl(eventElement)) return;
 
       if (event.detail === 0 && syntheticClickTimeoutId !== undefined) {
@@ -397,6 +458,8 @@ export function createRecorderController(
       const key = normalizeInteractionKey(event.key);
       const element = getEventElement(event);
       if (!key || !element || !canCaptureInteractionKey(element, key)) return;
+
+      if (isRangeControl(element) && ARROW_KEYS.has(key)) return;
 
       const selectionControl = resolveSelectionControl(element);
       const modifiers = event.shiftKey ? { shift: true } : undefined;
@@ -461,7 +524,14 @@ export function createRecorderController(
     },
     handleInput(event) {
       const element = getEventElement(event);
-      if (!controller.isActive || !element || !isCapturableField(element)) {
+      if (!controller.isActive || !element) return;
+
+      if (isRangeControl(element)) {
+        dirtyRanges.add(element);
+        return;
+      }
+
+      if (!isCapturableField(element)) {
         return;
       }
 
@@ -478,6 +548,11 @@ export function createRecorderController(
           clearPendingSelectionKey();
         }
         recordSelectionChange(selectionControl);
+        return;
+      }
+
+      if (controller.isActive && element && isRangeControl(element)) {
+        if (dirtyRanges.has(element)) recordRangeChange(element);
         return;
       }
 

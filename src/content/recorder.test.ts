@@ -3,6 +3,7 @@ import {
   createClickMessage,
   createFieldFillMessage,
   createFocusNavigationMessage,
+  createRangeChangeMessage,
   createRecorderController,
   type RecorderController,
 } from './recorder';
@@ -150,6 +151,30 @@ describe('recording messages', () => {
       },
     });
     expect(JSON.stringify(message)).not.toContain('SuperSecretPassword!');
+  });
+
+  it('creates a schema 7 range change with its final value and description', () => {
+    const label = document.createElement('label');
+    label.textContent = 'Experience (Range Slider)';
+    const range = document.createElement('input');
+    range.type = 'range';
+    range.value = '7';
+    label.append(range);
+    document.body.append(label);
+
+    expect(createRangeChangeMessage(range)).toMatchObject({
+      type: 'RECORDED_RANGE_CHANGE',
+      payload: {
+        schemaVersion: 7,
+        type: 'range-change',
+        element: { tagName: 'input', inputType: 'range' },
+        value: { kind: 'plain', value: '7' },
+        description: {
+          action: 'rangeChange',
+          text: 'Ajustou o controle deslizante "Experience (Range Slider)" para "7"',
+        },
+      },
+    });
   });
 
   it.each([
