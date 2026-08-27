@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   clearRecordedSteps,
   deleteRecordedStep,
+  updateRecordedStepDescription,
 } from '../services/recordedStepActions';
 import { loadRecordedSteps } from '../services/recordingStorage';
 import type { RecordedStep } from '../shared/recordingTypes';
@@ -11,6 +12,7 @@ const FEEDBACK_DURATION_MS = 3000;
 
 export type RecordedStepMutation =
   | { type: 'delete'; stepIndex: number }
+  | { type: 'edit'; stepIndex: number }
   | { type: 'clear' };
 
 export interface RecordedStepsFeedback {
@@ -147,12 +149,35 @@ export function useRecordedSteps() {
     [runMutation],
   );
 
+  const editStepDescription = useCallback(
+    (
+      stepIndex: number,
+      text: string,
+      expectedReference: string,
+      expectedId?: string,
+    ) =>
+      runMutation(
+        { type: 'edit', stepIndex },
+        () =>
+          updateRecordedStepDescription(
+            stepIndex,
+            expectedReference,
+            text,
+            expectedId,
+          ),
+        `Descrição do passo ${stepIndex + 1} atualizada.`,
+        'Não foi possível atualizar a descrição do passo.',
+      ),
+    [runMutation],
+  );
+
   return {
     steps,
     isLoading,
     pendingMutation,
     feedback,
     removeStep,
+    editStepDescription,
     clearSteps,
   };
 }

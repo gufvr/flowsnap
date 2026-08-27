@@ -128,6 +128,11 @@ export interface RecordedFocusNavigation {
   description: FocusNavigationStepDescription;
 }
 
+export interface StepDescriptionOverride {
+  text: string;
+  locale: 'pt-BR';
+}
+
 export type SensitiveFieldReason =
   | 'password'
   | 'one-time-code'
@@ -311,3 +316,7 @@ export type RecordedStep =
   | RecordedClickV3
   | RecordedClickV2
   | LegacyRecordedClick;
+
+export type EditableRecordedStep = RecordedStep & {
+  descriptionOverride?: StepDescriptionOverride;
+};

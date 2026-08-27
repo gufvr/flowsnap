@@ -4,6 +4,10 @@ import type {
   RecordedStepMutation,
   RecordedStepsFeedback,
 } from '../hooks/useRecordedSteps';
+import {
+  getRecordedStepId,
+  getRecordedStepReference,
+} from '../shared/recordedStepIdentity';
 import { InlineConfirmation } from './InlineConfirmation';
 import { RecordedStepItem } from './RecordedStepItem';
 
@@ -13,6 +17,12 @@ interface RecordedStepsListProps {
   pendingMutation?: RecordedStepMutation;
   feedback?: RecordedStepsFeedback;
   onDeleteStep?: (stepIndex: number) => Promise<boolean>;
+  onEditStep?: (
+    stepIndex: number,
+    text: string,
+    expectedReference: string,
+    expectedId?: string,
+  ) => Promise<boolean>;
   onClearSteps?: () => Promise<boolean>;
 }
 
@@ -24,6 +34,13 @@ type Confirmation =
       trigger: HTMLButtonElement;
     }
   | { type: 'clear'; stepCount: number; trigger: HTMLButtonElement };
+
+interface EditingStep {
+  stepIndex: number;
+  stepReference: string;
+  expectedId?: string;
+  trigger: HTMLButtonElement;
+}
 
 const Card = styled.section`
   display: flex;
@@ -155,9 +172,12 @@ export function RecordedStepsList({
   pendingMutation,
   feedback,
   onDeleteStep,
+  onEditStep,
   onClearSteps,
 }: RecordedStepsListProps) {
   const [confirmation, setConfirmation] = useState<Confirmation>();
+  const [editingStep, setEditingStep] = useState<EditingStep>();
+  const [localFeedback, setLocalFeedback] = useState<RecordedStepsFeedback>();
   const title = useRef<HTMLHeadingElement>(null);
   const countLabel = steps.length === 1 ? '1 passo' : `${steps.length} passos`;
   const areMutationsDisabled = Boolean(pendingMutation);
@@ -168,8 +188,19 @@ export function RecordedStepsList({
         getStepReference(steps[confirmation.stepIndex], confirmation.stepIndex)
     : false;
   const activeConfirmation = isConfirmationStale ? undefined : confirmation;
+  const isOwnEditPending =
+    pendingMutation?.type === 'edit' &&
+    pendingMutation.stepIndex === editingStep?.stepIndex;
+  const isEditingStale = editingStep
+    ? !isOwnEditPending &&
+      editingStep.stepReference !==
+        getRecordedStepReference(steps[editingStep.stepIndex])
+    : false;
+  const activeEditingStep = isEditingStale ? undefined : editingStep;
   const areMutationTriggersDisabled =
-    areMutationsDisabled || Boolean(activeConfirmation);
+    areMutationsDisabled ||
+    Boolean(activeConfirmation) ||
+    Boolean(activeEditingStep);
 
   useEffect(() => {
     if (!isConfirmationStale) return;
@@ -183,6 +214,21 @@ export function RecordedStepsList({
     return () => window.clearTimeout(resetConfirmation);
   }, [isConfirmationStale]);
 
+  useEffect(() => {
+    if (!isEditingStale) return;
+
+    title.current?.focus();
+    const resetEditing = window.setTimeout(() => {
+      setEditingStep(undefined);
+      setLocalFeedback({
+        type: 'error',
+        message: 'A lista de passos foi atualizada. Abra a edição novamente.',
+      });
+    }, 0);
+
+    return () => window.clearTimeout(resetEditing);
+  }, [isEditingStale]);
+
   function restoreTriggerFocus(trigger: HTMLButtonElement) {
     window.setTimeout(() => trigger.focus(), 0);
   }
@@ -193,6 +239,33 @@ export function RecordedStepsList({
     const { trigger } = confirmation;
     setConfirmation(undefined);
     restoreTriggerFocus(trigger);
+  }
+
+  function cancelEditing() {
+    if (!editingStep) return;
+
+    const { trigger } = editingStep;
+    setEditingStep(undefined);
+    restoreTriggerFocus(trigger);
+  }
+
+  async function saveEditing(text: string) {
+    if (!editingStep || !onEditStep) return false;
+
+    const requestedEdit = editingStep;
+    const success = await onEditStep(
+      requestedEdit.stepIndex,
+      text,
+      requestedEdit.stepReference,
+      requestedEdit.expectedId,
+    );
+
+    if (success) {
+      setEditingStep(undefined);
+      restoreTriggerFocus(requestedEdit.trigger);
+    }
+
+    return success;
   }
 
   function confirmMutation() {
@@ -213,6 +286,8 @@ export function RecordedStepsList({
   const pendingMessage =
     pendingMutation?.type === 'delete'
       ? `Excluindo passo ${pendingMutation.stepIndex + 1}...`
+      : pendingMutation?.type === 'edit'
+        ? `Salvando descrição do passo ${pendingMutation.stepIndex + 1}...`
       : pendingMutation?.type === 'clear'
         ? 'Limpando passos...'
         : undefined;
@@ -278,6 +353,11 @@ export function RecordedStepsList({
           {feedback.message}
         </OperationFeedback>
       )}
+      {!feedback && localFeedback && (
+        <OperationFeedback $error role="alert">
+          {localFeedback.message}
+        </OperationFeedback>
+      )}
 
       {isLoading ? (
         <Feedback role="status">Carregando passos...</Feedback>
@@ -292,6 +372,11 @@ export function RecordedStepsList({
                 step={step}
                 stepNumber={index + 1}
                 areMutationsDisabled={areMutationTriggersDisabled}
+                isEditOpen={activeEditingStep?.stepIndex === index}
+                isEditSaving={
+                  pendingMutation?.type === 'edit' &&
+                  pendingMutation.stepIndex === index
+                }
                 isDeleteConfirmationOpen={
                   activeConfirmation?.type === 'delete' &&
                   activeConfirmation.stepIndex === index
@@ -307,6 +392,30 @@ export function RecordedStepsList({
                         })
                     : undefined
                 }
+                onRequestEdit={
+                  onEditStep
+                    ? (trigger) => {
+                        const stepReference = getRecordedStepReference(step);
+                        if (stepReference === undefined) {
+                          setLocalFeedback({
+                            type: 'error',
+                            message: 'Este passo não pode ser editado.',
+                          });
+                          return;
+                        }
+
+                        setLocalFeedback(undefined);
+                        setEditingStep({
+                          stepIndex: index,
+                          stepReference,
+                          expectedId: getRecordedStepId(step),
+                          trigger,
+                        });
+                      }
+                    : undefined
+                }
+                onSaveEdit={saveEditing}
+                onCancelEdit={cancelEditing}
                 onConfirmDelete={confirmMutation}
                 onCancelDelete={cancelConfirmation}
               />

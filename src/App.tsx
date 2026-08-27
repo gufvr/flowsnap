@@ -52,6 +52,7 @@ export function App() {
     pendingMutation,
     feedback: stepsFeedback,
     removeStep,
+    editStepDescription,
     clearSteps,
   } = useRecordedSteps();
   const stepCountLabel =
@@ -77,6 +78,7 @@ export function App() {
           pendingMutation={pendingMutation}
           feedback={stepsFeedback}
           onDeleteStep={removeStep}
+          onEditStep={editStepDescription}
           onClearSteps={clearSteps}
         />
       </Content>

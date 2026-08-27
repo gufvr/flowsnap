@@ -258,6 +258,56 @@ describe('resolveStepDescription', () => {
     ).toBe('Recarregou "/account"');
   });
 
+  it('applies valid overrides without changing persisted descriptions', () => {
+    const step = {
+      schemaVersion: 10,
+      type: 'navigation',
+      description: {
+        action: 'navigation' as const,
+        text: 'Navegou para "/account"',
+        locale: 'pt-BR' as const,
+      },
+      descriptionOverride: {
+        text: '  Abriu a área da conta  ',
+        locale: 'pt-BR',
+      },
+    };
+    const originalStep = structuredClone(step);
+
+    expect(resolveStepDescription(step).text).toBe('Abriu a área da conta');
+    expect(step).toEqual(originalStep);
+  });
+
+  it('supports overrides in old and legacy records and ignores corrupted ones', () => {
+    expect(
+      resolveStepDescription({
+        schemaVersion: 2,
+        element: { tagName: 'button' },
+        descriptionOverride: {
+          text: 'Confirmou o pedido',
+          locale: 'pt-BR',
+        },
+      }).text,
+    ).toBe('Confirmou o pedido');
+    expect(
+      resolveStepDescription({
+        type: 'click',
+        element: { tagName: 'button' },
+        descriptionOverride: {
+          text: 'Executou o passo legado',
+          locale: 'pt-BR',
+        },
+      }).text,
+    ).toBe('Executou o passo legado');
+    expect(
+      resolveStepDescription({
+        schemaVersion: 4,
+        description: validDescription,
+        descriptionOverride: { text: '', locale: 'pt-BR' },
+      }),
+    ).toBe(validDescription);
+  });
+
   it('rebuilds an incomplete focus navigation description safely', () => {
     const step = {
       schemaVersion: 4,

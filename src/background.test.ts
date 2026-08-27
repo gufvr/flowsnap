@@ -477,6 +477,97 @@ describe('extension action', () => {
     expect(localStorageData.recordedSteps).toEqual([current]);
   });
 
+  it('updates only the description override and normalizes its text', async () => {
+    const step = createRecordedClick('editable');
+    localStorageData = { recordedSteps: [step] };
+
+    const response = await dispatchMessage({
+      type: 'UPDATE_RECORDED_STEP_DESCRIPTION',
+      payload: {
+        stepIndex: 0,
+        expectedId: 'editable',
+        expectedReference: JSON.stringify(step),
+        text: '  Efetuou\n  o login  ',
+      },
+    });
+
+    expect(response).toEqual({ success: true });
+    expect(localStorageData.recordedSteps).toEqual([
+      {
+        ...step,
+        descriptionOverride: {
+          text: 'Efetuou o login',
+          locale: 'pt-BR',
+        },
+      },
+    ]);
+    expect(step).not.toHaveProperty('descriptionOverride');
+  });
+
+  it('edits a legacy step without migrating its original fields', async () => {
+    const legacy = {
+      type: 'click',
+      selector: { css: 'button' },
+      element: { tagName: 'button', text: 'Legado' },
+    };
+    localStorageData = { recordedSteps: [legacy] };
+
+    const response = await dispatchMessage({
+      type: 'UPDATE_RECORDED_STEP_DESCRIPTION',
+      payload: {
+        stepIndex: 0,
+        expectedReference: JSON.stringify(legacy),
+        text: 'Executou o passo legado',
+      },
+    });
+
+    expect(response).toEqual({ success: true });
+    expect(localStorageData.recordedSteps).toEqual([
+      {
+        ...legacy,
+        descriptionOverride: {
+          text: 'Executou o passo legado',
+          locale: 'pt-BR',
+        },
+      },
+    ]);
+  });
+
+  it('rejects invalid text and stale description edits', async () => {
+    const step = createRecordedClick('current');
+    localStorageData = { recordedSteps: [step] };
+
+    await expect(
+      dispatchMessage({
+        type: 'UPDATE_RECORDED_STEP_DESCRIPTION',
+        payload: {
+          stepIndex: 0,
+          expectedId: 'current',
+          expectedReference: JSON.stringify(step),
+          text: '   ',
+        },
+      }),
+    ).resolves.toEqual({
+      success: false,
+      error: 'A descrição não pode ficar vazia.',
+    });
+    await expect(
+      dispatchMessage({
+        type: 'UPDATE_RECORDED_STEP_DESCRIPTION',
+        payload: {
+          stepIndex: 0,
+          expectedId: 'current',
+          expectedReference: '{"stale":true}',
+          text: 'Nova descrição',
+        },
+      }),
+    ).resolves.toEqual({
+      success: false,
+      error: 'A lista de passos foi atualizada. Abra a edição novamente.',
+    });
+    expect(localStorageData.recordedSteps).toEqual([step]);
+  });
+
   it('clears every step without stopping an active recording', async () => {
     localStorageData = {
       recordingState: {
@@ -523,6 +614,48 @@ describe('extension action', () => {
       { success: true },
     ]);
     expect(localStorageData.recordedSteps).toEqual([second]);
+  });
+
+  it('serializes a capture followed by editing without losing either change', async () => {
+    const first = createRecordedClick('first');
+    const second = createRecordedClick('second');
+    localStorageData = {
+      recordingState: {
+        isRecording: true,
+        tabId: 21,
+        origin: 'https://example.com',
+      },
+      recordedSteps: [first],
+    };
+
+    const capture = dispatchMessage(
+      { type: 'RECORDED_CLICK', payload: second },
+      { tab: { id: 21 } },
+    );
+    const edit = dispatchMessage({
+      type: 'UPDATE_RECORDED_STEP_DESCRIPTION',
+      payload: {
+        stepIndex: 0,
+        expectedId: 'first',
+        expectedReference: JSON.stringify(first),
+        text: 'Primeiro passo editado',
+      },
+    });
+
+    await expect(Promise.all([capture, edit])).resolves.toEqual([
+      { success: true },
+      { success: true },
+    ]);
+    expect(localStorageData.recordedSteps).toEqual([
+      {
+        ...first,
+        descriptionOverride: {
+          text: 'Primeiro passo editado',
+          locale: 'pt-BR',
+        },
+      },
+      second,
+    ]);
   });
 
   it('stores a top-frame fragment navigation for the recorded tab', async () => {

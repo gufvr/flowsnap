@@ -24,6 +24,7 @@ import { createKeyPressDescription } from './createKeyPressDescription';
 import { createNavigationDescription } from './createNavigationDescription';
 import { createRangeChangeDescription } from './createRangeChangeDescription';
 import { createSelectionChangeDescription } from './createSelectionChangeDescription';
+import { resolveDescriptionOverride } from './descriptionOverride';
 
 const SELECTOR_STRATEGIES: SelectorStrategy[] = [
   'testId',
@@ -346,7 +347,7 @@ function createFallbackDescription() {
   });
 }
 
-export function resolveStepDescription(step: unknown): StepDescription {
+function resolveBaseStepDescription(step: unknown): StepDescription {
   if (!isRecord(step)) return createFallbackDescription();
 
   const isKnownSchema =
@@ -448,4 +449,13 @@ export function resolveStepDescription(step: unknown): StepDescription {
   }
 
   return createClickDescription(descriptionInput);
+}
+
+export function resolveStepDescription(step: unknown): StepDescription {
+  const description = resolveBaseStepDescription(step);
+  const override = isRecord(step)
+    ? resolveDescriptionOverride(step.descriptionOverride)
+    : undefined;
+
+  return override ? { ...description, text: override.text } : description;
 }

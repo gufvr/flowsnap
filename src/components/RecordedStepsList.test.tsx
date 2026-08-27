@@ -129,6 +129,61 @@ describe('RecordedStepsList', () => {
     });
   });
 
+  it('edits one description inline and restores focus after saving', async () => {
+    const user = userEvent.setup();
+    const onEditStep = vi.fn().mockResolvedValue(true);
+    renderList([schema4Step], false, {
+      onEditStep,
+      onDeleteStep: vi.fn().mockResolvedValue(true),
+      onClearSteps: vi.fn().mockResolvedValue(true),
+    });
+    const editButton = screen.getByRole('button', {
+      name: 'Editar descrição do passo 1',
+    });
+
+    await user.click(editButton);
+    const field = screen.getByRole('textbox', {
+      name: 'Descrição do passo 1',
+    });
+    expect(field).toHaveFocus();
+    expect(field).toHaveValue('Clicou no botão "Entrar"');
+    expect(screen.getByRole('button', { name: 'Excluir passo 1' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Limpar tudo' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Copiar seletor do passo 1' }),
+    ).toBeEnabled();
+
+    await user.clear(field);
+    await user.type(field, 'Efetuou o login');
+    await user.click(screen.getByRole('button', { name: 'Salvar' }));
+
+    expect(onEditStep).toHaveBeenCalledWith(
+      0,
+      'Efetuou o login',
+      JSON.stringify(schema4Step),
+      'schema-4',
+    );
+    await waitFor(() => expect(editButton).toHaveFocus());
+    expect(
+      screen.queryByRole('textbox', { name: 'Descrição do passo 1' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('cancels editing with Escape and restores the trigger focus', async () => {
+    const user = userEvent.setup();
+    const onEditStep = vi.fn().mockResolvedValue(true);
+    renderList([schema4Step], false, { onEditStep });
+    const editButton = screen.getByRole('button', {
+      name: 'Editar descrição do passo 1',
+    });
+
+    await user.click(editButton);
+    await user.keyboard('{Escape}');
+
+    expect(onEditStep).not.toHaveBeenCalled();
+    await waitFor(() => expect(editButton).toHaveFocus());
+  });
+
   it('requires confirmation before deleting and restores focus on cancel', async () => {
     const user = userEvent.setup();
     const onDeleteStep = vi.fn().mockResolvedValue(true);
@@ -256,5 +311,37 @@ describe('RecordedStepsList', () => {
     );
     expect(screen.getByRole('heading', { name: 'Passos gravados' })).toHaveFocus();
     expect(onDeleteStep).not.toHaveBeenCalled();
+  });
+
+  it('cancels a stale edit after a reactive storage update', async () => {
+    const user = userEvent.setup();
+    const onEditStep = vi.fn().mockResolvedValue(true);
+    const { rerender } = renderList([schema4Step], false, { onEditStep });
+
+    await user.click(
+      screen.getByRole('button', { name: 'Editar descrição do passo 1' }),
+    );
+    rerender(
+      <ThemeProvider theme={theme}>
+        <RecordedStepsList
+          steps={[{ ...schema4Step, descriptionOverride: {
+            text: 'Alteração externa',
+            locale: 'pt-BR',
+          } }]}
+          isLoading={false}
+          onEditStep={onEditStep}
+        />
+      </ThemeProvider>,
+    );
+
+    expect(
+      await screen.findByRole('alert'),
+    ).toHaveTextContent(
+      'A lista de passos foi atualizada. Abra a edição novamente.',
+    );
+    expect(
+      screen.queryByRole('textbox', { name: 'Descrição do passo 1' }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Passos gravados' })).toHaveFocus();
   });
 });

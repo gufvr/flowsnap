@@ -4,12 +4,18 @@ import { formatSelector } from '../shared/selectors/formatSelector';
 import { resolveRecommendedSelector } from '../shared/selectors/resolveRecommendedSelector';
 import { CopySelectorButton } from './CopySelectorButton';
 import { InlineConfirmation } from './InlineConfirmation';
+import { RecordedStepEditor } from './RecordedStepEditor';
 
 interface RecordedStepItemProps {
   step: unknown;
   stepNumber: number;
   isDeleteConfirmationOpen?: boolean;
+  isEditOpen?: boolean;
+  isEditSaving?: boolean;
   areMutationsDisabled?: boolean;
+  onRequestEdit?: (trigger: HTMLButtonElement) => void;
+  onSaveEdit?: (text: string) => Promise<boolean>;
+  onCancelEdit?: () => void;
   onRequestDelete?: (trigger: HTMLButtonElement) => void;
   onConfirmDelete?: () => void;
   onCancelDelete?: () => void;
@@ -87,11 +93,24 @@ const DeleteButton = styled.button`
   }
 `;
 
+const EditButton = styled(DeleteButton)`
+  color: ${({ theme }) => theme.colors.text};
+
+  &:hover:not(:disabled) {
+    border-color: ${({ theme }) => theme.colors.success};
+  }
+`;
+
 export function RecordedStepItem({
   step,
   stepNumber,
   isDeleteConfirmationOpen = false,
+  isEditOpen = false,
+  isEditSaving = false,
   areMutationsDisabled = false,
+  onRequestEdit,
+  onSaveEdit,
+  onCancelEdit,
   onRequestDelete,
   onConfirmDelete,
   onCancelDelete,
@@ -104,7 +123,17 @@ export function RecordedStepItem({
 
   return (
     <Item>
-      <Description>{description.text}</Description>
+      {isEditOpen && onSaveEdit && onCancelEdit ? (
+        <RecordedStepEditor
+          stepNumber={stepNumber}
+          initialValue={description.text}
+          isSaving={isEditSaving}
+          onSave={onSaveEdit}
+          onCancel={onCancelEdit}
+        />
+      ) : (
+        <Description>{description.text}</Description>
+      )}
       <SelectorRow>
         <SelectorPreview>
           {formattedSelector ?? 'Seletor indisponível'}
@@ -114,6 +143,16 @@ export function RecordedStepItem({
             selector={formattedSelector}
             stepNumber={stepNumber}
           />
+          {onRequestEdit && (
+            <EditButton
+              type="button"
+              aria-label={`Editar descrição do passo ${stepNumber}`}
+              disabled={areMutationsDisabled}
+              onClick={(event) => onRequestEdit(event.currentTarget)}
+            >
+              Editar
+            </EditButton>
+          )}
           {onRequestDelete && (
             <DeleteButton
               type="button"

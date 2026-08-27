@@ -29,3 +29,23 @@ export function clearRecordedSteps() {
     'Não foi possível limpar os passos.',
   );
 }
+
+export function updateRecordedStepDescription(
+  stepIndex: number,
+  expectedReference: string,
+  text: string,
+  expectedId?: string,
+) {
+  return sendAction(
+    {
+      type: 'UPDATE_RECORDED_STEP_DESCRIPTION',
+      payload: {
+        stepIndex,
+        expectedReference,
+        text,
+        ...(expectedId ? { expectedId } : {}),
+      },
+    },
+    'Não foi possível atualizar a descrição do passo.',
+  );
+}

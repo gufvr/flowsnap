@@ -822,6 +822,29 @@ describe('integrated recording flow', () => {
     expect(harness.localSet).not.toHaveBeenCalled();
     expect(harness.getLocalValues().recordedSteps).toEqual(originalSteps);
 
+    await user.click(
+      screen.getByRole('button', { name: 'Editar descrição do passo 8' }),
+    );
+    const descriptionField = screen.getByRole('textbox', {
+      name: 'Descrição do passo 8',
+    });
+    await user.clear(descriptionField);
+    await user.type(descriptionField, 'Atualizou a área da conta');
+    await user.click(screen.getByRole('button', { name: 'Salvar' }));
+
+    expect(
+      await screen.findByText('Atualizou a área da conta'),
+    ).toBeInTheDocument();
+    const editedSteps: unknown[] = structuredClone(originalSteps);
+    editedSteps[7] = {
+      ...(editedSteps[7] as Record<string, unknown>),
+      descriptionOverride: {
+        text: 'Atualizou a área da conta',
+        locale: 'pt-BR',
+      },
+    };
+    expect(harness.getLocalValues().recordedSteps).toEqual(editedSteps);
+
     await user.click(screen.getByRole('button', { name: 'Copiar seletor do passo 1' }));
     expect(harness.clipboardWrite).toHaveBeenLastCalledWith(
       'data-testid=login-submit',
@@ -838,7 +861,7 @@ describe('integrated recording flow', () => {
       expect(screen.getByText('12 passos capturados')).toBeInTheDocument(),
     );
     expect(harness.getLocalValues().recordedSteps).toEqual(
-      originalSteps.slice(0, 12),
+      editedSteps.slice(0, 12),
     );
 
     await user.click(screen.getByRole('button', { name: 'Limpar tudo' }));

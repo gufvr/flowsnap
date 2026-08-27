@@ -1,14 +1,16 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { deleteRecordedStep, clearRecordedSteps } = vi.hoisted(() => ({
+const { deleteRecordedStep, clearRecordedSteps, updateRecordedStepDescription } = vi.hoisted(() => ({
   deleteRecordedStep: vi.fn(),
   clearRecordedSteps: vi.fn(),
+  updateRecordedStepDescription: vi.fn(),
 }));
 
 vi.mock('../services/recordedStepActions', () => ({
   deleteRecordedStep,
   clearRecordedSteps,
+  updateRecordedStepDescription,
 }));
 
 import { useRecordedSteps } from './useRecordedSteps';
@@ -43,9 +45,11 @@ describe('useRecordedSteps', () => {
     storageChangeRemoveListener.mockReset();
     deleteRecordedStep.mockReset();
     clearRecordedSteps.mockReset();
+    updateRecordedStepDescription.mockReset();
     storageGet.mockResolvedValue({ recordedSteps: [] });
     deleteRecordedStep.mockResolvedValue(undefined);
     clearRecordedSteps.mockResolvedValue(undefined);
+    updateRecordedStepDescription.mockResolvedValue(undefined);
 
     vi.stubGlobal('chrome', {
       storage: {
@@ -179,6 +183,36 @@ describe('useRecordedSteps', () => {
     });
 
     expect(deleteRecordedStep).toHaveBeenCalledWith(0, undefined);
+  });
+
+  it('updates a description and exposes its pending and success states', async () => {
+    const persistedStep = createStep('persisted', 'Passo persistido');
+    storageGet.mockResolvedValue({ recordedSteps: [persistedStep] });
+    const { result } = renderHook(() => useRecordedSteps());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    const expectedReference = JSON.stringify(persistedStep);
+
+    await act(async () => {
+      await expect(
+        result.current.editStepDescription(
+          0,
+          'Descrição editada',
+          expectedReference,
+          'persisted',
+        ),
+      ).resolves.toBe(true);
+    });
+
+    expect(updateRecordedStepDescription).toHaveBeenCalledWith(
+      0,
+      expectedReference,
+      'Descrição editada',
+      'persisted',
+    );
+    expect(result.current.feedback).toEqual({
+      type: 'success',
+      message: 'Descrição do passo 1 atualizada.',
+    });
   });
 
   it('prevents overlapping mutations', async () => {

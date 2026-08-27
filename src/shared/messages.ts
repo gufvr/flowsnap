@@ -44,6 +44,15 @@ export type ExtensionMessage =
       type: 'DELETE_RECORDED_STEP';
       payload: { stepIndex: number; expectedId?: string };
     }
+  | {
+      type: 'UPDATE_RECORDED_STEP_DESCRIPTION';
+      payload: {
+        stepIndex: number;
+        expectedId?: string;
+        expectedReference: string;
+        text: string;
+      };
+    }
   | { type: 'CLEAR_RECORDED_STEPS' }
   | { type: 'GET_ACTIVE_TAB_CONTEXT' }
   | { type: 'ACTIVATE_CLICK_RECORDER' }

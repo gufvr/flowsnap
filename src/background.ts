@@ -1,5 +1,7 @@
 import type { ExtensionMessage, ExtensionResponse } from './shared/messages';
 import type { RecordedStep, RecordingState } from './shared/recordingTypes';
+import { validateStepDescriptionText } from './shared/descriptions/descriptionOverride';
+import { getRecordedStepReference } from './shared/recordedStepIdentity';
 import {
   captureActiveTabContext,
   getActiveTabContext,
@@ -32,7 +34,12 @@ type RecordedStepMessage = Extract<
 
 type RecordedStepActionMessage = Extract<
   ExtensionMessage,
-  { type: 'DELETE_RECORDED_STEP' | 'CLEAR_RECORDED_STEPS' }
+  {
+    type:
+      | 'DELETE_RECORDED_STEP'
+      | 'UPDATE_RECORDED_STEP_DESCRIPTION'
+      | 'CLEAR_RECORDED_STEPS';
+  }
 >;
 
 let recordedStepOperationQueue: Promise<void> = Promise.resolve();
@@ -173,6 +180,62 @@ async function clearRecordedSteps(): Promise<ExtensionResponse> {
   return { success: true };
 }
 
+async function updateRecordedStepDescription(
+  message: Extract<
+    RecordedStepActionMessage,
+    { type: 'UPDATE_RECORDED_STEP_DESCRIPTION' }
+  >,
+): Promise<ExtensionResponse> {
+  const { stepIndex, expectedId, expectedReference, text } = message.payload;
+  const validation = validateStepDescriptionText(text);
+
+  if (!Number.isInteger(stepIndex) || stepIndex < 0) {
+    return { success: false, error: 'O passo solicitado é inválido.' };
+  }
+
+  if (!validation.valid) {
+    return { success: false, error: validation.error };
+  }
+
+  const result = await chrome.storage.local.get(RECORDED_STEPS_KEY);
+  const storedSteps = result[RECORDED_STEPS_KEY];
+  const steps: unknown[] = Array.isArray(storedSteps) ? storedSteps : [];
+  const target = steps[stepIndex];
+
+  if (typeof target !== 'object' || target === null) {
+    return { success: false, error: 'O passo não está mais disponível.' };
+  }
+
+  if (expectedId && (!('id' in target) || target.id !== expectedId)) {
+    return {
+      success: false,
+      error: 'A lista de passos foi atualizada. Abra a edição novamente.',
+    };
+  }
+
+  if (getRecordedStepReference(target) !== expectedReference) {
+    return {
+      success: false,
+      error: 'A lista de passos foi atualizada. Abra a edição novamente.',
+    };
+  }
+
+  const updatedStep = {
+    ...target,
+    descriptionOverride: {
+      text: validation.text,
+      locale: 'pt-BR' as const,
+    },
+  };
+
+  await chrome.storage.local.set({
+    [RECORDED_STEPS_KEY]: steps.map((step, index) =>
+      index === stepIndex ? updatedStep : step,
+    ),
+  });
+  return { success: true };
+}
+
 function enqueueRecordedStepOperation<T>(operation: () => Promise<T>) {
   const result = recordedStepOperationQueue.then(operation);
 
@@ -197,6 +260,10 @@ function performRecordedStepAction(message: RecordedStepActionMessage) {
   return enqueueRecordedStepOperation(() => {
     if (message.type === 'DELETE_RECORDED_STEP') {
       return deleteRecordedStep(message);
+    }
+
+    if (message.type === 'UPDATE_RECORDED_STEP_DESCRIPTION') {
+      return updateRecordedStepDescription(message);
     }
 
     return clearRecordedSteps();
@@ -429,6 +496,7 @@ chrome.runtime.onMessage.addListener(
 
       if (
         message.type === 'DELETE_RECORDED_STEP' ||
+        message.type === 'UPDATE_RECORDED_STEP_DESCRIPTION' ||
         message.type === 'CLEAR_RECORDED_STEPS'
       ) {
         return performRecordedStepAction(message);

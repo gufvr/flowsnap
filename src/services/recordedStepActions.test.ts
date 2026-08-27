@@ -3,6 +3,7 @@ import type { ExtensionMessage } from '../shared/messages';
 import {
   clearRecordedSteps,
   deleteRecordedStep,
+  updateRecordedStepDescription,
 } from './recordedStepActions';
 
 const sendMessage = vi.fn();
@@ -37,6 +38,25 @@ describe('recordedStepActions', () => {
 
     expect(sendMessage).toHaveBeenCalledWith({
       type: 'CLEAR_RECORDED_STEPS',
+    } satisfies ExtensionMessage);
+  });
+
+  it('requests a description update with its concurrent identity', async () => {
+    await updateRecordedStepDescription(
+      1,
+      '{"id":"step-id"}',
+      'Descrição editada',
+      'step-id',
+    );
+
+    expect(sendMessage).toHaveBeenCalledWith({
+      type: 'UPDATE_RECORDED_STEP_DESCRIPTION',
+      payload: {
+        stepIndex: 1,
+        expectedReference: '{"id":"step-id"}',
+        expectedId: 'step-id',
+        text: 'Descrição editada',
+      },
     } satisfies ExtensionMessage);
   });
 
