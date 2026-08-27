@@ -879,6 +879,41 @@ describe('integrated recording flow', () => {
     ).toBeInTheDocument();
     expect(harness.getLocalValues()).toEqual(storageBeforeCollectiveCopy);
 
+    await user.click(
+      screen.getByRole('button', { name: 'Gerar Playwright' }),
+    );
+    expect(
+      screen.getByRole('heading', { name: 'Código Playwright' }),
+    ).toHaveFocus();
+    expect(
+      screen.getByText('10 de 13 passos exportados; 3 marcados como TODO.'),
+    ).toBeInTheDocument();
+    const codePreview = screen.getByLabelText('Prévia do código Playwright');
+    expect(codePreview).toHaveTextContent(
+      'await page.getByTestId("login-submit").click();',
+    );
+    expect(codePreview).toHaveTextContent('Passo 8: Atualizou a área da conta');
+    expect(codePreview).toHaveTextContent(
+      'TODO FlowSnap: a exportação de controles range ainda não é suportada.',
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Copiar código' }));
+    expect(harness.clipboardWrite).toHaveBeenLastCalledWith(
+      expect.stringContaining('import { test } from "@playwright/test";'),
+    );
+    expect(harness.clipboardWrite).toHaveBeenLastCalledWith(
+      expect.stringContaining('// Passo 12: Marcou a caixa de seleção'),
+    );
+    expect(
+      await screen.findByText('Código Playwright copiado'),
+    ).toBeInTheDocument();
+    expect(harness.getLocalValues()).toEqual(storageBeforeCollectiveCopy);
+
+    await user.keyboard('{Escape}');
+    expect(
+      screen.queryByRole('heading', { name: 'Código Playwright' }),
+    ).not.toBeInTheDocument();
+
     await user.click(screen.getByRole('button', { name: 'Copiar seletor do passo 1' }));
     expect(harness.clipboardWrite).toHaveBeenLastCalledWith(
       'data-testid=login-submit',
@@ -909,5 +944,5 @@ describe('integrated recording flow', () => {
       await screen.findByText('Nenhum passo gravado ainda.'),
     ).toBeInTheDocument();
     expect(harness.getLocalValues().recordedSteps).toEqual([]);
-  }, 10_000);
+  }, 15_000);
 });

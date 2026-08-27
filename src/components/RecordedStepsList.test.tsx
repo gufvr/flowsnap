@@ -21,6 +21,8 @@ function renderList(
 const schema4Step = {
   schemaVersion: 4,
   id: 'schema-4',
+  type: 'click',
+  url: 'https://example.com',
   description: {
     action: 'click',
     target: { type: 'button', name: 'Entrar' },
@@ -130,6 +132,53 @@ describe('RecordedStepsList', () => {
     expect(screen.getByLabelText('Lista de passos gravados')).toHaveStyle({
       overflowY: 'auto',
     });
+  });
+
+  it('opens the Playwright preview and restores focus after closing', async () => {
+    const user = userEvent.setup();
+    renderList([schema4Step]);
+    const generateButton = screen.getByRole('button', {
+      name: 'Gerar Playwright',
+    });
+
+    await user.click(generateButton);
+
+    expect(generateButton).toHaveAttribute('aria-expanded', 'true');
+    expect(
+      screen.getByRole('heading', { name: 'Código Playwright' }),
+    ).toHaveFocus();
+    expect(screen.getByText('1 de 1 passo exportado; 0 marcados como TODO.'))
+      .toBeInTheDocument();
+
+    await user.keyboard('{Escape}');
+
+    expect(
+      screen.queryByRole('heading', { name: 'Código Playwright' }),
+    ).not.toBeInTheDocument();
+    await waitFor(() => expect(generateButton).toHaveFocus());
+    expect(generateButton).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('closes the Playwright preview when every step is removed', async () => {
+    const user = userEvent.setup();
+    const { rerender } = renderList([schema4Step]);
+
+    await user.click(
+      screen.getByRole('button', { name: 'Gerar Playwright' }),
+    );
+    rerender(
+      <ThemeProvider theme={theme}>
+        <RecordedStepsList steps={[]} isLoading={false} />
+      </ThemeProvider>,
+    );
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('heading', { name: 'Código Playwright' }),
+      ).not.toBeInTheDocument(),
+    );
+    expect(screen.getByRole('heading', { name: 'Passos gravados' }))
+      .toHaveFocus();
   });
 
   it('moves one step at a time and focuses it in the persisted position', async () => {

@@ -10,6 +10,7 @@ import {
 } from '../shared/recordedStepIdentity';
 import { CopyAllSelectorsButton } from './CopyAllSelectorsButton';
 import { InlineConfirmation } from './InlineConfirmation';
+import { PlaywrightCodePanel } from './PlaywrightCodePanel';
 import { RecordedStepItem } from './RecordedStepItem';
 
 interface RecordedStepsListProps {
@@ -131,6 +132,14 @@ const ClearButton = styled.button`
   }
 `;
 
+const GenerateButton = styled(ClearButton)`
+  color: ${({ theme }) => theme.colors.text};
+
+  &:hover:not(:disabled) {
+    border-color: ${({ theme }) => theme.colors.focus};
+  }
+`;
+
 const Viewport = styled.div`
   max-height: min(48vh, 420px);
   overflow-y: auto;
@@ -196,7 +205,9 @@ export function RecordedStepsList({
   const [editingStep, setEditingStep] = useState<EditingStep>();
   const [localFeedback, setLocalFeedback] = useState<RecordedStepsFeedback>();
   const [moveFocusRequest, setMoveFocusRequest] = useState<MoveFocusRequest>();
+  const [isPlaywrightOpen, setIsPlaywrightOpen] = useState(false);
   const title = useRef<HTMLHeadingElement>(null);
+  const playwrightTrigger = useRef<HTMLButtonElement>(null);
   const countLabel = steps.length === 1 ? '1 passo' : `${steps.length} passos`;
   const areMutationsDisabled = Boolean(pendingMutation);
   const isConfirmationStale = confirmation
@@ -247,6 +258,14 @@ export function RecordedStepsList({
     return () => window.clearTimeout(resetEditing);
   }, [isEditingStale]);
 
+  useEffect(() => {
+    if (steps.length > 0 || !isPlaywrightOpen) return;
+
+    title.current?.focus();
+    const closePanel = window.setTimeout(() => setIsPlaywrightOpen(false), 0);
+    return () => window.clearTimeout(closePanel);
+  }, [isPlaywrightOpen, steps.length]);
+
   function restoreTriggerFocus(trigger: HTMLButtonElement) {
     window.setTimeout(() => trigger.focus(), 0);
   }
@@ -257,6 +276,17 @@ export function RecordedStepsList({
     const { trigger } = confirmation;
     setConfirmation(undefined);
     restoreTriggerFocus(trigger);
+  }
+
+  function closePlaywrightPanel() {
+    setIsPlaywrightOpen(false);
+    window.setTimeout(() => {
+      if (playwrightTrigger.current?.isConnected) {
+        playwrightTrigger.current.focus();
+      } else {
+        title.current?.focus();
+      }
+    }, 0);
   }
 
   function cancelEditing() {
@@ -354,6 +384,15 @@ export function RecordedStepsList({
       {steps.length > 0 && (
         <ListActions role="group" aria-label="Ações dos passos gravados">
           <CopyAllSelectorsButton steps={steps} />
+          <GenerateButton
+            ref={playwrightTrigger}
+            type="button"
+            aria-expanded={isPlaywrightOpen}
+            aria-controls="playwright-code-panel"
+            onClick={() => setIsPlaywrightOpen(true)}
+          >
+            Gerar Playwright
+          </GenerateButton>
           {onClearSteps && (
             <ClearButton
               type="button"
@@ -478,6 +517,12 @@ export function RecordedStepsList({
             ))}
           </List>
         </Viewport>
+      )}
+
+      {isPlaywrightOpen && steps.length > 0 && (
+        <div id="playwright-code-panel">
+          <PlaywrightCodePanel steps={steps} onClose={closePlaywrightPanel} />
+        </div>
       )}
     </Card>
   );

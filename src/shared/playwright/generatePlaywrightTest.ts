@@ -1,0 +1,350 @@
+import { resolveStepDescription } from '../descriptions/resolveStepDescription';
+import { resolveRecommendedSelector } from '../selectors/resolveRecommendedSelector';
+import {
+  formatJavaScriptString,
+  formatPlaywrightLocator,
+} from './formatPlaywrightLocator';
+
+export interface PlaywrightGenerationResult {
+  code: string;
+  totalSteps: number;
+  supportedSteps: number;
+  unsupportedSteps: number;
+}
+
+interface GeneratedStep {
+  supported: boolean;
+  command: string;
+  safeDescription?: string;
+}
+
+const INTERACTION_KEYS = [
+  'Enter',
+  'Space',
+  'Escape',
+  'ArrowUp',
+  'ArrowDown',
+  'ArrowLeft',
+  'ArrowRight',
+] as const;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function isInteractionKey(
+  value: unknown,
+): value is (typeof INTERACTION_KEYS)[number] {
+  return (
+    typeof value === 'string' &&
+    INTERACTION_KEYS.includes(value as (typeof INTERACTION_KEYS)[number])
+  );
+}
+
+function todo(message: string, safeDescription?: string): GeneratedStep {
+  return {
+    supported: false,
+    command: `// TODO FlowSnap: ${message}`,
+    ...(safeDescription ? { safeDescription } : {}),
+  };
+}
+
+function resolveLocator(step: unknown) {
+  const selector = resolveRecommendedSelector(step);
+  return selector ? formatPlaywrightLocator(selector) : undefined;
+}
+
+function generateClick(step: unknown) {
+  const locator = resolveLocator(step);
+  return locator
+    ? { supported: true, command: `await ${locator}.click();` }
+    : todo('seletor recomendado indisponível para este clique.');
+}
+
+function generateFieldFill(step: Record<string, unknown>) {
+  const value = step.value;
+  if (!isRecord(value)) {
+    return todo('valor do preenchimento indisponível.');
+  }
+
+  if (value.kind === 'protected') {
+    return todo(
+      'informe o valor protegido manualmente antes de executar este passo.',
+      'Preencheu um campo com valor protegido',
+    );
+  }
+
+  if (value.kind !== 'plain') {
+    return todo('valor do preenchimento inválido.');
+  }
+
+  if (value.truncated === true) {
+    return todo(
+      'o valor gravado foi truncado e precisa ser revisado.',
+      'Preenchimento com valor truncado',
+    );
+  }
+
+  if (typeof value.value !== 'string') {
+    return todo('valor do preenchimento indisponível.');
+  }
+
+  const locator = resolveLocator(step);
+  return locator
+    ? {
+        supported: true,
+        command: `await ${locator}.fill(${formatJavaScriptString(value.value)});`,
+      }
+    : todo('seletor recomendado indisponível para este preenchimento.');
+}
+
+function generateSelection(step: Record<string, unknown>) {
+  const control = step.control;
+  if (!isRecord(control)) {
+    return todo('estado final da seleção indisponível.');
+  }
+
+  const protectedSelection =
+    control.kind === 'select' && isRecord(control.selection)
+      ? control.selection
+      : undefined;
+  if (protectedSelection?.kind === 'protected') {
+    return todo(
+      'informe a seleção protegida manualmente antes de executar este passo.',
+      'Selecionou um valor protegido',
+    );
+  }
+  if (
+    protectedSelection?.kind === 'plain' &&
+    protectedSelection.truncated === true
+  ) {
+    return todo(
+      'a seleção gravada foi truncada e precisa ser revisada.',
+      'Seleção com valores truncados',
+    );
+  }
+
+  const locator = resolveLocator(step);
+  if (!locator) {
+    return todo('seletor recomendado indisponível para esta seleção.');
+  }
+
+  if (control.kind === 'checkbox' && typeof control.checked === 'boolean') {
+    return {
+      supported: true,
+      command: `await ${locator}.setChecked(${control.checked});`,
+    };
+  }
+
+  if (control.kind === 'radio' && control.checked === true) {
+    return {
+      supported: true,
+      command: `await ${locator}.setChecked(true);`,
+    };
+  }
+
+  if (control.kind !== 'select' || !isRecord(control.selection)) {
+    return todo('controle de seleção não reconhecido.');
+  }
+
+  const selection = control.selection;
+  if (selection.kind !== 'plain') {
+    return todo('estado final do seletor indisponível.');
+  }
+
+  if (!Array.isArray(selection.options)) {
+    return todo('opções selecionadas indisponíveis.');
+  }
+
+  const values = selection.options.map((option) =>
+    isRecord(option) && typeof option.value === 'string'
+      ? option.value
+      : undefined,
+  );
+  if (values.some((value) => value === undefined)) {
+    return todo('opções selecionadas inválidas.');
+  }
+
+  const selectedValues = values as string[];
+  if (control.multiple === true) {
+    return {
+      supported: true,
+      command: `await ${locator}.selectOption([${selectedValues
+        .map(formatJavaScriptString)
+        .join(', ')}]);`,
+    };
+  }
+
+  if (control.multiple !== false || selectedValues.length !== 1) {
+    return todo('estado final do seletor simples não pode ser reproduzido.');
+  }
+
+  return {
+    supported: true,
+    command: `await ${locator}.selectOption(${formatJavaScriptString(selectedValues[0])});`,
+  };
+}
+
+function generateKeyPress(step: Record<string, unknown>) {
+  if (!isInteractionKey(step.key)) {
+    return todo('tecla de interação não reconhecida.');
+  }
+
+  const locator = resolveLocator(step);
+  if (!locator) {
+    return todo('seletor recomendado indisponível para esta tecla.');
+  }
+
+  const hasShift = isRecord(step.modifiers) && step.modifiers.shift === true;
+  const key = hasShift ? `Shift+${step.key}` : step.key;
+  return {
+    supported: true,
+    command: `await ${locator}.press(${formatJavaScriptString(key)});`,
+  };
+}
+
+function generateFocusNavigation(step: Record<string, unknown>) {
+  if (step.direction !== 'forward' && step.direction !== 'backward') {
+    return todo('direção da navegação por Tab indisponível.');
+  }
+
+  const key = step.direction === 'backward' ? 'Shift+Tab' : 'Tab';
+  return {
+    supported: true,
+    command: `await page.keyboard.press(${formatJavaScriptString(key)});`,
+  };
+}
+
+function generateNavigation(step: Record<string, unknown>) {
+  if (step.trigger === 'reload') {
+    return { supported: true, command: 'await page.reload();' };
+  }
+
+  if (typeof step.toUrl !== 'string' || !step.toUrl.trim()) {
+    return todo('URL final da navegação indisponível.');
+  }
+
+  return {
+    supported: true,
+    command: `await page.waitForURL(${formatJavaScriptString(step.toUrl)});`,
+  };
+}
+
+function getProtectedControlDescription(
+  step: Record<string, unknown>,
+  protectedDescription: string,
+  truncatedDescription: string,
+) {
+  const value = step.value;
+  if (!isRecord(value)) return undefined;
+  if (value.kind === 'protected') return protectedDescription;
+  if (value.kind === 'plain' && value.truncated === true) {
+    return truncatedDescription;
+  }
+
+  return undefined;
+}
+
+function generateStep(step: unknown): GeneratedStep {
+  if (!isRecord(step) || typeof step.type !== 'string') {
+    return todo('registro incompleto ou malformado.');
+  }
+
+  if (step.type === 'click') return generateClick(step);
+  if (step.type === 'field-fill') return generateFieldFill(step);
+  if (step.type === 'selection-change') return generateSelection(step);
+  if (step.type === 'key-press') return generateKeyPress(step);
+  if (step.type === 'focus-navigation') {
+    return generateFocusNavigation(step);
+  }
+  if (step.type === 'navigation') return generateNavigation(step);
+  if (step.type === 'range-change') {
+    return todo(
+      'a exportação de controles range ainda não é suportada.',
+      getProtectedControlDescription(
+        step,
+        'Ajustou um controle range para um valor protegido',
+        'Ajustou um controle range com valor truncado',
+      ),
+    );
+  }
+  if (step.type === 'color-change') {
+    return todo(
+      'a exportação de seletores de cor ainda não é suportada.',
+      getProtectedControlDescription(
+        step,
+        'Selecionou um valor de cor protegido',
+        'Selecionou um valor de cor truncado',
+      ),
+    );
+  }
+
+  return todo('tipo de ação ainda não suportado.');
+}
+
+function sanitizeComment(text: string) {
+  return text.replace(/[\r\n\u2028\u2029]+/g, ' ').trim();
+}
+
+function isHttpUrl(value: unknown): value is string {
+  if (typeof value !== 'string') return false;
+
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+function resolveInitialUrl(steps: readonly unknown[]) {
+  for (const step of steps) {
+    if (!isRecord(step)) continue;
+    if (step.type === 'navigation' && isHttpUrl(step.fromUrl)) {
+      return step.fromUrl;
+    }
+    if (isHttpUrl(step.url)) return step.url;
+  }
+
+  return undefined;
+}
+
+export function generatePlaywrightTest(
+  steps: readonly unknown[],
+): PlaywrightGenerationResult {
+  const generatedSteps = steps.map(generateStep);
+  const supportedSteps = generatedSteps.filter(
+    ({ supported }) => supported,
+  ).length;
+  const initialUrl = resolveInitialUrl(steps);
+  const initialCommand = initialUrl
+    ? `await page.goto(${formatJavaScriptString(initialUrl)});`
+    : '// TODO FlowSnap: defina a URL inicial antes de executar o teste.';
+  const stepBlocks = generatedSteps.map((generatedStep, index) => {
+    const description = sanitizeComment(
+      generatedStep.safeDescription ??
+        resolveStepDescription(steps[index]).text,
+    );
+    return [
+      `  // Passo ${index + 1}: ${description}`,
+      `  ${generatedStep.command}`,
+    ].join('\n');
+  });
+  const body = [
+    `  ${initialCommand}`,
+    ...stepBlocks.flatMap((block) => ['', block]),
+  ];
+
+  return {
+    code: [
+      'import { test } from "@playwright/test";',
+      '',
+      'test("fluxo gravado pelo FlowSnap", async ({ page }) => {',
+      ...body,
+      '});',
+    ].join('\n'),
+    totalSteps: steps.length,
+    supportedSteps,
+    unsupportedSteps: steps.length - supportedSteps,
+  };
+}

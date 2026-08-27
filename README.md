@@ -4,7 +4,7 @@
 
 <h1 align="center">FlowSnap</h1>
 
-FlowSnap é uma extensão Chrome que grava fluxos de navegação e os transforma em passos claros e reutilizáveis. Futuramente, esses fluxos poderão ser exportados como testes automatizados para Cypress e Playwright.
+FlowSnap é uma extensão Chrome que grava fluxos de navegação e gera passos reutilizáveis e código Playwright. A exportação para Cypress está planejada.
 
 ## Recursos
 
