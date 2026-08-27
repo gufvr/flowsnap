@@ -823,6 +823,19 @@ describe('integrated recording flow', () => {
     expect(harness.getLocalValues().recordedSteps).toEqual(originalSteps);
 
     await user.click(
+      screen.getByRole('button', { name: 'Mover passo 12 para cima' }),
+    );
+    const reorderedSteps: unknown[] = structuredClone(originalSteps);
+    [reorderedSteps[10], reorderedSteps[11]] = [
+      reorderedSteps[11],
+      reorderedSteps[10],
+    ];
+    await waitFor(() =>
+      expect(harness?.getLocalValues().recordedSteps).toEqual(reorderedSteps),
+    );
+    expect(screen.getAllByRole('listitem')[10]).toHaveFocus();
+
+    await user.click(
       screen.getByRole('button', { name: 'Editar descrição do passo 8' }),
     );
     const descriptionField = screen.getByRole('textbox', {
@@ -835,7 +848,7 @@ describe('integrated recording flow', () => {
     expect(
       await screen.findByText('Atualizou a área da conta'),
     ).toBeInTheDocument();
-    const editedSteps: unknown[] = structuredClone(originalSteps);
+    const editedSteps: unknown[] = structuredClone(reorderedSteps);
     editedSteps[7] = {
       ...(editedSteps[7] as Record<string, unknown>),
       descriptionOverride: {
@@ -875,5 +888,5 @@ describe('integrated recording flow', () => {
       await screen.findByText('Nenhum passo gravado ainda.'),
     ).toBeInTheDocument();
     expect(harness.getLocalValues().recordedSteps).toEqual([]);
-  });
+  }, 10_000);
 });

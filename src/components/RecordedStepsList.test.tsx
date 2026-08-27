@@ -129,11 +129,78 @@ describe('RecordedStepsList', () => {
     });
   });
 
+  it('moves one step at a time and focuses it in the persisted position', async () => {
+    const user = userEvent.setup();
+    const onMoveStep = vi.fn().mockResolvedValue(true);
+    const secondStep = {
+      ...schema4Step,
+      id: 'second',
+      description: {
+        ...schema4Step.description,
+        text: 'Clicou no botão "Continuar"',
+        target: { type: 'button', name: 'Continuar' },
+      },
+    };
+    const { rerender } = renderList([schema4Step, secondStep], false, {
+      onMoveStep,
+    });
+
+    expect(
+      screen.getByRole('button', { name: 'Mover passo 1 para cima' }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Mover passo 1 para baixo' }),
+    ).toBeEnabled();
+    expect(
+      screen.getByRole('button', { name: 'Mover passo 2 para cima' }),
+    ).toBeEnabled();
+    expect(
+      screen.getByRole('button', { name: 'Mover passo 2 para baixo' }),
+    ).toBeDisabled();
+
+    await user.click(
+      screen.getByRole('button', { name: 'Mover passo 2 para cima' }),
+    );
+    await waitFor(() => expect(onMoveStep).toHaveBeenCalledWith(1, 0));
+
+    rerender(
+      <ThemeProvider theme={theme}>
+        <RecordedStepsList
+          steps={[secondStep, schema4Step]}
+          isLoading={false}
+          onMoveStep={onMoveStep}
+        />
+      </ThemeProvider>,
+    );
+
+    const reorderedItems = screen.getAllByRole('listitem');
+    await waitFor(() => expect(reorderedItems[0]).toHaveFocus());
+    expect(reorderedItems[0]).toHaveTextContent('Continuar');
+  });
+
+  it('disables movement during another mutation and announces its progress', () => {
+    renderList([schema4Step, { ...schema4Step, id: 'second' }], false, {
+      pendingMutation: { type: 'move', fromIndex: 1, toIndex: 0 },
+      onMoveStep: vi.fn().mockResolvedValue(true),
+    });
+
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Movendo passo 2 para a posição 1',
+    );
+    expect(
+      screen.getByRole('button', { name: 'Mover passo 2 para cima' }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Copiar seletor do passo 2' }),
+    ).toBeEnabled();
+  });
+
   it('edits one description inline and restores focus after saving', async () => {
     const user = userEvent.setup();
     const onEditStep = vi.fn().mockResolvedValue(true);
     renderList([schema4Step], false, {
       onEditStep,
+      onMoveStep: vi.fn().mockResolvedValue(true),
       onDeleteStep: vi.fn().mockResolvedValue(true),
       onClearSteps: vi.fn().mockResolvedValue(true),
     });
@@ -149,6 +216,9 @@ describe('RecordedStepsList', () => {
     expect(field).toHaveValue('Clicou no botão "Entrar"');
     expect(screen.getByRole('button', { name: 'Excluir passo 1' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Limpar tudo' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Mover passo 1 para cima' }),
+    ).toBeDisabled();
     expect(
       screen.getByRole('button', { name: 'Copiar seletor do passo 1' }),
     ).toBeEnabled();

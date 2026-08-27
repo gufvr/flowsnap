@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import styled from 'styled-components';
 import { resolveStepDescription } from '../shared/descriptions/resolveStepDescription';
 import { formatSelector } from '../shared/selectors/formatSelector';
@@ -13,6 +14,11 @@ interface RecordedStepItemProps {
   isEditOpen?: boolean;
   isEditSaving?: boolean;
   areMutationsDisabled?: boolean;
+  canMoveUp?: boolean;
+  canMoveDown?: boolean;
+  shouldFocusAfterMove?: boolean;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
   onRequestEdit?: (trigger: HTMLButtonElement) => void;
   onSaveEdit?: (text: string) => Promise<boolean>;
   onCancelEdit?: () => void;
@@ -29,6 +35,11 @@ const Item = styled.li`
   border-radius: ${({ theme }) => theme.radii.md};
   font-size: ${({ theme }) => theme.fontSizes.small};
   line-height: 1.45;
+
+  &:focus-visible {
+    outline: 3px solid ${({ theme }) => theme.colors.focus};
+    outline-offset: 2px;
+  }
 
   &::marker {
     color: ${({ theme }) => theme.colors.textMuted};
@@ -101,6 +112,15 @@ const EditButton = styled(DeleteButton)`
   }
 `;
 
+const ReorderActions = styled.div`
+  display: flex;
+  gap: 4px;
+`;
+
+const MoveButton = styled(EditButton)`
+  flex: 1;
+`;
+
 export function RecordedStepItem({
   step,
   stepNumber,
@@ -108,6 +128,11 @@ export function RecordedStepItem({
   isEditOpen = false,
   isEditSaving = false,
   areMutationsDisabled = false,
+  canMoveUp = false,
+  canMoveDown = false,
+  shouldFocusAfterMove = false,
+  onMoveUp,
+  onMoveDown,
   onRequestEdit,
   onSaveEdit,
   onCancelEdit,
@@ -115,14 +140,19 @@ export function RecordedStepItem({
   onConfirmDelete,
   onCancelDelete,
 }: RecordedStepItemProps) {
+  const item = useRef<HTMLLIElement>(null);
   const description = resolveStepDescription(step);
   const recommendedSelector = resolveRecommendedSelector(step);
   const formattedSelector = recommendedSelector
     ? formatSelector(recommendedSelector)
     : undefined;
 
+  useEffect(() => {
+    if (shouldFocusAfterMove) item.current?.focus();
+  }, [shouldFocusAfterMove, stepNumber]);
+
   return (
-    <Item>
+    <Item ref={item} tabIndex={-1}>
       {isEditOpen && onSaveEdit && onCancelEdit ? (
         <RecordedStepEditor
           stepNumber={stepNumber}
@@ -143,6 +173,29 @@ export function RecordedStepItem({
             selector={formattedSelector}
             stepNumber={stepNumber}
           />
+          {onMoveUp && onMoveDown && (
+            <ReorderActions
+              role="group"
+              aria-label={`Reordenar passo ${stepNumber}`}
+            >
+              <MoveButton
+                type="button"
+                aria-label={`Mover passo ${stepNumber} para cima`}
+                disabled={areMutationsDisabled || !canMoveUp}
+                onClick={onMoveUp}
+              >
+                Subir
+              </MoveButton>
+              <MoveButton
+                type="button"
+                aria-label={`Mover passo ${stepNumber} para baixo`}
+                disabled={areMutationsDisabled || !canMoveDown}
+                onClick={onMoveDown}
+              >
+                Descer
+              </MoveButton>
+            </ReorderActions>
+          )}
           {onRequestEdit && (
             <EditButton
               type="button"

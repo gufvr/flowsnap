@@ -49,3 +49,27 @@ export function updateRecordedStepDescription(
     'Não foi possível atualizar a descrição do passo.',
   );
 }
+
+export function moveRecordedStep(
+  fromIndex: number,
+  toIndex: number,
+  expectedStepReference: string,
+  expectedTargetReference: string,
+  expectedId?: string,
+  expectedTargetId?: string,
+) {
+  return sendAction(
+    {
+      type: 'MOVE_RECORDED_STEP',
+      payload: {
+        fromIndex,
+        toIndex,
+        expectedStepReference,
+        expectedTargetReference,
+        ...(expectedId ? { expectedId } : {}),
+        ...(expectedTargetId ? { expectedTargetId } : {}),
+      },
+    },
+    'Não foi possível mover o passo.',
+  );
+}

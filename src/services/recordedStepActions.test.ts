@@ -3,6 +3,7 @@ import type { ExtensionMessage } from '../shared/messages';
 import {
   clearRecordedSteps,
   deleteRecordedStep,
+  moveRecordedStep,
   updateRecordedStepDescription,
 } from './recordedStepActions';
 
@@ -56,6 +57,29 @@ describe('recordedStepActions', () => {
         expectedReference: '{"id":"step-id"}',
         expectedId: 'step-id',
         text: 'Descrição editada',
+      },
+    } satisfies ExtensionMessage);
+  });
+
+  it('requests an adjacent move with both concurrent identities', async () => {
+    await moveRecordedStep(
+      2,
+      1,
+      '{"id":"moving"}',
+      '{"id":"target"}',
+      'moving',
+      'target',
+    );
+
+    expect(sendMessage).toHaveBeenCalledWith({
+      type: 'MOVE_RECORDED_STEP',
+      payload: {
+        fromIndex: 2,
+        toIndex: 1,
+        expectedStepReference: '{"id":"moving"}',
+        expectedTargetReference: '{"id":"target"}',
+        expectedId: 'moving',
+        expectedTargetId: 'target',
       },
     } satisfies ExtensionMessage);
   });

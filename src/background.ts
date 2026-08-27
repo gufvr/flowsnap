@@ -38,6 +38,7 @@ type RecordedStepActionMessage = Extract<
     type:
       | 'DELETE_RECORDED_STEP'
       | 'UPDATE_RECORDED_STEP_DESCRIPTION'
+      | 'MOVE_RECORDED_STEP'
       | 'CLEAR_RECORDED_STEPS';
   }
 >;
@@ -236,6 +237,81 @@ async function updateRecordedStepDescription(
   return { success: true };
 }
 
+function matchesRecordedStepIdentity(
+  step: unknown,
+  expectedReference: string,
+  expectedId?: string,
+) {
+  if (expectedId) {
+    if (
+      typeof step !== 'object' ||
+      step === null ||
+      !('id' in step) ||
+      step.id !== expectedId
+    ) {
+      return false;
+    }
+  }
+
+  return getRecordedStepReference(step) === expectedReference;
+}
+
+async function moveRecordedStep(
+  message: Extract<RecordedStepActionMessage, { type: 'MOVE_RECORDED_STEP' }>,
+): Promise<ExtensionResponse> {
+  const {
+    fromIndex,
+    toIndex,
+    expectedStepReference,
+    expectedTargetReference,
+    expectedId,
+    expectedTargetId,
+  } = message.payload;
+
+  if (
+    !Number.isInteger(fromIndex) ||
+    !Number.isInteger(toIndex) ||
+    fromIndex < 0 ||
+    toIndex < 0 ||
+    Math.abs(fromIndex - toIndex) !== 1
+  ) {
+    return { success: false, error: 'A movimentação solicitada é inválida.' };
+  }
+
+  const result = await chrome.storage.local.get(RECORDED_STEPS_KEY);
+  const storedSteps = result[RECORDED_STEPS_KEY];
+  const steps: unknown[] = Array.isArray(storedSteps) ? storedSteps : [];
+  const step = steps[fromIndex];
+  const target = steps[toIndex];
+
+  if (step === undefined || target === undefined) {
+    return { success: false, error: 'O passo não está mais disponível.' };
+  }
+
+  if (
+    !matchesRecordedStepIdentity(step, expectedStepReference, expectedId) ||
+    !matchesRecordedStepIdentity(
+      target,
+      expectedTargetReference,
+      expectedTargetId,
+    )
+  ) {
+    return {
+      success: false,
+      error: 'A lista de passos foi atualizada. Tente mover novamente.',
+    };
+  }
+
+  const reorderedSteps = [...steps];
+  reorderedSteps[fromIndex] = target;
+  reorderedSteps[toIndex] = step;
+
+  await chrome.storage.local.set({
+    [RECORDED_STEPS_KEY]: reorderedSteps,
+  });
+  return { success: true };
+}
+
 function enqueueRecordedStepOperation<T>(operation: () => Promise<T>) {
   const result = recordedStepOperationQueue.then(operation);
 
@@ -264,6 +340,10 @@ function performRecordedStepAction(message: RecordedStepActionMessage) {
 
     if (message.type === 'UPDATE_RECORDED_STEP_DESCRIPTION') {
       return updateRecordedStepDescription(message);
+    }
+
+    if (message.type === 'MOVE_RECORDED_STEP') {
+      return moveRecordedStep(message);
     }
 
     return clearRecordedSteps();
@@ -497,6 +577,7 @@ chrome.runtime.onMessage.addListener(
       if (
         message.type === 'DELETE_RECORDED_STEP' ||
         message.type === 'UPDATE_RECORDED_STEP_DESCRIPTION' ||
+        message.type === 'MOVE_RECORDED_STEP' ||
         message.type === 'CLEAR_RECORDED_STEPS'
       ) {
         return performRecordedStepAction(message);

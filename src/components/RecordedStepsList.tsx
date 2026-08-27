@@ -23,6 +23,7 @@ interface RecordedStepsListProps {
     expectedReference: string,
     expectedId?: string,
   ) => Promise<boolean>;
+  onMoveStep?: (fromIndex: number, toIndex: number) => Promise<boolean>;
   onClearSteps?: () => Promise<boolean>;
 }
 
@@ -40,6 +41,11 @@ interface EditingStep {
   stepReference: string;
   expectedId?: string;
   trigger: HTMLButtonElement;
+}
+
+interface MoveFocusRequest {
+  toIndex: number;
+  stepReference: string;
 }
 
 const Card = styled.section`
@@ -173,11 +179,13 @@ export function RecordedStepsList({
   feedback,
   onDeleteStep,
   onEditStep,
+  onMoveStep,
   onClearSteps,
 }: RecordedStepsListProps) {
   const [confirmation, setConfirmation] = useState<Confirmation>();
   const [editingStep, setEditingStep] = useState<EditingStep>();
   const [localFeedback, setLocalFeedback] = useState<RecordedStepsFeedback>();
+  const [moveFocusRequest, setMoveFocusRequest] = useState<MoveFocusRequest>();
   const title = useRef<HTMLHeadingElement>(null);
   const countLabel = steps.length === 1 ? '1 passo' : `${steps.length} passos`;
   const areMutationsDisabled = Boolean(pendingMutation);
@@ -268,6 +276,23 @@ export function RecordedStepsList({
     return success;
   }
 
+  async function moveStep(fromIndex: number, toIndex: number) {
+    if (!onMoveStep) return;
+
+    const stepReference = getRecordedStepReference(steps[fromIndex]);
+    if (stepReference === undefined) {
+      setLocalFeedback({
+        type: 'error',
+        message: 'Este passo não pode ser movimentado.',
+      });
+      return;
+    }
+
+    setLocalFeedback(undefined);
+    const success = await onMoveStep(fromIndex, toIndex);
+    if (success) setMoveFocusRequest({ toIndex, stepReference });
+  }
+
   function confirmMutation() {
     if (!confirmation) return;
 
@@ -288,6 +313,8 @@ export function RecordedStepsList({
       ? `Excluindo passo ${pendingMutation.stepIndex + 1}...`
       : pendingMutation?.type === 'edit'
         ? `Salvando descrição do passo ${pendingMutation.stepIndex + 1}...`
+      : pendingMutation?.type === 'move'
+        ? `Movendo passo ${pendingMutation.fromIndex + 1} para a posição ${pendingMutation.toIndex + 1}...`
       : pendingMutation?.type === 'clear'
         ? 'Limpando passos...'
         : undefined;
@@ -380,6 +407,19 @@ export function RecordedStepsList({
                 isDeleteConfirmationOpen={
                   activeConfirmation?.type === 'delete' &&
                   activeConfirmation.stepIndex === index
+                }
+                canMoveUp={index > 0}
+                canMoveDown={index < steps.length - 1}
+                shouldFocusAfterMove={
+                  moveFocusRequest?.toIndex === index &&
+                  moveFocusRequest.stepReference ===
+                    getRecordedStepReference(step)
+                }
+                onMoveUp={
+                  onMoveStep ? () => void moveStep(index, index - 1) : undefined
+                }
+                onMoveDown={
+                  onMoveStep ? () => void moveStep(index, index + 1) : undefined
                 }
                 onRequestDelete={
                   onDeleteStep

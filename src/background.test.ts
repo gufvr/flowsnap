@@ -568,6 +568,96 @@ describe('extension action', () => {
     expect(localStorageData.recordedSteps).toEqual([step]);
   });
 
+  it('moves adjacent mixed-schema steps without changing their contents', async () => {
+    const current = createRecordedClick('current');
+    const legacy = {
+      type: 'click',
+      selector: { css: 'button.legacy' },
+      element: { tagName: 'button', text: 'Legado' },
+    };
+    const navigation = {
+      schemaVersion: 10,
+      id: 'navigation',
+      type: 'navigation',
+      fromUrl: 'https://example.com/start',
+      toUrl: 'https://example.com/account',
+    };
+    localStorageData = { recordedSteps: [current, legacy, navigation] };
+
+    const response = await dispatchMessage({
+      type: 'MOVE_RECORDED_STEP',
+      payload: {
+        fromIndex: 2,
+        toIndex: 1,
+        expectedStepReference: JSON.stringify(navigation),
+        expectedTargetReference: JSON.stringify(legacy),
+        expectedId: 'navigation',
+      },
+    });
+
+    expect(response).toEqual({ success: true });
+    expect(localStorageData.recordedSteps).toEqual([
+      current,
+      navigation,
+      legacy,
+    ]);
+  });
+
+  it('rejects invalid or stale step movements without changing storage', async () => {
+    const first = createRecordedClick('first');
+    const second = createRecordedClick('second');
+    const third = createRecordedClick('third');
+    localStorageData = { recordedSteps: [first, second, third] };
+
+    await expect(
+      dispatchMessage({
+        type: 'MOVE_RECORDED_STEP',
+        payload: {
+          fromIndex: 0,
+          toIndex: 2,
+          expectedStepReference: JSON.stringify(first),
+          expectedTargetReference: JSON.stringify(third),
+        },
+      }),
+    ).resolves.toEqual({
+      success: false,
+      error: 'A movimentação solicitada é inválida.',
+    });
+    await expect(
+      dispatchMessage({
+        type: 'MOVE_RECORDED_STEP',
+        payload: {
+          fromIndex: 1,
+          toIndex: 0,
+          expectedStepReference: JSON.stringify(second),
+          expectedTargetReference: JSON.stringify(first),
+          expectedId: 'stale-step',
+          expectedTargetId: 'first',
+        },
+      }),
+    ).resolves.toEqual({
+      success: false,
+      error: 'A lista de passos foi atualizada. Tente mover novamente.',
+    });
+    await expect(
+      dispatchMessage({
+        type: 'MOVE_RECORDED_STEP',
+        payload: {
+          fromIndex: 1,
+          toIndex: 0,
+          expectedStepReference: JSON.stringify(second),
+          expectedTargetReference: '{"stale":true}',
+          expectedId: 'second',
+          expectedTargetId: 'first',
+        },
+      }),
+    ).resolves.toEqual({
+      success: false,
+      error: 'A lista de passos foi atualizada. Tente mover novamente.',
+    });
+    expect(localStorageData.recordedSteps).toEqual([first, second, third]);
+  });
+
   it('clears every step without stopping an active recording', async () => {
     localStorageData = {
       recordingState: {
@@ -655,6 +745,46 @@ describe('extension action', () => {
         },
       },
       second,
+    ]);
+  });
+
+  it('serializes a capture followed by movement without losing the capture', async () => {
+    const first = createRecordedClick('first');
+    const second = createRecordedClick('second');
+    const captured = createRecordedClick('captured');
+    localStorageData = {
+      recordingState: {
+        isRecording: true,
+        tabId: 21,
+        origin: 'https://example.com',
+      },
+      recordedSteps: [first, second],
+    };
+
+    const capture = dispatchMessage(
+      { type: 'RECORDED_CLICK', payload: captured },
+      { tab: { id: 21 } },
+    );
+    const movement = dispatchMessage({
+      type: 'MOVE_RECORDED_STEP',
+      payload: {
+        fromIndex: 1,
+        toIndex: 0,
+        expectedStepReference: JSON.stringify(second),
+        expectedTargetReference: JSON.stringify(first),
+        expectedId: 'second',
+        expectedTargetId: 'first',
+      },
+    });
+
+    await expect(Promise.all([capture, movement])).resolves.toEqual([
+      { success: true },
+      { success: true },
+    ]);
+    expect(localStorageData.recordedSteps).toEqual([
+      second,
+      first,
+      captured,
     ]);
   });
 

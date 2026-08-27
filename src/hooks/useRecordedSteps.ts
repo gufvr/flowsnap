@@ -2,9 +2,14 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   clearRecordedSteps,
   deleteRecordedStep,
+  moveRecordedStep,
   updateRecordedStepDescription,
 } from '../services/recordedStepActions';
 import { loadRecordedSteps } from '../services/recordingStorage';
+import {
+  getRecordedStepId,
+  getRecordedStepReference,
+} from '../shared/recordedStepIdentity';
 import type { RecordedStep } from '../shared/recordingTypes';
 
 const RECORDED_STEPS_KEY = 'recordedSteps';
@@ -13,6 +18,7 @@ const FEEDBACK_DURATION_MS = 3000;
 export type RecordedStepMutation =
   | { type: 'delete'; stepIndex: number }
   | { type: 'edit'; stepIndex: number }
+  | { type: 'move'; fromIndex: number; toIndex: number }
   | { type: 'clear' };
 
 export interface RecordedStepsFeedback {
@@ -171,6 +177,43 @@ export function useRecordedSteps() {
     [runMutation],
   );
 
+  const moveStep = useCallback(
+    (fromIndex: number, toIndex: number) => {
+      const step = steps[fromIndex];
+      const target = steps[toIndex];
+      const expectedStepReference = getRecordedStepReference(step);
+      const expectedTargetReference = getRecordedStepReference(target);
+
+      if (
+        Math.abs(fromIndex - toIndex) !== 1 ||
+        expectedStepReference === undefined ||
+        expectedTargetReference === undefined
+      ) {
+        showFeedback({
+          type: 'error',
+          message: 'Não foi possível identificar os passos para movimentação.',
+        });
+        return Promise.resolve(false);
+      }
+
+      return runMutation(
+        { type: 'move', fromIndex, toIndex },
+        () =>
+          moveRecordedStep(
+            fromIndex,
+            toIndex,
+            expectedStepReference,
+            expectedTargetReference,
+            getRecordedStepId(step),
+            getRecordedStepId(target),
+          ),
+        `Passo movido para a posição ${toIndex + 1}.`,
+        'Não foi possível mover o passo.',
+      );
+    },
+    [runMutation, showFeedback, steps],
+  );
+
   return {
     steps,
     isLoading,
@@ -178,6 +221,7 @@ export function useRecordedSteps() {
     feedback,
     removeStep,
     editStepDescription,
+    moveStep,
     clearSteps,
   };
 }

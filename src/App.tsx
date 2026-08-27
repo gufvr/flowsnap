@@ -53,6 +53,7 @@ export function App() {
     feedback: stepsFeedback,
     removeStep,
     editStepDescription,
+    moveStep,
     clearSteps,
   } = useRecordedSteps();
   const stepCountLabel =
@@ -79,6 +80,7 @@ export function App() {
           feedback={stepsFeedback}
           onDeleteStep={removeStep}
           onEditStep={editStepDescription}
+          onMoveStep={moveStep}
           onClearSteps={clearSteps}
         />
       </Content>

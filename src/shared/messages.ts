@@ -53,6 +53,17 @@ export type ExtensionMessage =
         text: string;
       };
     }
+  | {
+      type: 'MOVE_RECORDED_STEP';
+      payload: {
+        fromIndex: number;
+        toIndex: number;
+        expectedStepReference: string;
+        expectedTargetReference: string;
+        expectedId?: string;
+        expectedTargetId?: string;
+      };
+    }
   | { type: 'CLEAR_RECORDED_STEPS' }
   | { type: 'GET_ACTIVE_TAB_CONTEXT' }
   | { type: 'ACTIVATE_CLICK_RECORDER' }

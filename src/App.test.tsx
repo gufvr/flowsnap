@@ -10,12 +10,14 @@ const {
   stopRecordingSession,
   deleteRecordedStep,
   clearRecordedSteps,
+  moveRecordedStep,
   updateRecordedStepDescription,
 } = vi.hoisted(() => ({
   startRecordingSession: vi.fn(),
   stopRecordingSession: vi.fn(),
   deleteRecordedStep: vi.fn(),
   clearRecordedSteps: vi.fn(),
+  moveRecordedStep: vi.fn(),
   updateRecordedStepDescription: vi.fn(),
 }));
 
@@ -27,6 +29,7 @@ vi.mock('./services/recordingSession', () => ({
 vi.mock('./services/recordedStepActions', () => ({
   deleteRecordedStep,
   clearRecordedSteps,
+  moveRecordedStep,
   updateRecordedStepDescription,
 }));
 
@@ -55,11 +58,13 @@ describe('App', () => {
     stopRecordingSession.mockReset();
     deleteRecordedStep.mockReset();
     clearRecordedSteps.mockReset();
+    moveRecordedStep.mockReset();
     updateRecordedStepDescription.mockReset();
     startRecordingSession.mockResolvedValue({ isRecording: true, tabId: 7 });
     stopRecordingSession.mockResolvedValue({ isRecording: false });
     deleteRecordedStep.mockResolvedValue(undefined);
     clearRecordedSteps.mockResolvedValue(undefined);
+    moveRecordedStep.mockResolvedValue(undefined);
     updateRecordedStepDescription.mockResolvedValue(undefined);
 
     vi.stubGlobal('chrome', {

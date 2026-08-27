@@ -1,15 +1,22 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { deleteRecordedStep, clearRecordedSteps, updateRecordedStepDescription } = vi.hoisted(() => ({
+const {
+  deleteRecordedStep,
+  clearRecordedSteps,
+  moveRecordedStep,
+  updateRecordedStepDescription,
+} = vi.hoisted(() => ({
   deleteRecordedStep: vi.fn(),
   clearRecordedSteps: vi.fn(),
+  moveRecordedStep: vi.fn(),
   updateRecordedStepDescription: vi.fn(),
 }));
 
 vi.mock('../services/recordedStepActions', () => ({
   deleteRecordedStep,
   clearRecordedSteps,
+  moveRecordedStep,
   updateRecordedStepDescription,
 }));
 
@@ -45,10 +52,12 @@ describe('useRecordedSteps', () => {
     storageChangeRemoveListener.mockReset();
     deleteRecordedStep.mockReset();
     clearRecordedSteps.mockReset();
+    moveRecordedStep.mockReset();
     updateRecordedStepDescription.mockReset();
     storageGet.mockResolvedValue({ recordedSteps: [] });
     deleteRecordedStep.mockResolvedValue(undefined);
     clearRecordedSteps.mockResolvedValue(undefined);
+    moveRecordedStep.mockResolvedValue(undefined);
     updateRecordedStepDescription.mockResolvedValue(undefined);
 
     vi.stubGlobal('chrome', {
@@ -213,6 +222,42 @@ describe('useRecordedSteps', () => {
       type: 'success',
       message: 'Descrição do passo 1 atualizada.',
     });
+  });
+
+  it('moves a step with both snapshot identities and waits for storage', async () => {
+    const first = createStep('first', 'Primeiro passo');
+    const second = createStep('second', 'Segundo passo');
+    storageGet.mockResolvedValue({ recordedSteps: [first, second] });
+    const { result } = renderHook(() => useRecordedSteps());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await expect(result.current.moveStep(1, 0)).resolves.toBe(true);
+    });
+
+    expect(moveRecordedStep).toHaveBeenCalledWith(
+      1,
+      0,
+      JSON.stringify(second),
+      JSON.stringify(first),
+      'second',
+      'first',
+    );
+    expect(result.current.steps).toEqual([first, second]);
+    expect(result.current.feedback).toEqual({
+      type: 'success',
+      message: 'Passo movido para a posição 1.',
+    });
+
+    const handleStorageChange = storageChangeAddListener.mock.calls[0][0];
+    act(() => {
+      handleStorageChange(
+        { recordedSteps: { newValue: [second, first] } },
+        'local',
+      );
+    });
+
+    expect(result.current.steps).toEqual([second, first]);
   });
 
   it('prevents overlapping mutations', async () => {
