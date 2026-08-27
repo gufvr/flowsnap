@@ -66,6 +66,8 @@ const SelectorPreview = styled.code`
   color: ${({ theme }) => theme.colors.textMuted};
   background: ${({ theme }) => theme.colors.surface};
   border-radius: ${({ theme }) => theme.radii.md};
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
   font-size: 0.75rem;
   overflow-wrap: anywhere;
 `;

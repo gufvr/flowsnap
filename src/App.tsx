@@ -1,4 +1,5 @@
 import styled from 'styled-components';
+import { AppFooter } from './components/AppFooter';
 import { BrandHeader } from './components/BrandHeader';
 import { RecordedStepsList } from './components/RecordedStepsList';
 import { RecordingButton } from './components/RecordingButton';
@@ -7,14 +8,17 @@ import { useRecordingState } from './hooks/useRecordingState';
 import { useRecordedSteps } from './hooks/useRecordedSteps';
 import { closeSidePanel } from './services/closeSidePanel';
 
-const Panel = styled.main`
+const Panel = styled.div`
+  display: flex;
+  flex-direction: column;
   min-height: 100vh;
   padding: ${({ theme }) => theme.spacing.lg};
   background: ${({ theme }) => theme.colors.background};
 `;
 
-const Content = styled.div`
+const Content = styled.main`
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: ${({ theme }) => theme.spacing.lg};
 `;
@@ -22,7 +26,7 @@ const Content = styled.div`
 const RecordingCard = styled.section`
   display: flex;
   flex-direction: column;
-  gap: ${({ theme }) => theme.spacing.lg};
+  gap: ${({ theme }) => theme.spacing.md};
   padding: ${({ theme }) => theme.spacing.lg};
   background: ${({ theme }) => theme.colors.surface};
   border: 1px solid ${({ theme }) => theme.colors.border};
@@ -84,6 +88,7 @@ export function App() {
           onClearSteps={clearSteps}
         />
       </Content>
+      <AppFooter />
     </Panel>
   );
 }

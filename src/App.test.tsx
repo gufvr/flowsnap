@@ -1,5 +1,5 @@
 import { ThemeProvider } from 'styled-components';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App';
@@ -83,6 +83,26 @@ describe('App', () => {
 
     expect(await screen.findByText('Status: Parado')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Iniciar Gravação' })).toBeEnabled();
+  });
+
+  it('shows the accessible authorship footer with a safe external link', async () => {
+    renderApp();
+
+    await screen.findByText('Status: Parado');
+    expect(screen.getByRole('main')).toBeInTheDocument();
+    const footer = screen.getByRole('contentinfo');
+    expect(footer).toHaveTextContent(
+      '© 2026 FlowSnap. Todos os direitos reservados.',
+    );
+    expect(footer).toHaveTextContent('Desenvolvido por Gustavo Favero');
+
+    const authorLink = within(footer).getByRole('link', {
+      name: 'GitHub de Gustavo Favero (abre em uma nova aba)',
+    });
+    expect(authorLink).toHaveAttribute('href', 'https://github.com/gufvr');
+    expect(authorLink).toHaveAttribute('target', '_blank');
+    expect(authorLink).toHaveAttribute('rel', 'noopener noreferrer');
+    expect(footer.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
   });
 
   it('starts recording from a persisted state', async () => {

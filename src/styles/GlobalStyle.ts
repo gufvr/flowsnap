@@ -18,7 +18,8 @@ export const GlobalStyle = createGlobalStyle`
   body {
     color: ${({ theme }) => theme.colors.text};
     background: ${({ theme }) => theme.colors.background};
-    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-family: Poppins, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-weight: 400;
     -webkit-font-smoothing: antialiased;
   }
 

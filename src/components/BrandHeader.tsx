@@ -9,7 +9,7 @@ const Header = styled.header`
   display: flex;
   align-items: center;
   gap: ${({ theme }) => theme.spacing.md};
-  margin-bottom: ${({ theme }) => theme.spacing.xl};
+  margin-bottom: ${({ theme }) => theme.spacing.lg};
 `;
 
 const Logo = styled.img`
@@ -27,6 +27,7 @@ const BrandText = styled.div`
 const Title = styled.h1`
   color: ${({ theme }) => theme.colors.text};
   font-size: ${({ theme }) => theme.fontSizes.title};
+  font-weight: 700;
   line-height: 1.1;
 `;
 

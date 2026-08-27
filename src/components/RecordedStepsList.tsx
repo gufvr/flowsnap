@@ -76,6 +76,7 @@ const Title = styled.h2`
   margin: 0;
   color: ${({ theme }) => theme.colors.text};
   font-size: 1rem;
+  font-weight: 600;
 
   &:focus-visible {
     outline: 3px solid ${({ theme }) => theme.colors.focus};
@@ -91,11 +92,28 @@ const HeaderActions = styled.div`
 
 const ListActions = styled.div`
   display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: flex-end;
+  flex-direction: column;
   gap: ${({ theme }) => theme.spacing.sm};
   margin-bottom: ${({ theme }) => theme.spacing.md};
+`;
+
+const UtilityActions = styled.div`
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: ${({ theme }) => theme.spacing.sm};
+  width: 100%;
+`;
+
+const GenerationActions = styled.div`
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: ${({ theme }) => theme.spacing.sm};
+  width: 100%;
+
+  @media (max-width: 359px) {
+    grid-template-columns: 1fr;
+  }
 `;
 
 const Count = styled.span`
@@ -138,11 +156,15 @@ const ClearButton = styled.button`
 const GenerateButton = styled(ClearButton)`
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
+  width: 100%;
+  min-height: 38px;
   color: ${({ theme }) => theme.colors.text};
+  white-space: nowrap;
 
   &:hover:not(:disabled) {
-    border-color: ${({ theme }) => theme.colors.focus};
+    border-color: ${({ theme }) => theme.colors.accent};
   }
 `;
 
@@ -398,50 +420,54 @@ export function RecordedStepsList({
 
       {steps.length > 0 && (
         <ListActions role="group" aria-label="Ações dos passos gravados">
-          <CopyAllSelectorsButton steps={steps} />
-          <GenerateButton
-            ref={playwrightTrigger}
-            type="button"
-            aria-expanded={activeCodePanel === 'playwright'}
-            aria-controls="playwright-code-panel"
-            onClick={() => setActiveCodePanel('playwright')}
-          >
-            <GeneratorLogo
-              src="/icons/playwright-logo.svg"
-              alt=""
-              aria-hidden="true"
-            />
-            Gerar Playwright
-          </GenerateButton>
-          <GenerateButton
-            ref={cypressTrigger}
-            type="button"
-            aria-expanded={activeCodePanel === 'cypress'}
-            aria-controls="cypress-code-panel"
-            onClick={() => setActiveCodePanel('cypress')}
-          >
-            <GeneratorLogo
-              src="/icons/cypress-logo.svg"
-              alt=""
-              aria-hidden="true"
-            />
-            Gerar Cypress
-          </GenerateButton>
-          {onClearSteps && (
-            <ClearButton
+          <UtilityActions>
+            <CopyAllSelectorsButton steps={steps} />
+            {onClearSteps && (
+              <ClearButton
+                type="button"
+                disabled={areMutationTriggersDisabled}
+                onClick={(event) =>
+                  setConfirmation({
+                    type: 'clear',
+                    stepCount: steps.length,
+                    trigger: event.currentTarget,
+                  })
+                }
+              >
+                Limpar tudo
+              </ClearButton>
+            )}
+          </UtilityActions>
+          <GenerationActions role="group" aria-label="Geradores de código">
+            <GenerateButton
+              ref={playwrightTrigger}
               type="button"
-              disabled={areMutationTriggersDisabled}
-              onClick={(event) =>
-                setConfirmation({
-                  type: 'clear',
-                  stepCount: steps.length,
-                  trigger: event.currentTarget,
-                })
-              }
+              aria-expanded={activeCodePanel === 'playwright'}
+              aria-controls="playwright-code-panel"
+              onClick={() => setActiveCodePanel('playwright')}
             >
-              Limpar tudo
-            </ClearButton>
-          )}
+              <GeneratorLogo
+                src="/icons/playwright-logo.svg"
+                alt=""
+                aria-hidden="true"
+              />
+              Gerar Playwright
+            </GenerateButton>
+            <GenerateButton
+              ref={cypressTrigger}
+              type="button"
+              aria-expanded={activeCodePanel === 'cypress'}
+              aria-controls="cypress-code-panel"
+              onClick={() => setActiveCodePanel('cypress')}
+            >
+              <GeneratorLogo
+                src="/icons/cypress-logo.svg"
+                alt=""
+                aria-hidden="true"
+              />
+              Gerar Cypress
+            </GenerateButton>
+          </GenerationActions>
         </ListActions>
       )}
 

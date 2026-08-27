@@ -274,6 +274,17 @@ describe('RecordedStepsList', () => {
     expect(
       screen.getByRole('button', { name: 'Copiar seletor do passo 2' }),
     ).toBeEnabled();
+    const generators = screen.getByRole('group', {
+      name: 'Geradores de código',
+    });
+    expect(generators).toHaveStyle({
+      display: 'grid',
+      gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+      width: '100%',
+    });
+    expect(
+      within(generators).getAllByRole('button').map((button) => button.textContent),
+    ).toEqual(['Gerar Playwright', 'Gerar Cypress']);
   });
 
   it('edits one description inline and restores focus after saving', async () => {

@@ -12,6 +12,8 @@ export const theme = {
     dangerSoft: '#fee2e2',
     dangerText: '#a32121',
     onAccent: '#ffffff',
+    accent: '#7c3aed',
+    accentHover: '#6d28d9',
     focus: '#72adff',
   },
   spacing: {
