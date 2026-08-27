@@ -111,6 +111,9 @@ describe('RecordedStepsList', () => {
     expect(screen.getByText('role=button;name=Entrar')).toBeInTheDocument();
     expect(screen.getByText('label=Password')).toBeInTheDocument();
     expect(
+      screen.getByRole('button', { name: 'Copiar seletores' }),
+    ).toBeEnabled();
+    expect(
       screen.getByRole('button', { name: 'Copiar seletor do passo 1' }),
     ).toBeEnabled();
     expect(
@@ -187,6 +190,9 @@ describe('RecordedStepsList', () => {
     expect(screen.getByRole('status')).toHaveTextContent(
       'Movendo passo 2 para a posição 1',
     );
+    expect(
+      screen.getByRole('button', { name: 'Copiar seletores' }),
+    ).toBeEnabled();
     expect(
       screen.getByRole('button', { name: 'Mover passo 2 para cima' }),
     ).toBeDisabled();

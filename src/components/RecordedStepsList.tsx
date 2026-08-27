@@ -8,6 +8,7 @@ import {
   getRecordedStepId,
   getRecordedStepReference,
 } from '../shared/recordedStepIdentity';
+import { CopyAllSelectorsButton } from './CopyAllSelectorsButton';
 import { InlineConfirmation } from './InlineConfirmation';
 import { RecordedStepItem } from './RecordedStepItem';
 
@@ -64,7 +65,7 @@ const Header = styled.div`
   align-items: center;
   justify-content: space-between;
   gap: ${({ theme }) => theme.spacing.md};
-  margin-bottom: ${({ theme }) => theme.spacing.md};
+  margin-bottom: ${({ theme }) => theme.spacing.sm};
 `;
 
 const Title = styled.h2`
@@ -82,6 +83,15 @@ const HeaderActions = styled.div`
   display: flex;
   align-items: center;
   gap: ${({ theme }) => theme.spacing.sm};
+`;
+
+const ListActions = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: ${({ theme }) => theme.spacing.sm};
+  margin-bottom: ${({ theme }) => theme.spacing.md};
 `;
 
 const Count = styled.span`
@@ -335,7 +345,16 @@ export function RecordedStepsList({
           Passos gravados
         </Title>
         <HeaderActions>
-          {steps.length > 0 && onClearSteps && (
+          <Count aria-label={countLabel} aria-live="polite">
+            {steps.length}
+          </Count>
+        </HeaderActions>
+      </Header>
+
+      {steps.length > 0 && (
+        <ListActions role="group" aria-label="Ações dos passos gravados">
+          <CopyAllSelectorsButton steps={steps} />
+          {onClearSteps && (
             <ClearButton
               type="button"
               disabled={areMutationTriggersDisabled}
@@ -350,11 +369,8 @@ export function RecordedStepsList({
               Limpar tudo
             </ClearButton>
           )}
-          <Count aria-label={countLabel} aria-live="polite">
-            {steps.length}
-          </Count>
-        </HeaderActions>
-      </Header>
+        </ListActions>
+      )}
 
       {activeConfirmation?.type === 'clear' && (
         <InlineConfirmation

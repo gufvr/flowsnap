@@ -858,6 +858,27 @@ describe('integrated recording flow', () => {
     };
     expect(harness.getLocalValues().recordedSteps).toEqual(editedSteps);
 
+    const storageBeforeCollectiveCopy = structuredClone(
+      harness.getLocalValues(),
+    );
+    await user.click(
+      screen.getByRole('button', { name: 'Copiar seletores' }),
+    );
+    expect(harness.clipboardWrite).toHaveBeenLastCalledWith(
+      expect.stringContaining(
+        '1. Clicou no botão "Login"\n   Seletor: data-testid=login-submit',
+      ),
+    );
+    expect(harness.clipboardWrite).toHaveBeenLastCalledWith(
+      expect.stringContaining(
+        '12. Marcou a caixa de seleção "Remember me"\n   Seletor: label=Remember me',
+      ),
+    );
+    expect(
+      await screen.findByText('10 seletores copiados'),
+    ).toBeInTheDocument();
+    expect(harness.getLocalValues()).toEqual(storageBeforeCollectiveCopy);
+
     await user.click(screen.getByRole('button', { name: 'Copiar seletor do passo 1' }));
     expect(harness.clipboardWrite).toHaveBeenLastCalledWith(
       'data-testid=login-submit',
