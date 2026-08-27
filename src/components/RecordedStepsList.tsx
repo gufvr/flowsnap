@@ -9,6 +9,7 @@ import {
   getRecordedStepReference,
 } from '../shared/recordedStepIdentity';
 import { CopyAllSelectorsButton } from './CopyAllSelectorsButton';
+import { CypressCodePanel } from './CypressCodePanel';
 import { InlineConfirmation } from './InlineConfirmation';
 import { PlaywrightCodePanel } from './PlaywrightCodePanel';
 import { RecordedStepItem } from './RecordedStepItem';
@@ -49,6 +50,8 @@ interface MoveFocusRequest {
   toIndex: number;
   stepReference: string;
 }
+
+type CodePanelKind = 'cypress' | 'playwright';
 
 const Card = styled.section`
   display: flex;
@@ -133,11 +136,20 @@ const ClearButton = styled.button`
 `;
 
 const GenerateButton = styled(ClearButton)`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   color: ${({ theme }) => theme.colors.text};
 
   &:hover:not(:disabled) {
     border-color: ${({ theme }) => theme.colors.focus};
   }
+`;
+
+const GeneratorLogo = styled.img`
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
 `;
 
 const Viewport = styled.div`
@@ -205,9 +217,10 @@ export function RecordedStepsList({
   const [editingStep, setEditingStep] = useState<EditingStep>();
   const [localFeedback, setLocalFeedback] = useState<RecordedStepsFeedback>();
   const [moveFocusRequest, setMoveFocusRequest] = useState<MoveFocusRequest>();
-  const [isPlaywrightOpen, setIsPlaywrightOpen] = useState(false);
+  const [activeCodePanel, setActiveCodePanel] = useState<CodePanelKind>();
   const title = useRef<HTMLHeadingElement>(null);
   const playwrightTrigger = useRef<HTMLButtonElement>(null);
+  const cypressTrigger = useRef<HTMLButtonElement>(null);
   const countLabel = steps.length === 1 ? '1 passo' : `${steps.length} passos`;
   const areMutationsDisabled = Boolean(pendingMutation);
   const isConfirmationStale = confirmation
@@ -259,12 +272,12 @@ export function RecordedStepsList({
   }, [isEditingStale]);
 
   useEffect(() => {
-    if (steps.length > 0 || !isPlaywrightOpen) return;
+    if (steps.length > 0 || !activeCodePanel) return;
 
     title.current?.focus();
-    const closePanel = window.setTimeout(() => setIsPlaywrightOpen(false), 0);
+    const closePanel = window.setTimeout(() => setActiveCodePanel(undefined), 0);
     return () => window.clearTimeout(closePanel);
-  }, [isPlaywrightOpen, steps.length]);
+  }, [activeCodePanel, steps.length]);
 
   function restoreTriggerFocus(trigger: HTMLButtonElement) {
     window.setTimeout(() => trigger.focus(), 0);
@@ -278,11 +291,13 @@ export function RecordedStepsList({
     restoreTriggerFocus(trigger);
   }
 
-  function closePlaywrightPanel() {
-    setIsPlaywrightOpen(false);
+  function closeCodePanel(kind: CodePanelKind) {
+    setActiveCodePanel(undefined);
     window.setTimeout(() => {
-      if (playwrightTrigger.current?.isConnected) {
-        playwrightTrigger.current.focus();
+      const trigger =
+        kind === 'playwright' ? playwrightTrigger.current : cypressTrigger.current;
+      if (trigger?.isConnected) {
+        trigger.focus();
       } else {
         title.current?.focus();
       }
@@ -387,11 +402,30 @@ export function RecordedStepsList({
           <GenerateButton
             ref={playwrightTrigger}
             type="button"
-            aria-expanded={isPlaywrightOpen}
+            aria-expanded={activeCodePanel === 'playwright'}
             aria-controls="playwright-code-panel"
-            onClick={() => setIsPlaywrightOpen(true)}
+            onClick={() => setActiveCodePanel('playwright')}
           >
+            <GeneratorLogo
+              src="/icons/playwright-logo.svg"
+              alt=""
+              aria-hidden="true"
+            />
             Gerar Playwright
+          </GenerateButton>
+          <GenerateButton
+            ref={cypressTrigger}
+            type="button"
+            aria-expanded={activeCodePanel === 'cypress'}
+            aria-controls="cypress-code-panel"
+            onClick={() => setActiveCodePanel('cypress')}
+          >
+            <GeneratorLogo
+              src="/icons/cypress-logo.svg"
+              alt=""
+              aria-hidden="true"
+            />
+            Gerar Cypress
           </GenerateButton>
           {onClearSteps && (
             <ClearButton
@@ -519,9 +553,20 @@ export function RecordedStepsList({
         </Viewport>
       )}
 
-      {isPlaywrightOpen && steps.length > 0 && (
+      {activeCodePanel === 'playwright' && steps.length > 0 && (
         <div id="playwright-code-panel">
-          <PlaywrightCodePanel steps={steps} onClose={closePlaywrightPanel} />
+          <PlaywrightCodePanel
+            steps={steps}
+            onClose={() => closeCodePanel('playwright')}
+          />
+        </div>
+      )}
+      {activeCodePanel === 'cypress' && steps.length > 0 && (
+        <div id="cypress-code-panel">
+          <CypressCodePanel
+            steps={steps}
+            onClose={() => closeCodePanel('cypress')}
+          />
         </div>
       )}
     </Card>

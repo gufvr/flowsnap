@@ -174,7 +174,70 @@ describe('generatePlaywrightTest', () => {
     expect(steps).toEqual(originalSteps);
   });
 
+  it('exports range and color through the native setter and compatible events', () => {
+    const result = generatePlaywrightTest([
+      {
+        schemaVersion: 7,
+        type: 'range-change',
+        url: 'https://example.com/controls',
+        selectors: selector('testId', 'experience-range', {
+          attribute: 'data-testid',
+        }),
+        value: { kind: 'plain', value: '13' },
+        description: description('rangeChange', 'Ajustou Experience para 13'),
+      },
+      {
+        schemaVersion: 8,
+        type: 'color-change',
+        url: 'https://example.com/controls',
+        selectors: selector('label', 'Color Picker'),
+        value: { kind: 'plain', value: '#7571c1' },
+        description: description('colorChange', 'Selecionou a cor #7571c1'),
+      },
+    ]);
+
+    expect(result).toMatchObject({
+      totalSteps: 2,
+      supportedSteps: 2,
+      unsupportedSteps: 0,
+    });
+    expect(result.code).toContain(
+      'import { test, type Locator } from "@playwright/test";',
+    );
+    expect(result.code.match(/async function setNativeInputValue/g)).toHaveLength(1);
+    expect(result.code).toContain(
+      'Object.getOwnPropertyDescriptor(\n        HTMLInputElement.prototype,',
+    );
+    expect(result.code).toContain(
+      'element.dispatchEvent(new Event("input", { bubbles: true }));',
+    );
+    expect(result.code).toContain(
+      'element.dispatchEvent(new Event("change", { bubbles: true }));',
+    );
+    expect(result.code).toContain(
+      'await setNativeInputValue(page.getByTestId("experience-range"), "13", "range");',
+    );
+    expect(result.code).toContain(
+      'await setNativeInputValue(page.getByLabel("Color Picker", { exact: true }), "#7571c1", "color");',
+    );
+
+    const transpiled = ts.transpileModule(result.code, {
+      compilerOptions: { module: ts.ModuleKind.ESNext },
+      reportDiagnostics: true,
+    });
+    expect(transpiled.diagnostics).toEqual([]);
+  });
+
   it('never exports protected or truncated contents and marks unsupported steps', () => {
+    const protectedRangeValue = {
+      kind: 'protected',
+      reason: 'secret',
+    };
+    Object.defineProperty(protectedRangeValue, 'value', {
+      get() {
+        throw new Error('Protected range value must not be read');
+      },
+    });
     const steps = [
       {
         schemaVersion: 5,
@@ -228,11 +291,7 @@ describe('generatePlaywrightTest', () => {
         schemaVersion: 7,
         type: 'range-change',
         url: 'https://example.com',
-        value: {
-          kind: 'protected',
-          reason: 'secret',
-          value: 'never-export-this-range',
-        },
+        value: protectedRangeValue,
         descriptionOverride: {
           text: 'Range never-export-this-range',
           locale: 'pt-BR',
@@ -242,7 +301,15 @@ describe('generatePlaywrightTest', () => {
         schemaVersion: 8,
         type: 'color-change',
         url: 'https://example.com',
-        value: { kind: 'plain', value: '#663399' },
+        value: {
+          kind: 'plain',
+          value: 'never-export-this-color',
+          truncated: true,
+        },
+        descriptionOverride: {
+          text: 'Cor never-export-this-color',
+          locale: 'pt-BR',
+        },
       },
       {
         schemaVersion: 4,
@@ -263,9 +330,46 @@ describe('generatePlaywrightTest', () => {
     expect(result.code).toContain('Preencheu um campo com valor protegido');
     expect(result.code).toContain('Preenchimento com valor truncado');
     expect(result.code).toContain('Selecionou um valor protegido');
-    expect(result.code).toContain('controles range ainda não é suportada');
-    expect(result.code).toContain('seletores de cor ainda não é suportada');
+    expect(result.code).toContain(
+      'Ajustou um controle range para um valor protegido',
+    );
+    expect(result.code).toContain('Selecionou um valor de cor truncado');
     expect(result.code.match(/TODO FlowSnap/g)).toHaveLength(7);
+  });
+
+  it('marks malformed native values and missing selectors as TODO', () => {
+    const result = generatePlaywrightTest([
+      {
+        type: 'range-change',
+        url: 'https://example.com',
+        selectors: selector('testId', 'range'),
+        value: { kind: 'plain', value: 'not-a-number' },
+      },
+      {
+        type: 'color-change',
+        url: 'https://example.com',
+        selectors: selector('testId', 'color'),
+        value: { kind: 'plain', value: '#abcd' },
+      },
+      {
+        type: 'range-change',
+        url: 'https://example.com',
+        value: { kind: 'plain', value: '7' },
+      },
+    ]);
+
+    expect(result).toMatchObject({
+      totalSteps: 3,
+      supportedSteps: 0,
+      unsupportedSteps: 3,
+    });
+    expect(result.code).toContain('valor do controle range inválido');
+    expect(result.code).toContain('valor do seletor de cor inválido');
+    expect(result.code).toContain(
+      'seletor recomendado indisponível para este controle range',
+    );
+    expect(result.code).not.toContain('type Locator');
+    expect(result.code).not.toContain('async function setNativeInputValue');
   });
 
   it('uses the current order, edited descriptions and a safe initial fallback', () => {

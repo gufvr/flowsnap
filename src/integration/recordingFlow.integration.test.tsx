@@ -886,7 +886,7 @@ describe('integrated recording flow', () => {
       screen.getByRole('heading', { name: 'Código Playwright' }),
     ).toHaveFocus();
     expect(
-      screen.getByText('10 de 13 passos exportados; 3 marcados como TODO.'),
+      screen.getByText('12 de 13 passos exportados; 1 marcado como TODO.'),
     ).toBeInTheDocument();
     const codePreview = screen.getByLabelText('Prévia do código Playwright');
     expect(codePreview).toHaveTextContent(
@@ -894,12 +894,17 @@ describe('integrated recording flow', () => {
     );
     expect(codePreview).toHaveTextContent('Passo 8: Atualizou a área da conta');
     expect(codePreview).toHaveTextContent(
-      'TODO FlowSnap: a exportação de controles range ainda não é suportada.',
+      'await setNativeInputValue(page.getByLabel("Color Picker", { exact: true }), "#663399", "color");',
+    );
+    expect(codePreview).toHaveTextContent(
+      'await setNativeInputValue(page.getByLabel("Experience (Range Slider)", { exact: true }), "7", "range");',
     );
 
     await user.click(screen.getByRole('button', { name: 'Copiar código' }));
     expect(harness.clipboardWrite).toHaveBeenLastCalledWith(
-      expect.stringContaining('import { test } from "@playwright/test";'),
+      expect.stringContaining(
+        'import { test, type Locator } from "@playwright/test";',
+      ),
     );
     expect(harness.clipboardWrite).toHaveBeenLastCalledWith(
       expect.stringContaining('// Passo 12: Marcou a caixa de seleção'),
@@ -909,10 +914,49 @@ describe('integrated recording flow', () => {
     ).toBeInTheDocument();
     expect(harness.getLocalValues()).toEqual(storageBeforeCollectiveCopy);
 
-    await user.keyboard('{Escape}');
+    const cypressButton = screen.getByRole('button', {
+      name: 'Gerar Cypress',
+    });
+    await user.click(cypressButton);
     expect(
       screen.queryByRole('heading', { name: 'Código Playwright' }),
     ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Código Cypress' }),
+    ).toHaveFocus();
+    expect(
+      screen.getByText('6 de 13 passos exportados; 7 marcados como TODO.'),
+    ).toBeInTheDocument();
+    const cypressPreview = screen.getByLabelText('Prévia do código Cypress');
+    expect(cypressPreview).toHaveTextContent(
+      'cy.visit("https://qapracticehub.com/#forms");',
+    );
+    expect(cypressPreview).toHaveTextContent(
+      'cy.get("[data-testid=\\"login-submit\\"]").click();',
+    );
+    expect(cypressPreview).toHaveTextContent(
+      'getByLabel(new RegExp("^Email$")).clear().type("tester@example.com", { parseSpecialCharSequences: false });',
+    );
+    expect(cypressPreview).toHaveTextContent(
+      'getByLabel(new RegExp("^Remember me$")).check();',
+    );
+    expect(cypressPreview).toHaveTextContent('Release 1B');
+    expect(cypressPreview).toHaveTextContent('Release 1C');
+
+    await user.click(screen.getByRole('button', { name: 'Copiar código' }));
+    expect(harness.clipboardWrite).toHaveBeenLastCalledWith(
+      expect.stringContaining('describe("fluxo gravado pelo FlowSnap"'),
+    );
+    expect(
+      await screen.findByText('Código Cypress copiado'),
+    ).toBeInTheDocument();
+    expect(harness.getLocalValues()).toEqual(storageBeforeCollectiveCopy);
+
+    await user.keyboard('{Escape}');
+    expect(
+      screen.queryByRole('heading', { name: 'Código Cypress' }),
+    ).not.toBeInTheDocument();
+    await waitFor(() => expect(cypressButton).toHaveFocus());
 
     await user.click(screen.getByRole('button', { name: 'Copiar seletor do passo 1' }));
     expect(harness.clipboardWrite).toHaveBeenLastCalledWith(

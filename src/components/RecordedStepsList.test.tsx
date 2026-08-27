@@ -134,29 +134,55 @@ describe('RecordedStepsList', () => {
     });
   });
 
-  it('opens the Playwright preview and restores focus after closing', async () => {
+  it('switches between code previews and restores focus after closing', async () => {
     const user = userEvent.setup();
     renderList([schema4Step]);
-    const generateButton = screen.getByRole('button', {
+    const playwrightButton = screen.getByRole('button', {
       name: 'Gerar Playwright',
     });
+    const cypressButton = screen.getByRole('button', {
+      name: 'Gerar Cypress',
+    });
+    const playwrightLogo = playwrightButton.querySelector('img');
+    const cypressLogo = cypressButton.querySelector('img');
 
-    await user.click(generateButton);
+    expect(playwrightLogo).toHaveAttribute(
+      'src',
+      '/icons/playwright-logo.svg',
+    );
+    expect(playwrightLogo).toHaveAttribute('alt', '');
+    expect(playwrightLogo).toHaveAttribute('aria-hidden', 'true');
+    expect(cypressLogo).toHaveAttribute('src', '/icons/cypress-logo.svg');
+    expect(cypressLogo).toHaveAttribute('alt', '');
+    expect(cypressLogo).toHaveAttribute('aria-hidden', 'true');
 
-    expect(generateButton).toHaveAttribute('aria-expanded', 'true');
+    await user.click(playwrightButton);
+
+    expect(playwrightButton).toHaveAttribute('aria-expanded', 'true');
     expect(
       screen.getByRole('heading', { name: 'Código Playwright' }),
     ).toHaveFocus();
     expect(screen.getByText('1 de 1 passo exportado; 0 marcados como TODO.'))
       .toBeInTheDocument();
 
-    await user.keyboard('{Escape}');
+    await user.click(cypressButton);
 
+    expect(playwrightButton).toHaveAttribute('aria-expanded', 'false');
+    expect(cypressButton).toHaveAttribute('aria-expanded', 'true');
     expect(
       screen.queryByRole('heading', { name: 'Código Playwright' }),
     ).not.toBeInTheDocument();
-    await waitFor(() => expect(generateButton).toHaveFocus());
-    expect(generateButton).toHaveAttribute('aria-expanded', 'false');
+    expect(
+      screen.getByRole('heading', { name: 'Código Cypress' }),
+    ).toHaveFocus();
+
+    await user.keyboard('{Escape}');
+
+    expect(
+      screen.queryByRole('heading', { name: 'Código Cypress' }),
+    ).not.toBeInTheDocument();
+    await waitFor(() => expect(cypressButton).toHaveFocus());
+    expect(cypressButton).toHaveAttribute('aria-expanded', 'false');
   });
 
   it('closes the Playwright preview when every step is removed', async () => {

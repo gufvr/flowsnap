@@ -16,7 +16,10 @@ interface GeneratedStep {
   supported: boolean;
   command: string;
   safeDescription?: string;
+  usesNativeInputHelper?: boolean;
 }
+
+type NativeInputType = 'range' | 'color';
 
 const INTERACTION_KEYS = [
   'Enter',
@@ -230,19 +233,62 @@ function generateNavigation(step: Record<string, unknown>) {
   };
 }
 
-function getProtectedControlDescription(
+function isValidNativeInputValue(value: string, inputType: NativeInputType) {
+  if (inputType === 'color') return /^#[\da-f]{6}$/i.test(value);
+
+  return value.trim() !== '' && Number.isFinite(Number(value));
+}
+
+function generateNativeInputChange(
   step: Record<string, unknown>,
-  protectedDescription: string,
-  truncatedDescription: string,
+  inputType: NativeInputType,
 ) {
   const value = step.value;
-  if (!isRecord(value)) return undefined;
-  if (value.kind === 'protected') return protectedDescription;
-  if (value.kind === 'plain' && value.truncated === true) {
-    return truncatedDescription;
+  const controlLabel = inputType === 'range' ? 'controle range' : 'seletor de cor';
+
+  if (!isRecord(value)) {
+    return todo(`valor do ${controlLabel} indisponível.`);
   }
 
-  return undefined;
+  if (value.kind === 'protected') {
+    return todo(
+      `informe o valor protegido do ${controlLabel} manualmente antes de executar este passo.`,
+      inputType === 'range'
+        ? 'Ajustou um controle range para um valor protegido'
+        : 'Selecionou um valor de cor protegido',
+    );
+  }
+
+  if (value.kind !== 'plain') {
+    return todo(`valor do ${controlLabel} inválido.`);
+  }
+
+  if (value.truncated === true) {
+    return todo(
+      `o valor gravado do ${controlLabel} foi truncado e precisa ser revisado.`,
+      inputType === 'range'
+        ? 'Ajustou um controle range com valor truncado'
+        : 'Selecionou um valor de cor truncado',
+    );
+  }
+
+  if (
+    typeof value.value !== 'string' ||
+    !isValidNativeInputValue(value.value, inputType)
+  ) {
+    return todo(`valor do ${controlLabel} inválido.`);
+  }
+
+  const locator = resolveLocator(step);
+  if (!locator) {
+    return todo(`seletor recomendado indisponível para este ${controlLabel}.`);
+  }
+
+  return {
+    supported: true,
+    command: `await setNativeInputValue(${locator}, ${formatJavaScriptString(value.value)}, ${formatJavaScriptString(inputType)});`,
+    usesNativeInputHelper: true,
+  };
 }
 
 function generateStep(step: unknown): GeneratedStep {
@@ -259,24 +305,10 @@ function generateStep(step: unknown): GeneratedStep {
   }
   if (step.type === 'navigation') return generateNavigation(step);
   if (step.type === 'range-change') {
-    return todo(
-      'a exportação de controles range ainda não é suportada.',
-      getProtectedControlDescription(
-        step,
-        'Ajustou um controle range para um valor protegido',
-        'Ajustou um controle range com valor truncado',
-      ),
-    );
+    return generateNativeInputChange(step, 'range');
   }
   if (step.type === 'color-change') {
-    return todo(
-      'a exportação de seletores de cor ainda não é suportada.',
-      getProtectedControlDescription(
-        step,
-        'Selecionou um valor de cor protegido',
-        'Selecionou um valor de cor truncado',
-      ),
-    );
+    return generateNativeInputChange(step, 'color');
   }
 
   return todo('tipo de ação ainda não suportado.');
@@ -313,6 +345,9 @@ export function generatePlaywrightTest(
   steps: readonly unknown[],
 ): PlaywrightGenerationResult {
   const generatedSteps = steps.map(generateStep);
+  const usesNativeInputHelper = generatedSteps.some(
+    ({ usesNativeInputHelper }) => usesNativeInputHelper,
+  );
   const supportedSteps = generatedSteps.filter(
     ({ supported }) => supported,
   ).length;
@@ -337,7 +372,43 @@ export function generatePlaywrightTest(
 
   return {
     code: [
-      'import { test } from "@playwright/test";',
+      usesNativeInputHelper
+        ? 'import { test, type Locator } from "@playwright/test";'
+        : 'import { test } from "@playwright/test";',
+      ...(usesNativeInputHelper
+        ? [
+            '',
+            'async function setNativeInputValue(',
+            '  locator: Locator,',
+            '  value: string,',
+            '  expectedType: "range" | "color",',
+            ') {',
+            '  await locator.evaluate(',
+            '    (element, nextValue) => {',
+            '      if (',
+            '        !(element instanceof HTMLInputElement) ||',
+            '        element.type !== nextValue.expectedType',
+            '      ) {',
+            '        throw new Error(`FlowSnap: expected input[type="${nextValue.expectedType}"]`);',
+            '      }',
+            '',
+            '      const valueSetter = Object.getOwnPropertyDescriptor(',
+            '        HTMLInputElement.prototype,',
+            '        "value",',
+            '      )?.set;',
+            '      if (!valueSetter) {',
+            '        throw new Error("FlowSnap: native input value setter unavailable");',
+            '      }',
+            '',
+            '      valueSetter.call(element, nextValue.value);',
+            '      element.dispatchEvent(new Event("input", { bubbles: true }));',
+            '      element.dispatchEvent(new Event("change", { bubbles: true }));',
+            '    },',
+            '    { value, expectedType },',
+            '  );',
+            '}',
+          ]
+        : []),
       '',
       'test("fluxo gravado pelo FlowSnap", async ({ page }) => {',
       ...body,

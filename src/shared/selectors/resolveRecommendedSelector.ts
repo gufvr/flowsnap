@@ -124,6 +124,74 @@ function resolveLegacySelector(
   return undefined;
 }
 
+function resolveLegacySelectors(
+  selector: Record<string, unknown>,
+): ResolvedSelector[] {
+  const candidates: ResolvedSelector[] = [];
+
+  if (isString(selector.testId) && selector.testId.trim()) {
+    candidates.push({
+      strategy: 'testId',
+      value: selector.testId,
+      attribute: 'data-testid',
+    });
+  }
+
+  if (isString(selector.role) && selector.role.trim()) {
+    const name = isString(selector.accessibleName) && selector.accessibleName.trim()
+      ? selector.accessibleName
+      : undefined;
+    candidates.push({
+      strategy: 'role',
+      value: name ? `${selector.role}:${name}` : selector.role,
+      role: selector.role,
+      ...(name ? { name } : {}),
+    });
+  }
+
+  if (isString(selector.id) && selector.id.trim()) {
+    candidates.push({ strategy: 'id', value: selector.id });
+  }
+
+  if (isString(selector.css) && selector.css.trim()) {
+    candidates.push({ strategy: 'css', value: selector.css });
+  }
+
+  return candidates;
+}
+
+export function resolveSelectorCandidates(step: unknown): ResolvedSelector[] {
+  if (!isRecord(step)) return [];
+
+  const isRankedSchema =
+    step.schemaVersion === 2 ||
+    step.schemaVersion === 3 ||
+    step.schemaVersion === 4 ||
+    step.schemaVersion === 5 ||
+    step.schemaVersion === 6 ||
+    step.schemaVersion === 7 ||
+    step.schemaVersion === 8;
+
+  if (isRankedSchema && isRecord(step.selectors)) {
+    const values = [
+      step.selectors.recommended,
+      ...(Array.isArray(step.selectors.alternatives)
+        ? step.selectors.alternatives
+        : []),
+    ];
+    return values.flatMap((value) => {
+      const candidate = adaptCandidate(value);
+      return candidate ? [candidate] : [];
+    });
+  }
+
+  if (step.schemaVersion === undefined && isRecord(step.selector)) {
+    return resolveLegacySelectors(step.selector);
+  }
+
+  return [];
+}
+
 export function resolveRecommendedSelector(
   step: unknown,
 ): ResolvedSelector | undefined {
