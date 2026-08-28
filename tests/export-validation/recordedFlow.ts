@@ -1,4 +1,4 @@
-const fixtureUrl = 'http://127.0.0.1:4174/';
+const fixtureRoot = 'http://127.0.0.1:4174/';
 
 function testIdSelector(value: string) {
   return {
@@ -11,11 +11,11 @@ function testIdSelector(value: string) {
   };
 }
 
-export const recordedFlow = [
+const recordedFlow = [
   {
     schemaVersion: 5,
     type: 'field-fill',
-    url: fixtureUrl,
+    url: fixtureRoot,
     timestamp: 1,
     selectors: testIdSelector('username'),
     value: { kind: 'plain', value: 'flowsnap-user' },
@@ -23,7 +23,7 @@ export const recordedFlow = [
   {
     schemaVersion: 6,
     type: 'selection-change',
-    url: fixtureUrl,
+    url: fixtureRoot,
     timestamp: 2,
     selectors: testIdSelector('newsletter'),
     control: { kind: 'checkbox', checked: true },
@@ -31,7 +31,7 @@ export const recordedFlow = [
   {
     schemaVersion: 6,
     type: 'selection-change',
-    url: fixtureUrl,
+    url: fixtureRoot,
     timestamp: 3,
     selectors: testIdSelector('profile-qa'),
     control: { kind: 'radio', checked: true },
@@ -39,7 +39,7 @@ export const recordedFlow = [
   {
     schemaVersion: 6,
     type: 'selection-change',
-    url: fixtureUrl,
+    url: fixtureRoot,
     timestamp: 4,
     selectors: testIdSelector('country'),
     control: {
@@ -54,7 +54,7 @@ export const recordedFlow = [
   {
     schemaVersion: 7,
     type: 'range-change',
-    url: fixtureUrl,
+    url: fixtureRoot,
     timestamp: 5,
     selectors: testIdSelector('experience-range'),
     value: { kind: 'plain', value: '13' },
@@ -62,7 +62,7 @@ export const recordedFlow = [
   {
     schemaVersion: 8,
     type: 'color-change',
-    url: fixtureUrl,
+    url: fixtureRoot,
     timestamp: 6,
     selectors: testIdSelector('color-input'),
     value: { kind: 'plain', value: '#613cb9' },
@@ -70,7 +70,7 @@ export const recordedFlow = [
   {
     schemaVersion: 5,
     type: 'field-fill',
-    url: fixtureUrl,
+    url: fixtureRoot,
     timestamp: 7,
     selectors: testIdSelector('command'),
     value: { kind: 'plain', value: 'run' },
@@ -78,7 +78,7 @@ export const recordedFlow = [
   {
     schemaVersion: 6,
     type: 'key-press',
-    url: fixtureUrl,
+    url: fixtureRoot,
     timestamp: 8,
     key: 'Enter',
     selectors: testIdSelector('command'),
@@ -86,17 +86,118 @@ export const recordedFlow = [
   {
     schemaVersion: 4,
     type: 'click',
-    url: fixtureUrl,
+    url: fixtureRoot,
     timestamp: 9,
     selectors: testIdSelector('complete-flow'),
   },
   {
     schemaVersion: 9,
     type: 'navigation',
-    url: `${fixtureUrl}#complete`,
+    url: `${fixtureRoot}#complete`,
     timestamp: 10,
-    fromUrl: fixtureUrl,
-    toUrl: `${fixtureUrl}#complete`,
+    fromUrl: fixtureRoot,
+    toUrl: `${fixtureRoot}#complete`,
     trigger: 'fragment',
   },
+] as const;
+
+const tabUrl = `${fixtureRoot}tab.html`;
+const tabNavigationFlow = [
+  {
+    schemaVersion: 4,
+    type: 'click',
+    url: tabUrl,
+    timestamp: 1,
+    selectors: testIdSelector('tab-first'),
+  },
+  {
+    schemaVersion: 4,
+    type: 'focus-navigation',
+    url: tabUrl,
+    timestamp: 2,
+    direction: 'forward',
+    selectors: testIdSelector('tab-second'),
+  },
+  {
+    schemaVersion: 4,
+    type: 'click',
+    url: tabUrl,
+    timestamp: 3,
+    selectors: testIdSelector('tab-complete'),
+  },
+  {
+    schemaVersion: 9,
+    type: 'navigation',
+    url: `${tabUrl}#complete`,
+    timestamp: 4,
+    fromUrl: tabUrl,
+    toUrl: `${tabUrl}#complete`,
+    trigger: 'fragment',
+  },
+] as const;
+
+const reloadUrl = `${fixtureRoot}reload.html`;
+const reloadNavigationFlow = [
+  {
+    schemaVersion: 10,
+    type: 'navigation',
+    url: reloadUrl,
+    timestamp: 1,
+    fromUrl: reloadUrl,
+    toUrl: reloadUrl,
+    trigger: 'reload',
+  },
+  {
+    schemaVersion: 4,
+    type: 'click',
+    url: reloadUrl,
+    timestamp: 2,
+    selectors: testIdSelector('reload-complete'),
+  },
+  {
+    schemaVersion: 9,
+    type: 'navigation',
+    url: `${reloadUrl}#complete`,
+    timestamp: 3,
+    fromUrl: reloadUrl,
+    toUrl: `${reloadUrl}#complete`,
+    trigger: 'fragment',
+  },
+] as const;
+
+const historyCurrentUrl = `${fixtureRoot}history.html?stage=current`;
+const historyOriginUrl = `${fixtureRoot}history.html?stage=origin`;
+const historyNavigationFlow = [
+  {
+    schemaVersion: 9,
+    type: 'navigation',
+    url: historyOriginUrl,
+    timestamp: 1,
+    fromUrl: historyCurrentUrl,
+    toUrl: historyOriginUrl,
+    trigger: 'history-traversal',
+  },
+  {
+    schemaVersion: 4,
+    type: 'click',
+    url: historyOriginUrl,
+    timestamp: 2,
+    selectors: testIdSelector('history-complete'),
+  },
+  {
+    schemaVersion: 9,
+    type: 'navigation',
+    url: `${historyOriginUrl}#complete`,
+    timestamp: 3,
+    fromUrl: historyOriginUrl,
+    toUrl: `${historyOriginUrl}#complete`,
+    trigger: 'fragment',
+  },
+] as const;
+
+export const exportValidationFlows = [
+  { name: 'recorded-flow', steps: recordedFlow },
+  { name: 'tab-navigation', steps: tabNavigationFlow },
+  { name: 'reload-navigation', steps: reloadNavigationFlow },
+  { name: 'history-navigation', steps: historyNavigationFlow },
 ] as const;

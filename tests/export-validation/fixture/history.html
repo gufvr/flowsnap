@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FlowSnap History Validation</title>
+  </head>
+  <body>
+    <main>
+      <h1>FlowSnap History Validation</h1>
+      <button data-testid="history-complete" type="button" disabled>
+        Complete history flow
+      </button>
+      <p data-testid="history-status" role="status"></p>
+    </main>
+
+    <script>
+      const complete = document.querySelector('[data-testid="history-complete"]');
+      const status = document.querySelector('[data-testid="history-status"]');
+
+      function readStage() {
+        return new URL(window.location.href).searchParams.get('stage');
+      }
+
+      function updateStage() {
+        const stage = readStage();
+        complete.disabled = stage !== 'origin';
+        status.textContent = `History stage: ${stage ?? 'missing'}`;
+      }
+
+      window.addEventListener('popstate', updateStage);
+      complete.addEventListener('click', () => {
+        window.location.hash = 'complete';
+      });
+
+      if (readStage() === 'current') {
+        const currentUrl = new URL(window.location.href);
+        const originUrl = new URL(currentUrl);
+        originUrl.searchParams.set('stage', 'origin');
+        window.history.replaceState({ stage: 'origin' }, '', originUrl);
+        window.history.pushState({ stage: 'current' }, '', currentUrl);
+        window.setTimeout(() => window.history.back(), 250);
+      }
+
+      updateStage();
+    </script>
+  </body>
+</html>

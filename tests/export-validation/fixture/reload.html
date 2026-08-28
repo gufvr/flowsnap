@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FlowSnap Reload Validation</title>
+  </head>
+  <body>
+    <main>
+      <h1>FlowSnap Reload Validation</h1>
+      <button data-testid="reload-complete" type="button" disabled>
+        Complete reload flow
+      </button>
+      <p data-testid="reload-status" role="status"></p>
+    </main>
+
+    <script>
+      const storageKey = 'flowsnap-export-validation-reload-count';
+      const previousCount = Number(sessionStorage.getItem(storageKey) ?? '0');
+      const loadCount = previousCount + 1;
+      const complete = document.querySelector('[data-testid="reload-complete"]');
+      const status = document.querySelector('[data-testid="reload-status"]');
+
+      sessionStorage.setItem(storageKey, String(loadCount));
+      complete.disabled = loadCount < 2;
+      status.textContent = `Document loads: ${loadCount}`;
+      complete.addEventListener('click', () => {
+        window.location.hash = 'complete';
+      });
+    </script>
+  </body>
+</html>

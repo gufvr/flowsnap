@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FlowSnap Tab Validation</title>
+  </head>
+  <body>
+    <main>
+      <h1>FlowSnap Tab Validation</h1>
+      <label>
+        First field
+        <input data-testid="tab-first" type="text" />
+      </label>
+      <label>
+        Second field
+        <input data-testid="tab-second" type="text" />
+      </label>
+      <button data-testid="tab-complete" type="button" disabled>
+        Complete Tab flow
+      </button>
+      <p data-testid="tab-status" role="status">Waiting for Tab navigation.</p>
+    </main>
+
+    <script>
+      const first = document.querySelector('[data-testid="tab-first"]');
+      const second = document.querySelector('[data-testid="tab-second"]');
+      const complete = document.querySelector('[data-testid="tab-complete"]');
+      const status = document.querySelector('[data-testid="tab-status"]');
+
+      second.addEventListener('focus', (event) => {
+        if (event.relatedTarget !== first) return;
+
+        complete.disabled = false;
+        status.textContent = 'Tab navigation confirmed.';
+      });
+      complete.addEventListener('click', () => {
+        window.location.hash = 'complete';
+      });
+    </script>
+  </body>
+</html>
