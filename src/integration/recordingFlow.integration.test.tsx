@@ -925,7 +925,7 @@ describe('integrated recording flow', () => {
       screen.getByRole('heading', { name: 'Código Cypress' }),
     ).toHaveFocus();
     expect(
-      screen.getByText('10 de 13 passos exportados; 3 marcados como TODO.'),
+      screen.getByText('12 de 13 passos exportados; 1 marcado como TODO.'),
     ).toBeInTheDocument();
     const cypressPreview = screen.getByLabelText('Prévia do código Cypress');
     expect(cypressPreview).toHaveTextContent(
@@ -953,8 +953,16 @@ describe('integrated recording flow', () => {
     expect(cypressPreview).toHaveTextContent(
       'cy.press(Cypress.Keyboard.Keys.ENTER);',
     );
+    expect(cypressPreview).toHaveTextContent(
+      'setNativeInputValue(getByLabel(new RegExp("^Color Picker$")), "#663399", "color");',
+    );
+    expect(cypressPreview).toHaveTextContent(
+      'setNativeInputValue(getByLabel(new RegExp("^Experience \\\\(Range Slider\\\\)$")), "7", "range");',
+    );
+    expect(cypressPreview).toHaveTextContent('.trigger("input")');
+    expect(cypressPreview).toHaveTextContent('.trigger("change");');
     expect(cypressPreview).not.toHaveTextContent('Release 1B');
-    expect(cypressPreview).toHaveTextContent('Release 1C');
+    expect(cypressPreview).not.toHaveTextContent('Release 1C');
 
     await user.click(screen.getByRole('button', { name: 'Copiar código' }));
     expect(harness.clipboardWrite).toHaveBeenLastCalledWith(

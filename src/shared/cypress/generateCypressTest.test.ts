@@ -282,6 +282,99 @@ describe('generateCypressTest', () => {
     expect(result.code).toContain('cy.visit("https://example.com/previous");');
   });
 
+  it('exports range and color through one native input helper', () => {
+    const result = generateCypressTest([
+      {
+        schemaVersion: 7,
+        type: 'range-change',
+        url: 'https://example.com/selection',
+        selectors: selector('testId', 'experience-range'),
+        value: { kind: 'plain', value: '13' },
+        description: description('rangeChange', 'Ajustou Experience para 13'),
+      },
+      {
+        schemaVersion: 8,
+        type: 'color-change',
+        url: 'https://example.com/selection',
+        selectors: selector('label', 'Color Picker'),
+        value: { kind: 'plain', value: '#7571c1' },
+        description: description('colorChange', 'Selecionou #7571c1'),
+      },
+    ]);
+
+    expect(result).toMatchObject({
+      totalSteps: 2,
+      supportedSteps: 2,
+      unsupportedSteps: 0,
+    });
+    expect(result.code.match(/function setNativeInputValue/g)).toHaveLength(1);
+    expect(result.code).toContain(
+      'setNativeInputValue(cy.get("[data-testid=\\"experience-range\\"]"), "13", "range");',
+    );
+    expect(result.code).toContain(
+      'setNativeInputValue(getByLabel(new RegExp("^Color Picker$")), "#7571c1", "color");',
+    );
+    expect(result.code).toContain('InputConstructor.prototype,');
+    expect(result.code).toContain('.trigger("input")');
+    expect(result.code).toContain('.trigger("change");');
+    expect(result.code.indexOf('.trigger("input")')).toBeLessThan(
+      result.code.indexOf('.trigger("change")'),
+    );
+    expect(result.code).not.toContain('Release 1C');
+    expect(result.code).not.toContain('TODO FlowSnap');
+
+    const transpiled = ts.transpileModule(result.code, {
+      compilerOptions: { module: ts.ModuleKind.ESNext },
+      reportDiagnostics: true,
+    });
+    expect(transpiled.diagnostics).toEqual([]);
+  });
+
+  it('keeps invalid native input changes as TODO without adding the helper', () => {
+    const result = generateCypressTest([
+      {
+        schemaVersion: 7,
+        type: 'range-change',
+        url: 'https://example.com',
+        selectors: selector('testId', 'empty-range'),
+        value: { kind: 'plain', value: ' ' },
+      },
+      {
+        schemaVersion: 7,
+        type: 'range-change',
+        url: 'https://example.com',
+        selectors: selector('testId', 'invalid-range'),
+        value: { kind: 'plain', value: 'Infinity' },
+      },
+      {
+        schemaVersion: 8,
+        type: 'color-change',
+        url: 'https://example.com',
+        selectors: selector('testId', 'invalid-color'),
+        value: { kind: 'plain', value: '#fff' },
+      },
+      {
+        schemaVersion: 8,
+        type: 'color-change',
+        url: 'https://example.com',
+        value: { kind: 'plain', value: '#abcdef' },
+      },
+    ]);
+
+    expect(result).toMatchObject({
+      totalSteps: 4,
+      supportedSteps: 0,
+      unsupportedSteps: 4,
+    });
+    expect(result.code).not.toContain('function setNativeInputValue');
+    expect(result.code.match(/TODO FlowSnap/g)).toHaveLength(4);
+    expect(result.code).toContain('valor do controle range inválido');
+    expect(result.code).toContain('valor do seletor de cor inválido');
+    expect(result.code).toContain(
+      'seletor compatível com Cypress indisponível para este seletor de cor',
+    );
+  });
+
   it('never exports protected or truncated contents', () => {
     const protectedValue = { kind: 'protected', reason: 'password' };
     Object.defineProperty(protectedValue, 'value', {
@@ -341,11 +434,17 @@ describe('generateCypressTest', () => {
     expect(result.code).toContain('Selecionou um valor protegido');
   });
 
-  it('marks deferred and malformed actions without leaking sensitive values', () => {
+  it('marks protected native inputs and malformed actions without leaking values', () => {
     const protectedRange = { kind: 'protected', reason: 'secret' };
     Object.defineProperty(protectedRange, 'value', {
       get() {
         throw new Error('Protected range value must not be read');
+      },
+    });
+    const truncatedColor = { kind: 'plain', truncated: true };
+    Object.defineProperty(truncatedColor, 'value', {
+      get() {
+        throw new Error('Truncated color value must not be read');
       },
     });
     const result = generateCypressTest([
@@ -368,11 +467,7 @@ describe('generateCypressTest', () => {
       {
         type: 'color-change',
         url: 'https://example.com',
-        value: {
-          kind: 'plain',
-          value: 'never-export-color',
-          truncated: true,
-        },
+        value: truncatedColor,
         descriptionOverride: {
           text: 'Cor never-export-color',
           locale: 'pt-BR',
@@ -396,7 +491,14 @@ describe('generateCypressTest', () => {
     expect(result.code).toContain(
       'TODO FlowSnap: origem da navegação não reconhecida.',
     );
-    expect(result.code).toContain('Release 1C');
+    expect(result.code).toContain(
+      'TODO FlowSnap: informe o valor protegido do controle range manualmente',
+    );
+    expect(result.code).toContain(
+      'TODO FlowSnap: o valor gravado do seletor de cor foi truncado',
+    );
+    expect(result.code).not.toContain('function setNativeInputValue');
+    expect(result.code).not.toContain('Release 1C');
     expect(result.code.match(/TODO FlowSnap/g)).toHaveLength(6);
   });
 

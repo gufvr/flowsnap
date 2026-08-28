@@ -17,7 +17,10 @@ interface GeneratedStep {
   safeDescription?: string;
   usesLabelHelper?: boolean;
   usesCypressPress?: boolean;
+  usesNativeInputHelper?: boolean;
 }
+
+type NativeInputType = 'range' | 'color';
 
 interface GenerationContext {
   previousStep?: unknown;
@@ -66,8 +69,15 @@ function supportedCommand(
   command: string,
   usesLabelHelper = false,
   usesCypressPress = false,
+  usesNativeInputHelper = false,
 ): GeneratedStep {
-  return { supported: true, command, usesLabelHelper, usesCypressPress };
+  return {
+    supported: true,
+    command,
+    usesLabelHelper,
+    usesCypressPress,
+    usesNativeInputHelper,
+  };
 }
 
 function generateClick(step: unknown) {
@@ -248,19 +258,68 @@ function generateKeyPress(step: Record<string, unknown>) {
   );
 }
 
-function getProtectedDeferredDescription(
+function isValidNativeInputValue(
+  value: string,
+  inputType: NativeInputType,
+) {
+  if (inputType === 'color') return /^#[\da-f]{6}$/i.test(value);
+
+  return value.trim() !== '' && Number.isFinite(Number(value));
+}
+
+function generateNativeInputChange(
   step: Record<string, unknown>,
-  protectedDescription: string,
-  truncatedDescription: string,
+  inputType: NativeInputType,
 ) {
   const value = step.value;
-  if (!isRecord(value)) return undefined;
-  if (value.kind === 'protected') return protectedDescription;
-  if (value.kind === 'plain' && value.truncated === true) {
-    return truncatedDescription;
+  const controlLabel = inputType === 'range' ? 'controle range' : 'seletor de cor';
+
+  if (!isRecord(value)) {
+    return todo(`valor do ${controlLabel} indisponível.`);
   }
 
-  return undefined;
+  if (value.kind === 'protected') {
+    return todo(
+      `informe o valor protegido do ${controlLabel} manualmente antes de executar este passo.`,
+      inputType === 'range'
+        ? 'Ajustou um controle range para um valor protegido'
+        : 'Selecionou um valor de cor protegido',
+    );
+  }
+
+  if (value.kind !== 'plain') {
+    return todo(`valor do ${controlLabel} inválido.`);
+  }
+
+  if (value.kind === 'plain' && value.truncated === true) {
+    return todo(
+      `o valor gravado do ${controlLabel} foi truncado e precisa ser revisado.`,
+      inputType === 'range'
+        ? 'Ajustou um controle range com valor truncado'
+        : 'Selecionou um valor de cor truncado',
+    );
+  }
+
+  if (
+    typeof value.value !== 'string' ||
+    !isValidNativeInputValue(value.value, inputType)
+  ) {
+    return todo(`valor do ${controlLabel} inválido.`);
+  }
+
+  const locator = resolveCypressLocator(step);
+  if (!locator) {
+    return todo(
+      `seletor compatível com Cypress indisponível para este ${controlLabel}.`,
+    );
+  }
+
+  return supportedCommand(
+    `setNativeInputValue(${locator.expression}, ${formatCypressJavaScriptString(value.value)}, ${formatCypressJavaScriptString(inputType)});`,
+    locator.usesLabelHelper,
+    false,
+    true,
+  );
 }
 
 function wasNavigationProducedByPreviousStep(
@@ -329,24 +388,10 @@ function generateStep(
   if (step.type === 'key-press') return generateKeyPress(step);
   if (step.type === 'navigation') return generateNavigation(step, context);
   if (step.type === 'range-change') {
-    return todo(
-      'a exportação de controles range fica para a Release 1C.',
-      getProtectedDeferredDescription(
-        step,
-        'Ajustou um controle range para um valor protegido',
-        'Ajustou um controle range com valor truncado',
-      ),
-    );
+    return generateNativeInputChange(step, 'range');
   }
   if (step.type === 'color-change') {
-    return todo(
-      'a exportação de seletores de cor fica para a Release 1C.',
-      getProtectedDeferredDescription(
-        step,
-        'Selecionou um valor de cor protegido',
-        'Selecionou um valor de cor truncado',
-      ),
-    );
+    return generateNativeInputChange(step, 'color');
   }
 
   return todo('tipo de ação ainda não suportado.');
@@ -400,6 +445,10 @@ export function generateCypressTest(
   const usesCypressPress = generatedSteps.some(
     ({ supported, usesCypressPress }) => supported && usesCypressPress,
   );
+  const usesNativeInputHelper = generatedSteps.some(
+    ({ supported, usesNativeInputHelper }) =>
+      supported && usesNativeInputHelper,
+  );
   const initialUrl = resolveInitialUrl(steps);
   const initialCommand = initialUrl
     ? `cy.visit(${formatCypressJavaScriptString(initialUrl)});`
@@ -439,6 +488,42 @@ export function generateCypressTest(
             '',
             '    return cy.wrap(control);',
             '  });',
+            '}',
+            '',
+          ]
+        : []),
+      ...(usesNativeInputHelper
+        ? [
+            'function setNativeInputValue(',
+            '  locator: Cypress.Chainable<JQuery<HTMLElement>>,',
+            '  value: string,',
+            '  expectedType: "range" | "color",',
+            ') {',
+            '  return locator',
+            '    .then(($elements) => {',
+            '      const element = $elements[0];',
+            '      const InputConstructor =',
+            '        element.ownerDocument.defaultView?.HTMLInputElement;',
+            '      if (',
+            '        !InputConstructor ||',
+            '        !(element instanceof InputConstructor) ||',
+            '        element.type !== expectedType',
+            '      ) {',
+            '        throw new Error(`FlowSnap: expected input[type="${expectedType}"]`);',
+            '      }',
+            '',
+            '      const valueSetter = Object.getOwnPropertyDescriptor(',
+            '        InputConstructor.prototype,',
+            '        "value",',
+            '      )?.set;',
+            '      if (!valueSetter) {',
+            '        throw new Error("FlowSnap: native input value setter unavailable");',
+            '      }',
+            '',
+            '      valueSetter.call(element, value);',
+            '    })',
+            '    .trigger("input")',
+            '    .trigger("change");',
             '}',
             '',
           ]
