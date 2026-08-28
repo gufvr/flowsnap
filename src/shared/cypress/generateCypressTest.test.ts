@@ -132,6 +132,156 @@ describe('generateCypressTest', () => {
     expect(steps).toEqual(originalSteps);
   });
 
+  it('exports forward Tab and unmodified interaction keys with native Cypress presses', () => {
+    const keys = [
+      ['Enter', 'ENTER'],
+      ['Space', 'SPACE'],
+      ['Escape', 'ESC'],
+      ['ArrowUp', 'UP'],
+      ['ArrowDown', 'DOWN'],
+      ['ArrowLeft', 'LEFT'],
+      ['ArrowRight', 'RIGHT'],
+    ];
+    const result = generateCypressTest([
+      {
+        schemaVersion: 4,
+        type: 'focus-navigation',
+        url: 'https://example.com',
+        direction: 'forward',
+        selectors: selector('label', 'Password'),
+      },
+      {
+        schemaVersion: 4,
+        type: 'focus-navigation',
+        url: 'https://example.com',
+        direction: 'backward',
+        selectors: selector('label', 'Username'),
+      },
+      ...keys.map(([key], index) => ({
+        schemaVersion: 6,
+        type: 'key-press',
+        url: 'https://example.com',
+        key,
+        selectors: selector('testId', `control-${index}`),
+      })),
+      {
+        schemaVersion: 6,
+        type: 'key-press',
+        url: 'https://example.com',
+        key: 'Enter',
+        modifiers: { shift: true },
+        selectors: selector('testId', 'shifted-control'),
+      },
+    ]);
+
+    expect(result).toMatchObject({
+      totalSteps: 10,
+      supportedSteps: 8,
+      unsupportedSteps: 2,
+    });
+    expect(result.code).toContain('// Requer Cypress 15.3+ para cy.press().');
+    expect(result.code).toContain('cy.press(Cypress.Keyboard.Keys.TAB);');
+    expect(result.code).toContain(
+      'getByLabel(new RegExp("^Password$")).should("have.focus");',
+    );
+    keys.forEach(([, constant], index) => {
+      expect(result.code).toContain(
+        `cy.get("[data-testid=\\"control-${index}\\"]").focus();`,
+      );
+      expect(result.code).toContain(
+        `cy.press(Cypress.Keyboard.Keys.${constant});`,
+      );
+    });
+    expect(result.code).toContain(
+      'TODO FlowSnap: Shift+Tab ainda não pode ser reproduzido',
+    );
+    expect(result.code).toContain(
+      'TODO FlowSnap: teclas com Shift ainda não podem ser reproduzidas',
+    );
+  });
+
+  it('exports navigation outcomes without repeating a supported causal action', () => {
+    const result = generateCypressTest([
+      {
+        schemaVersion: 4,
+        type: 'click',
+        url: 'https://example.com/start',
+        selectors: selector('testId', 'open-forms'),
+      },
+      {
+        schemaVersion: 9,
+        type: 'navigation',
+        fromUrl: 'https://example.com/start',
+        toUrl: 'https://example.com/#forms',
+        trigger: 'fragment',
+      },
+      {
+        schemaVersion: 4,
+        type: 'click',
+        url: 'https://example.com/#forms',
+      },
+      {
+        schemaVersion: 10,
+        type: 'navigation',
+        fromUrl: 'https://example.com/#forms',
+        toUrl: 'https://example.com/account',
+        trigger: 'document',
+      },
+      {
+        schemaVersion: 6,
+        type: 'key-press',
+        url: 'https://example.com/account',
+        key: 'Enter',
+        selectors: selector('testId', 'reload-account'),
+      },
+      {
+        schemaVersion: 10,
+        type: 'navigation',
+        fromUrl: 'https://example.com/account',
+        toUrl: 'https://example.com/account',
+        trigger: 'reload',
+      },
+      {
+        schemaVersion: 10,
+        type: 'navigation',
+        fromUrl: 'https://example.com/account',
+        toUrl: 'https://example.com/account',
+        trigger: 'reload',
+      },
+      {
+        schemaVersion: 9,
+        type: 'navigation',
+        fromUrl: 'https://example.com/account',
+        toUrl: 'https://example.com/previous',
+        trigger: 'history-traversal',
+      },
+    ]);
+
+    expect(result).toMatchObject({
+      totalSteps: 8,
+      supportedSteps: 7,
+      unsupportedSteps: 1,
+    });
+    expect(result.code).toContain(
+      'cy.url().should("eq", "https://example.com/#forms");',
+    );
+    expect(result.code).not.toContain(
+      'cy.visit("https://example.com/#forms");',
+    );
+    expect(result.code).toContain('cy.visit("https://example.com/account");');
+    expect(result.code).toContain(
+      '// FlowSnap: recarregamento produzido pelo passo anterior.',
+    );
+    expect(result.code).toContain(
+      'cy.url().should("eq", "https://example.com/account");',
+    );
+    expect(result.code).toContain('cy.reload();');
+    expect(result.code).toContain(
+      '// FlowSnap: direção do histórico não persistida; reproduzindo o destino diretamente.',
+    );
+    expect(result.code).toContain('cy.visit("https://example.com/previous");');
+  });
+
   it('never exports protected or truncated contents', () => {
     const protectedValue = { kind: 'protected', reason: 'password' };
     Object.defineProperty(protectedValue, 'value', {
@@ -237,7 +387,15 @@ describe('generateCypressTest', () => {
       unsupportedSteps: 6,
     });
     expect(result.code).not.toContain('never-export');
-    expect(result.code).toContain('Release 1B');
+    expect(result.code).toContain(
+      'TODO FlowSnap: direção da navegação por Tab indisponível.',
+    );
+    expect(result.code).toContain(
+      'TODO FlowSnap: tecla de interação não reconhecida.',
+    );
+    expect(result.code).toContain(
+      'TODO FlowSnap: origem da navegação não reconhecida.',
+    );
     expect(result.code).toContain('Release 1C');
     expect(result.code.match(/TODO FlowSnap/g)).toHaveLength(6);
   });

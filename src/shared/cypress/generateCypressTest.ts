@@ -16,7 +16,39 @@ interface GeneratedStep {
   command: string;
   safeDescription?: string;
   usesLabelHelper?: boolean;
+  usesCypressPress?: boolean;
 }
+
+interface GenerationContext {
+  previousStep?: unknown;
+  previousGenerated?: GeneratedStep;
+}
+
+const CYPRESS_KEY_CONSTANTS: Record<string, string> = {
+  Enter: 'Cypress.Keyboard.Keys.ENTER',
+  Space: 'Cypress.Keyboard.Keys.SPACE',
+  Escape: 'Cypress.Keyboard.Keys.ESC',
+  ArrowUp: 'Cypress.Keyboard.Keys.UP',
+  ArrowDown: 'Cypress.Keyboard.Keys.DOWN',
+  ArrowLeft: 'Cypress.Keyboard.Keys.LEFT',
+  ArrowRight: 'Cypress.Keyboard.Keys.RIGHT',
+};
+
+const NAVIGATION_TRIGGERS = new Set([
+  'fragment',
+  'history-api',
+  'history-traversal',
+  'document',
+  'reload',
+]);
+
+const CAUSAL_STEP_TYPES = new Set([
+  'click',
+  'field-fill',
+  'selection-change',
+  'focus-navigation',
+  'key-press',
+]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -32,9 +64,10 @@ function todo(message: string, safeDescription?: string): GeneratedStep {
 
 function supportedCommand(
   command: string,
-  usesLabelHelper: boolean,
+  usesLabelHelper = false,
+  usesCypressPress = false,
 ): GeneratedStep {
-  return { supported: true, command, usesLabelHelper };
+  return { supported: true, command, usesLabelHelper, usesCypressPress };
 }
 
 function generateClick(step: unknown) {
@@ -168,6 +201,53 @@ function generateSelection(step: Record<string, unknown>) {
   );
 }
 
+function hasShiftModifier(step: Record<string, unknown>) {
+  return isRecord(step.modifiers) && step.modifiers.shift === true;
+}
+
+function generateFocusNavigation(step: Record<string, unknown>) {
+  if (step.direction === 'backward') {
+    return todo(
+      'Shift+Tab ainda não pode ser reproduzido com segurança pelo Cypress core.',
+    );
+  }
+
+  if (step.direction !== 'forward') {
+    return todo('direção da navegação por Tab indisponível.');
+  }
+
+  const locator = resolveCypressLocator(step);
+  const command = [
+    'cy.press(Cypress.Keyboard.Keys.TAB);',
+    ...(locator ? [`${locator.expression}.should("have.focus");`] : []),
+  ].join('\n');
+  return supportedCommand(command, locator?.usesLabelHelper, true);
+}
+
+function generateKeyPress(step: Record<string, unknown>) {
+  if (hasShiftModifier(step)) {
+    return todo(
+      'teclas com Shift ainda não podem ser reproduzidas com segurança pelo Cypress core.',
+    );
+  }
+
+  const key = typeof step.key === 'string'
+    ? CYPRESS_KEY_CONSTANTS[step.key]
+    : undefined;
+  if (!key) return todo('tecla de interação não reconhecida.');
+
+  const locator = resolveCypressLocator(step);
+  if (!locator) {
+    return todo('seletor compatível com Cypress indisponível para esta tecla.');
+  }
+
+  return supportedCommand(
+    [`${locator.expression}.focus();`, `cy.press(${key});`].join('\n'),
+    locator.usesLabelHelper,
+    true,
+  );
+}
+
 function getProtectedDeferredDescription(
   step: Record<string, unknown>,
   protectedDescription: string,
@@ -183,7 +263,61 @@ function getProtectedDeferredDescription(
   return undefined;
 }
 
-function generateStep(step: unknown): GeneratedStep {
+function wasNavigationProducedByPreviousStep(
+  step: Record<string, unknown>,
+  context: GenerationContext,
+) {
+  if (!context.previousGenerated?.supported || !isRecord(context.previousStep)) {
+    return false;
+  }
+
+  return (
+    typeof context.previousStep.type === 'string' &&
+    CAUSAL_STEP_TYPES.has(context.previousStep.type) &&
+    isHttpUrl(context.previousStep.url) &&
+    isHttpUrl(step.fromUrl) &&
+    context.previousStep.url === step.fromUrl
+  );
+}
+
+function generateNavigation(
+  step: Record<string, unknown>,
+  context: GenerationContext,
+) {
+  if (!isHttpUrl(step.toUrl)) {
+    return todo('URL final da navegação indisponível ou inválida.');
+  }
+
+  if (typeof step.trigger !== 'string' || !NAVIGATION_TRIGGERS.has(step.trigger)) {
+    return todo('origem da navegação não reconhecida.');
+  }
+
+  const formattedUrl = formatCypressJavaScriptString(step.toUrl);
+  if (wasNavigationProducedByPreviousStep(step, context)) {
+    const message =
+      step.trigger === 'reload'
+        ? '// FlowSnap: recarregamento produzido pelo passo anterior.'
+        : '// FlowSnap: navegação produzida pelo passo anterior.';
+    return supportedCommand(
+      `${message}\ncy.url().should("eq", ${formattedUrl});`,
+    );
+  }
+
+  if (step.trigger === 'reload') {
+    return supportedCommand('cy.reload();');
+  }
+
+  const historyFallback =
+    step.trigger === 'history-traversal'
+      ? '// FlowSnap: direção do histórico não persistida; reproduzindo o destino diretamente.\n'
+      : '';
+  return supportedCommand(`${historyFallback}cy.visit(${formattedUrl});`);
+}
+
+function generateStep(
+  step: unknown,
+  context: GenerationContext = {},
+): GeneratedStep {
   if (!isRecord(step) || typeof step.type !== 'string') {
     return todo('registro incompleto ou malformado.');
   }
@@ -191,15 +325,9 @@ function generateStep(step: unknown): GeneratedStep {
   if (step.type === 'click') return generateClick(step);
   if (step.type === 'field-fill') return generateFieldFill(step);
   if (step.type === 'selection-change') return generateSelection(step);
-  if (step.type === 'focus-navigation') {
-    return todo('a exportação de navegação por Tab fica para a Release 1B.');
-  }
-  if (step.type === 'key-press') {
-    return todo('a exportação de teclas fica para a Release 1B.');
-  }
-  if (step.type === 'navigation') {
-    return todo('a exportação de navegação fica para a Release 1B.');
-  }
+  if (step.type === 'focus-navigation') return generateFocusNavigation(step);
+  if (step.type === 'key-press') return generateKeyPress(step);
+  if (step.type === 'navigation') return generateNavigation(step, context);
   if (step.type === 'range-change') {
     return todo(
       'a exportação de controles range fica para a Release 1C.',
@@ -254,12 +382,23 @@ function resolveInitialUrl(steps: readonly unknown[]) {
 export function generateCypressTest(
   steps: readonly unknown[],
 ): CypressGenerationResult {
-  const generatedSteps = steps.map(generateStep);
+  const generatedSteps: GeneratedStep[] = [];
+  steps.forEach((step, index) => {
+    generatedSteps.push(
+      generateStep(step, {
+        previousStep: steps[index - 1],
+        previousGenerated: generatedSteps[index - 1],
+      }),
+    );
+  });
   const supportedSteps = generatedSteps.filter(
     ({ supported }) => supported,
   ).length;
   const usesLabelHelper = generatedSteps.some(
     ({ supported, usesLabelHelper }) => supported && usesLabelHelper,
+  );
+  const usesCypressPress = generatedSteps.some(
+    ({ supported, usesCypressPress }) => supported && usesCypressPress,
   );
   const initialUrl = resolveInitialUrl(steps);
   const initialCommand = initialUrl
@@ -270,9 +409,13 @@ export function generateCypressTest(
       generatedStep.safeDescription ??
         resolveStepDescription(steps[index]).text,
     );
+    const command = generatedStep.command
+      .split('\n')
+      .map((line) => `    ${line}`)
+      .join('\n');
     return [
       `    // Passo ${index + 1}: ${description}`,
-      `    ${generatedStep.command}`,
+      command,
     ].join('\n');
   });
   const body = [
@@ -282,6 +425,9 @@ export function generateCypressTest(
 
   return {
     code: [
+      ...(usesCypressPress
+        ? ['// Requer Cypress 15.3+ para cy.press().', '']
+        : []),
       ...(usesLabelHelper
         ? [
             'function getByLabel(label: RegExp) {',

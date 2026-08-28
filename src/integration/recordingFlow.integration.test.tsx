@@ -925,7 +925,7 @@ describe('integrated recording flow', () => {
       screen.getByRole('heading', { name: 'Código Cypress' }),
     ).toHaveFocus();
     expect(
-      screen.getByText('6 de 13 passos exportados; 7 marcados como TODO.'),
+      screen.getByText('10 de 13 passos exportados; 3 marcados como TODO.'),
     ).toBeInTheDocument();
     const cypressPreview = screen.getByLabelText('Prévia do código Cypress');
     expect(cypressPreview).toHaveTextContent(
@@ -940,7 +940,20 @@ describe('integrated recording flow', () => {
     expect(cypressPreview).toHaveTextContent(
       'getByLabel(new RegExp("^Remember me$")).check();',
     );
-    expect(cypressPreview).toHaveTextContent('Release 1B');
+    expect(cypressPreview).toHaveTextContent(
+      'cy.press(Cypress.Keyboard.Keys.TAB);',
+    );
+    expect(cypressPreview).toHaveTextContent(
+      'getByLabel(new RegExp("^Password$")).should("have.focus");',
+    );
+    expect(cypressPreview).toHaveTextContent(
+      'cy.url().should("eq", "https://qapracticehub.com/#buttons");',
+    );
+    expect(cypressPreview).toHaveTextContent('cy.reload();');
+    expect(cypressPreview).toHaveTextContent(
+      'cy.press(Cypress.Keyboard.Keys.ENTER);',
+    );
+    expect(cypressPreview).not.toHaveTextContent('Release 1B');
     expect(cypressPreview).toHaveTextContent('Release 1C');
 
     await user.click(screen.getByRole('button', { name: 'Copiar código' }));
