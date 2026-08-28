@@ -33,10 +33,12 @@ npm run dev
 npm run lint
 npm test
 npm run test:integration
+npm run test:exported
 npm run build
 ```
 
 `npm run test:integration` valida a jornada completa da extensão em um Chrome simulado em memória.
+`npm run test:exported` executa os códigos gerados em uma fixture local com Playwright e Cypress.
 
 ## Carregando a extensão no Chrome
 

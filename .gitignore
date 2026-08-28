@@ -1,8 +1,8 @@
 node_modules/
 dist/
 coverage/
+test-results/
 *.zip
 *.log
 .DS_Store
 .vscode/
-

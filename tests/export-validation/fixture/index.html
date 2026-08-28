@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FlowSnap Export Validation</title>
+    <style>
+      body {
+        max-width: 36rem;
+        margin: 2rem auto;
+        padding: 0 1rem;
+        font-family: system-ui, sans-serif;
+      }
+
+      form {
+        display: grid;
+        gap: 1rem;
+      }
+
+      label,
+      fieldset {
+        display: grid;
+        gap: 0.35rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>FlowSnap Export Validation</h1>
+      <form id="validation-form">
+        <label>
+          Username
+          <input data-testid="username" type="text" />
+        </label>
+
+        <label>
+          <input data-testid="newsletter" type="checkbox" />
+          Newsletter
+        </label>
+
+        <fieldset>
+          <legend>Profile</legend>
+          <label>
+            <input data-testid="profile-qa" name="profile" type="radio" value="qa" />
+            QA
+          </label>
+        </fieldset>
+
+        <label>
+          Country
+          <select data-testid="country">
+            <option value="">Select a country</option>
+            <option value="brazil">Brazil</option>
+          </select>
+        </label>
+
+        <label>
+          Experience
+          <input data-testid="experience-range" type="range" min="0" max="20" value="0" />
+        </label>
+
+        <label>
+          Theme color
+          <input data-testid="color-input" type="color" value="#000000" />
+        </label>
+
+        <label>
+          Command
+          <input data-testid="command" type="text" />
+        </label>
+
+        <button data-testid="complete-flow" type="button" disabled>
+          Complete flow
+        </button>
+      </form>
+      <p data-testid="status" role="status">Waiting for the exported flow.</p>
+    </main>
+
+    <script>
+      const get = (testId) =>
+        document.querySelector(`[data-testid="${testId}"]`);
+      const username = get('username');
+      const newsletter = get('newsletter');
+      const profile = get('profile-qa');
+      const country = get('country');
+      const range = get('experience-range');
+      const color = get('color-input');
+      const command = get('command');
+      const complete = get('complete-flow');
+      const status = get('status');
+      const events = {
+        rangeInput: false,
+        rangeChange: false,
+        colorInput: false,
+        colorChange: false,
+        enter: false,
+      };
+
+      function updateReadyState() {
+        complete.disabled = !(
+          username.value === 'flowsnap-user' &&
+          newsletter.checked &&
+          profile.checked &&
+          country.value === 'brazil' &&
+          range.value === '13' &&
+          color.value.toLowerCase() === '#613cb9' &&
+          command.value === 'run' &&
+          Object.values(events).every(Boolean)
+        );
+      }
+
+      username.addEventListener('input', updateReadyState);
+      newsletter.addEventListener('change', updateReadyState);
+      profile.addEventListener('change', updateReadyState);
+      country.addEventListener('change', updateReadyState);
+      range.addEventListener('input', () => {
+        events.rangeInput = true;
+        updateReadyState();
+      });
+      range.addEventListener('change', () => {
+        events.rangeChange = true;
+        updateReadyState();
+      });
+      color.addEventListener('input', () => {
+        events.colorInput = true;
+        updateReadyState();
+      });
+      color.addEventListener('change', () => {
+        events.colorChange = true;
+        updateReadyState();
+      });
+      command.addEventListener('input', updateReadyState);
+      command.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter') return;
+
+        event.preventDefault();
+        events.enter = true;
+        updateReadyState();
+      });
+      complete.addEventListener('click', () => {
+        status.textContent = 'Exported flow completed.';
+        window.location.hash = 'complete';
+      });
+    </script>
+  </body>
+</html>
