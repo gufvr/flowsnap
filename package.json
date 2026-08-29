@@ -15,6 +15,9 @@
     "test:exported:cypress:run": "tsx scripts/run-cypress-export-validation.ts",
     "test:exported:cypress": "start-server-and-test serve:test:exported http://127.0.0.1:4174 test:exported:cypress:run",
     "test:exported": "npm run prepare:test:exported && npm run test:exported:playwright && npm run test:exported:cypress",
+    "prepare:test:extension": "tsx scripts/prepare-extension-e2e.ts",
+    "serve:test:extension": "vite tests/extension-e2e/fixture --host 127.0.0.1 --port 4175 --strictPort",
+    "test:extension": "npm run build && npm run prepare:test:extension && tsx scripts/run-extension-e2e.ts",
     "test:watch": "vitest",
     "package:extension": "npm run build && bestzip flowsnap-extension.zip dist/*"
   },

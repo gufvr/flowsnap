@@ -8,7 +8,10 @@ describe('downloadTextFile', () => {
 
   it('downloads the exact TypeScript content and releases temporary resources', () => {
     const code = 'test("fluxo", async () => {});';
-    const createObjectURL = vi.fn((_blob: Blob) => 'blob:flowsnap-test');
+    const createObjectURL = vi.fn((blob: Blob) => {
+      expect(blob).toBeInstanceOf(Blob);
+      return 'blob:flowsnap-test';
+    });
     const revokeObjectURL = vi.fn();
     const click = vi
       .spyOn(HTMLAnchorElement.prototype, 'click')

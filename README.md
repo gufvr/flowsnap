@@ -24,6 +24,7 @@ FlowSnap é uma extensão Chrome que grava fluxos de navegação e gera código 
 
 ```bash
 npm install
+npx playwright install chromium
 npm run dev
 ```
 
@@ -34,11 +35,13 @@ npm run lint
 npm test
 npm run test:integration
 npm run test:exported
+npm run test:extension
 npm run build
 ```
 
 `npm run test:integration` valida a jornada completa da extensão em um Chrome simulado em memória.
 `npm run test:exported` executa os códigos gerados em uma fixture local com Playwright e Cypress.
+`npm run test:extension` carrega o build unpacked no Chromium e valida a gravação real após navegação.
 
 ## Carregando a extensão no Chrome
 
