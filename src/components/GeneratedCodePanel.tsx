@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
+import type { TextFileDownload } from '../services/downloadTextFile';
 
 const FEEDBACK_DURATION_MS = 2000;
 
@@ -15,12 +16,21 @@ interface GeneratedCodePanelProps {
   title: string;
   previewLabel: string;
   copiedMessage: string;
+  downloadedMessage: string;
+  downloadFileName: string;
   result: GeneratedCodeResult;
   onClose: () => void;
   onCopy: (text: string) => Promise<void>;
+  onDownload: (download: TextFileDownload) => void;
 }
 
-type CopyStatus = 'idle' | 'copying' | 'success' | 'error';
+type ActionStatus =
+  | 'idle'
+  | 'copying'
+  | 'copySuccess'
+  | 'copyError'
+  | 'downloadSuccess'
+  | 'downloadError';
 
 const Panel = styled.section`
   display: flex;
@@ -128,11 +138,14 @@ export function GeneratedCodePanel({
   title,
   previewLabel,
   copiedMessage,
+  downloadedMessage,
+  downloadFileName,
   result,
   onClose,
   onCopy,
+  onDownload,
 }: GeneratedCodePanelProps) {
-  const [copyStatus, setCopyStatus] = useState<CopyStatus>('idle');
+  const [actionStatus, setActionStatus] = useState<ActionStatus>('idle');
   const titleRef = useRef<HTMLHeadingElement>(null);
   const feedbackTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const isCopying = useRef(false);
@@ -148,26 +161,45 @@ export function GeneratedCodePanel({
     };
   }, []);
 
+  function showTemporaryStatus(status: ActionStatus) {
+    if (!isMounted.current) return;
+
+    setActionStatus(status);
+    feedbackTimer.current = setTimeout(
+      () => setActionStatus('idle'),
+      FEEDBACK_DURATION_MS,
+    );
+  }
+
   async function handleCopy() {
     if (isCopying.current) return;
 
     clearTimeout(feedbackTimer.current);
     isCopying.current = true;
-    setCopyStatus('copying');
+    setActionStatus('copying');
 
     try {
       await onCopy(result.code);
       if (!isMounted.current) return;
 
-      setCopyStatus('success');
-      feedbackTimer.current = setTimeout(
-        () => setCopyStatus('idle'),
-        FEEDBACK_DURATION_MS,
-      );
+      showTemporaryStatus('copySuccess');
     } catch {
-      if (isMounted.current) setCopyStatus('error');
+      showTemporaryStatus('copyError');
     } finally {
       isCopying.current = false;
+    }
+  }
+
+  function handleDownload() {
+    if (isCopying.current) return;
+
+    clearTimeout(feedbackTimer.current);
+
+    try {
+      onDownload({ content: result.code, fileName: downloadFileName });
+      showTemporaryStatus('downloadSuccess');
+    } catch {
+      showTemporaryStatus('downloadError');
     }
   }
 
@@ -205,21 +237,38 @@ export function GeneratedCodePanel({
       <Actions>
         <Button
           type="button"
-          disabled={copyStatus === 'copying'}
+          disabled={actionStatus === 'copying'}
           onClick={handleCopy}
         >
-          {copyStatus === 'copying' ? 'Copiando...' : 'Copiar código'}
+          {actionStatus === 'copying' ? 'Copiando...' : 'Copiar código'}
+        </Button>
+        <Button
+          type="button"
+          disabled={actionStatus === 'copying'}
+          onClick={handleDownload}
+        >
+          Baixar arquivo
         </Button>
       </Actions>
 
-      {copyStatus === 'success' && (
+      {actionStatus === 'copySuccess' && (
         <Feedback role="status" aria-live="polite">
           {copiedMessage}
         </Feedback>
       )}
-      {copyStatus === 'error' && (
+      {actionStatus === 'downloadSuccess' && (
+        <Feedback role="status" aria-live="polite">
+          {downloadedMessage}
+        </Feedback>
+      )}
+      {actionStatus === 'copyError' && (
         <Feedback $error role="alert">
           Não foi possível copiar o código
+        </Feedback>
+      )}
+      {actionStatus === 'downloadError' && (
+        <Feedback $error role="alert">
+          Não foi possível baixar o arquivo
         </Feedback>
       )}
     </Panel>

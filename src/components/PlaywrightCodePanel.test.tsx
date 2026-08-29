@@ -30,6 +30,7 @@ function renderPanel(
   options: {
     onClose?: () => void;
     onCopy?: (text: string) => Promise<void>;
+    onDownload?: (download: { content: string; fileName: string }) => void;
   } = {},
 ) {
   return render(
@@ -38,6 +39,7 @@ function renderPanel(
         steps={steps}
         onClose={options.onClose ?? vi.fn()}
         onCopy={options.onCopy ?? vi.fn().mockResolvedValue(undefined)}
+        onDownload={options.onDownload ?? vi.fn()}
       />
     </ThemeProvider>,
   );
@@ -105,6 +107,27 @@ describe('PlaywrightCodePanel', () => {
     expect(
       screen.queryByText('Código Playwright copiado'),
     ).not.toBeInTheDocument();
+  });
+
+  it('downloads the exact preview with the Playwright file name', () => {
+    vi.useFakeTimers();
+    const onDownload = vi.fn();
+    renderPanel([clickStep], { onDownload });
+    const preview = screen.getByLabelText('Prévia do código Playwright');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Baixar arquivo' }));
+
+    expect(onDownload).toHaveBeenCalledWith({
+      content: preview.textContent,
+      fileName: 'flowsnap-playwright.spec.ts',
+    });
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Arquivo Playwright baixado',
+    );
+
+    act(() => vi.advanceTimersByTime(2000));
+    expect(screen.queryByText('Arquivo Playwright baixado'))
+      .not.toBeInTheDocument();
   });
 
   it('reports copy errors and closes with the button or Escape', async () => {

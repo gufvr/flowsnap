@@ -30,6 +30,7 @@ function renderPanel(
   options: {
     onClose?: () => void;
     onCopy?: (text: string) => Promise<void>;
+    onDownload?: (download: { content: string; fileName: string }) => void;
   } = {},
 ) {
   return render(
@@ -38,6 +39,7 @@ function renderPanel(
         steps={steps}
         onClose={options.onClose ?? vi.fn()}
         onCopy={options.onCopy ?? vi.fn().mockResolvedValue(undefined)}
+        onDownload={options.onDownload ?? vi.fn()}
       />
     </ThemeProvider>,
   );
@@ -103,16 +105,45 @@ describe('CypressCodePanel', () => {
     expect(screen.queryByText('Código Cypress copiado')).not.toBeInTheDocument();
   });
 
-  it('reports copy errors and closes with the button or Escape', async () => {
+  it('downloads the exact preview with the Cypress file name', () => {
+    vi.useFakeTimers();
+    const onDownload = vi.fn();
+    renderPanel([clickStep], { onDownload });
+    const preview = screen.getByLabelText('Prévia do código Cypress');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Baixar arquivo' }));
+
+    expect(onDownload).toHaveBeenCalledWith({
+      content: preview.textContent,
+      fileName: 'flowsnap-cypress.cy.ts',
+    });
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Arquivo Cypress baixado',
+    );
+
+    act(() => vi.advanceTimersByTime(2000));
+    expect(screen.queryByText('Arquivo Cypress baixado'))
+      .not.toBeInTheDocument();
+  });
+
+  it('reports action errors and closes with the button or Escape', async () => {
     const onCopy = vi.fn().mockRejectedValue(new Error('Clipboard blocked'));
+    const onDownload = vi.fn(() => {
+      throw new Error('Download blocked');
+    });
     const onClose = vi.fn();
-    renderPanel([clickStep], { onClose, onCopy });
+    renderPanel([clickStep], { onClose, onCopy, onDownload });
 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Copiar código' }));
     });
     expect(screen.getByRole('alert')).toHaveTextContent(
       'Não foi possível copiar o código',
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Baixar arquivo' }));
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Não foi possível baixar o arquivo',
     );
 
     fireEvent.keyDown(screen.getByLabelText('Prévia do código Cypress'), {

@@ -899,6 +899,9 @@ describe('integrated recording flow', () => {
     expect(codePreview).toHaveTextContent(
       'await setNativeInputValue(page.getByLabel("Experience (Range Slider)", { exact: true }), "7", "range");',
     );
+    expect(
+      screen.getByRole('button', { name: 'Baixar arquivo' }),
+    ).toBeEnabled();
 
     await user.click(screen.getByRole('button', { name: 'Copiar código' }));
     expect(harness.clipboardWrite).toHaveBeenLastCalledWith(
@@ -963,6 +966,9 @@ describe('integrated recording flow', () => {
     expect(cypressPreview).toHaveTextContent('.trigger("change");');
     expect(cypressPreview).not.toHaveTextContent('Release 1B');
     expect(cypressPreview).not.toHaveTextContent('Release 1C');
+    expect(
+      screen.getByRole('button', { name: 'Baixar arquivo' }),
+    ).toBeEnabled();
 
     await user.click(screen.getByRole('button', { name: 'Copiar código' }));
     expect(harness.clipboardWrite).toHaveBeenLastCalledWith(
