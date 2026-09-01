@@ -601,6 +601,70 @@ describe('integrated recording flow', () => {
     expect(await screen.findByText('Status: Parado')).toBeInTheDocument();
   });
 
+  it('adds the background URL as an editable schema 11 verification', async () => {
+    const user = userEvent.setup();
+    harness = createChromeExtensionHarness();
+    harness.install();
+    await import('../background');
+    renderSidePanel();
+
+    const assertionButton = await screen.findByRole('button', {
+      name: 'Verificar URL atual',
+    });
+    expect(assertionButton).toBeDisabled();
+
+    await user.click(screen.getByRole('button', { name: 'Iniciar Gravação' }));
+    await user.click(assertionButton);
+
+    expect(
+      await screen.findByText('Verificou que a URL é "/#forms"'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('1 passo capturado')).toBeInTheDocument();
+    expect(screen.getByText('Seletor indisponível')).toBeInTheDocument();
+    expect(harness.getLocalValues().recordedSteps).toEqual([
+      expect.objectContaining({
+        schemaVersion: 11,
+        type: 'assertion',
+        url: 'https://qapracticehub.com/#forms',
+        assertion: {
+          kind: 'url',
+          operator: 'equals',
+          expected: 'https://qapracticehub.com/#forms',
+        },
+      }),
+    ]);
+
+    await user.click(
+      screen.getByRole('button', { name: 'Editar descrição do passo 1' }),
+    );
+    const field = screen.getByRole('textbox', {
+      name: 'Descrição do passo 1',
+    });
+    await user.clear(field);
+    await user.type(field, 'Validou a página de formulários');
+    await user.click(screen.getByRole('button', { name: 'Salvar' }));
+
+    expect(
+      await screen.findByText('Validou a página de formulários'),
+    ).toBeInTheDocument();
+    expect(
+      (
+        harness.getLocalValues().recordedSteps as Array<{
+          descriptionOverride?: { text?: string };
+        }>
+      )[0]?.descriptionOverride?.text,
+    ).toBe('Validou a página de formulários');
+
+    await user.click(screen.getByRole('button', { name: 'Gerar Playwright' }));
+    expect(screen.getByLabelText('Prévia do código Playwright')).toHaveTextContent(
+      'TODO FlowSnap: a exportação de verificações de URL ainda não é suportada.',
+    );
+    await user.keyboard('{Escape}');
+
+    await user.click(screen.getByRole('button', { name: 'Parar Gravação' }));
+    expect(assertionButton).toBeDisabled();
+  });
+
   it('records and deduplicates same-document navigation in the active top frame', async () => {
     const user = userEvent.setup();
     harness = createChromeExtensionHarness();

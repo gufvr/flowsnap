@@ -41,6 +41,24 @@ const schema4Step = {
   },
 };
 
+const schema11UrlAssertion = {
+  schemaVersion: 11,
+  id: 'schema-11',
+  type: 'assertion',
+  url: 'https://example.com/account?tab=security',
+  timestamp: 2,
+  assertion: {
+    kind: 'url',
+    operator: 'equals',
+    expected: 'https://example.com/account?tab=security',
+  },
+  description: {
+    action: 'urlAssertion',
+    text: 'Verificou que a URL é "/account?tab=security"',
+    locale: 'pt-BR',
+  },
+};
+
 describe('RecordedStepsList', () => {
   it('shows its loading and empty states', () => {
     const { rerender } = renderList([], true);
@@ -54,6 +72,86 @@ describe('RecordedStepsList', () => {
     );
 
     expect(screen.getByText('Nenhum passo gravado ainda.')).toBeInTheDocument();
+  });
+
+  it('adds a URL assertion only while recording and announces progress', async () => {
+    const user = userEvent.setup();
+    const onAddUrlAssertion = vi.fn().mockResolvedValue(true);
+    const { rerender } = renderList([], false, {
+      isRecording: false,
+      onAddUrlAssertion,
+    });
+    const stoppedButton = screen.getByRole('button', {
+      name: 'Verificar URL atual',
+    });
+
+    expect(stoppedButton).toBeDisabled();
+    expect(stoppedButton).toHaveAttribute(
+      'title',
+      'Inicie uma gravação para verificar a URL atual.',
+    );
+
+    rerender(
+      <ThemeProvider theme={theme}>
+        <RecordedStepsList
+          steps={[]}
+          isLoading={false}
+          isRecording
+          onAddUrlAssertion={onAddUrlAssertion}
+        />
+      </ThemeProvider>,
+    );
+
+    await user.click(
+      screen.getByRole('button', { name: 'Verificar URL atual' }),
+    );
+    expect(onAddUrlAssertion).toHaveBeenCalledOnce();
+
+    rerender(
+      <ThemeProvider theme={theme}>
+        <RecordedStepsList
+          steps={[]}
+          isLoading={false}
+          isRecording
+          pendingMutation={{ type: 'add-url-assertion' }}
+          onAddUrlAssertion={onAddUrlAssertion}
+        />
+      </ThemeProvider>,
+    );
+
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Adicionando verificação da URL',
+    );
+    expect(
+      screen.getByRole('button', { name: 'Verificar URL atual' }),
+    ).toBeDisabled();
+  });
+
+  it('shows schema 11 as an editable recorded step without a selector', () => {
+    renderList([schema11UrlAssertion, schema4Step], false, {
+      isRecording: true,
+      onAddUrlAssertion: vi.fn().mockResolvedValue(true),
+      onEditStep: vi.fn().mockResolvedValue(true),
+      onMoveStep: vi.fn().mockResolvedValue(true),
+      onDeleteStep: vi.fn().mockResolvedValue(true),
+    });
+
+    expect(
+      screen.getByText('Verificou que a URL é "/account?tab=security"'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Seletor indisponível')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Copiar seletor do passo 1' }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Editar descrição do passo 1' }),
+    ).toBeEnabled();
+    expect(
+      screen.getByRole('button', { name: 'Mover passo 1 para baixo' }),
+    ).toBeEnabled();
+    expect(
+      screen.getByRole('button', { name: 'Excluir passo 1' }),
+    ).toBeEnabled();
   });
 
   it('shows mixed schemas in their persisted capture order', () => {

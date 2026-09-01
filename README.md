@@ -12,7 +12,7 @@ FlowSnap é uma extensão Chrome que grava fluxos de navegação e gera código 
 - Registra navegação por `Tab`, mudanças de URL, carregamentos e recarregamentos.
 - Gera descrições e recomenda seletores confiáveis para cada passo.
 - Protege dados sensíveis e mantém as gravações localmente no navegador.
-- Permite copiar seletores e editar, reordenar, excluir ou limpar passos pelo Side Panel.
+- Permite verificar a URL atual, copiar seletores e organizar os passos pelo Side Panel.
 
 ## Requisitos
 

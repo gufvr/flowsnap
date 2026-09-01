@@ -24,6 +24,7 @@ import { createKeyPressDescription } from './createKeyPressDescription';
 import { createNavigationDescription } from './createNavigationDescription';
 import { createRangeChangeDescription } from './createRangeChangeDescription';
 import { createSelectionChangeDescription } from './createSelectionChangeDescription';
+import { createUrlAssertionDescription } from './createUrlAssertionDescription';
 import { resolveDescriptionOverride } from './descriptionOverride';
 
 const SELECTOR_STRATEGIES: SelectorStrategy[] = [
@@ -128,7 +129,7 @@ function includesValue<T extends string>(
 function isStepDescription(value: unknown): value is StepDescription {
   if (!isRecord(value)) return false;
 
-  if (value.action === 'navigation') {
+  if (value.action === 'navigation' || value.action === 'urlAssertion') {
     return (
       value.locale === 'pt-BR' &&
       isString(value.text) &&
@@ -359,7 +360,8 @@ function resolveBaseStepDescription(step: unknown): StepDescription {
     step.schemaVersion === 7 ||
     step.schemaVersion === 8 ||
     step.schemaVersion === 9 ||
-    step.schemaVersion === 10;
+    step.schemaVersion === 10 ||
+    step.schemaVersion === 11;
 
   if (!isKnownSchema) return createFallbackDescription();
 
@@ -370,7 +372,8 @@ function resolveBaseStepDescription(step: unknown): StepDescription {
       step.schemaVersion === 7 ||
       step.schemaVersion === 8 ||
       step.schemaVersion === 9 ||
-      step.schemaVersion === 10) &&
+      step.schemaVersion === 10 ||
+      step.schemaVersion === 11) &&
     isStepDescription(step.description)
   ) {
     return step.description;
@@ -400,6 +403,18 @@ function resolveBaseStepDescription(step: unknown): StepDescription {
           : undefined,
       trigger,
     });
+  }
+
+  if (step.type === 'assertion') {
+    const assertion = isRecord(step.assertion) ? step.assertion : undefined;
+    const expectedUrl =
+      assertion?.kind === 'url' &&
+      assertion.operator === 'equals' &&
+      isString(assertion.expected)
+        ? assertion.expected
+        : undefined;
+
+    return createUrlAssertionDescription({ expectedUrl });
   }
 
   if (step.type === 'focus-navigation') {

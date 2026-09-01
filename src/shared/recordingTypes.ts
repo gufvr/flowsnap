@@ -7,6 +7,7 @@ import type {
   NavigationStepDescription,
   RangeChangeStepDescription,
   SelectionChangeStepDescription,
+  UrlAssertionStepDescription,
 } from './stepDescriptionTypes';
 
 export interface RecordingState {
@@ -230,6 +231,20 @@ export interface RecordedDocumentNavigation {
   description: NavigationStepDescription;
 }
 
+export interface RecordedUrlAssertion {
+  schemaVersion: 11;
+  id: string;
+  type: 'assertion';
+  url: string;
+  timestamp: number;
+  assertion: {
+    kind: 'url';
+    operator: 'equals';
+    expected: string;
+  };
+  description: UrlAssertionStepDescription;
+}
+
 export type RecordedSelectValue =
   | {
       kind: 'plain';
@@ -311,6 +326,7 @@ export type RecordedStep =
   | RecordedColorChange
   | RecordedNavigation
   | RecordedDocumentNavigation
+  | RecordedUrlAssertion
   | RecordedSelectionChange
   | RecordedKeyPress
   | RecordedClickV3

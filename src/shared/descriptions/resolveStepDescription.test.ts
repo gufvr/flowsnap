@@ -258,6 +258,47 @@ describe('resolveStepDescription', () => {
     ).toBe('Recarregou "/account"');
   });
 
+  it('uses and safely rebuilds schema 11 URL assertion descriptions', () => {
+    const description = {
+      action: 'urlAssertion' as const,
+      text: 'Verificou que a URL é "/account?tab=security"',
+      locale: 'pt-BR' as const,
+    };
+
+    expect(
+      resolveStepDescription({
+        schemaVersion: 11,
+        type: 'assertion',
+        assertion: {
+          kind: 'url',
+          operator: 'equals',
+          expected: 'https://example.com/account?tab=security',
+        },
+        description,
+      }),
+    ).toBe(description);
+
+    expect(
+      resolveStepDescription({
+        schemaVersion: 11,
+        type: 'assertion',
+        assertion: {
+          kind: 'url',
+          operator: 'equals',
+          expected: 'https://example.com/account?tab=security',
+        },
+      }).text,
+    ).toBe('Verificou que a URL é "/account?tab=security"');
+
+    expect(
+      resolveStepDescription({
+        schemaVersion: 11,
+        type: 'assertion',
+        assertion: { kind: 'url', operator: 'contains', expected: 123 },
+      }).text,
+    ).toBe('Verificou a URL atual');
+  });
+
   it('applies valid overrides without changing persisted descriptions', () => {
     const step = {
       schemaVersion: 10,
@@ -430,6 +471,15 @@ describe('resolveStepDescription', () => {
   it('resolves a mixed list without changing its order or records', () => {
     const steps = [
       {
+        schemaVersion: 11,
+        type: 'assertion',
+        assertion: {
+          kind: 'url',
+          operator: 'equals',
+          expected: 'https://example.com/account?tab=security',
+        },
+      },
+      {
         schemaVersion: 10,
         type: 'navigation',
         fromUrl: 'https://example.com/account',
@@ -514,6 +564,7 @@ describe('resolveStepDescription', () => {
     const originalSteps = structuredClone(steps);
 
     expect(steps.map(resolveStepDescription).map(({ text }) => text)).toEqual([
+      'Verificou que a URL é "/account?tab=security"',
       'Recarregou "/account"',
       'Navegou para "/#buttons"',
       'Selecionou a cor "#663399" no seletor de cor "Color Picker"',

@@ -522,4 +522,35 @@ describe('generateCypressTest', () => {
     });
     expect(transpiled.diagnostics).toEqual([]);
   });
+
+  it('marks schema 11 URL assertions as TODO without exporting an assertion', () => {
+    const result = generateCypressTest([
+      {
+        schemaVersion: 11,
+        id: 'url-assertion',
+        type: 'assertion',
+        url: 'https://example.com/account?tab=security',
+        assertion: {
+          kind: 'url',
+          operator: 'equals',
+          expected: 'https://example.com/account?tab=security',
+        },
+        description: {
+          action: 'urlAssertion',
+          text: 'Verificou que a URL é "/account?tab=security"',
+          locale: 'pt-BR',
+        },
+      },
+    ]);
+
+    expect(result).toMatchObject({
+      totalSteps: 1,
+      supportedSteps: 0,
+      unsupportedSteps: 1,
+    });
+    expect(result.code).toContain(
+      'TODO FlowSnap: a exportação de verificações de URL ainda não é suportada.',
+    );
+    expect(result.code).not.toContain('cy.url().should');
+  });
 });

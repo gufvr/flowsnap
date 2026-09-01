@@ -8,6 +8,7 @@ import { theme } from './styles/theme';
 const {
   startRecordingSession,
   stopRecordingSession,
+  addCurrentUrlAssertion,
   deleteRecordedStep,
   clearRecordedSteps,
   moveRecordedStep,
@@ -15,6 +16,7 @@ const {
 } = vi.hoisted(() => ({
   startRecordingSession: vi.fn(),
   stopRecordingSession: vi.fn(),
+  addCurrentUrlAssertion: vi.fn(),
   deleteRecordedStep: vi.fn(),
   clearRecordedSteps: vi.fn(),
   moveRecordedStep: vi.fn(),
@@ -27,6 +29,7 @@ vi.mock('./services/recordingSession', () => ({
 }));
 
 vi.mock('./services/recordedStepActions', () => ({
+  addCurrentUrlAssertion,
   deleteRecordedStep,
   clearRecordedSteps,
   moveRecordedStep,
@@ -56,12 +59,14 @@ describe('App', () => {
     storageSet.mockResolvedValue(undefined);
     startRecordingSession.mockReset();
     stopRecordingSession.mockReset();
+    addCurrentUrlAssertion.mockReset();
     deleteRecordedStep.mockReset();
     clearRecordedSteps.mockReset();
     moveRecordedStep.mockReset();
     updateRecordedStepDescription.mockReset();
     startRecordingSession.mockResolvedValue({ isRecording: true, tabId: 7 });
     stopRecordingSession.mockResolvedValue({ isRecording: false });
+    addCurrentUrlAssertion.mockResolvedValue(undefined);
     deleteRecordedStep.mockResolvedValue(undefined);
     clearRecordedSteps.mockResolvedValue(undefined);
     moveRecordedStep.mockResolvedValue(undefined);
@@ -156,6 +161,57 @@ describe('App', () => {
     renderApp();
 
     expect(await screen.findByText('Clicou no botão "Login"')).toBeInTheDocument();
+    expect(screen.getByText('1 passo capturado')).toBeInTheDocument();
+  });
+
+  it('adds and reactively displays a URL assertion while recording', async () => {
+    const user = userEvent.setup();
+    storageGet.mockResolvedValue({
+      recordingState: { isRecording: true },
+      recordedSteps: [],
+    });
+    renderApp();
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Verificar URL atual' }),
+    );
+    expect(addCurrentUrlAssertion).toHaveBeenCalledOnce();
+    expect(screen.getByText('Verificação da URL adicionada.')).toHaveAttribute(
+      'role',
+      'status',
+    );
+
+    const handleStorageChange = storageChangeAddListener.mock.calls[0][0];
+    await act(async () => {
+      handleStorageChange(
+        {
+          recordedSteps: {
+            newValue: [
+              {
+                schemaVersion: 11,
+                id: 'url-assertion',
+                type: 'assertion',
+                url: 'https://example.com/account',
+                assertion: {
+                  kind: 'url',
+                  operator: 'equals',
+                  expected: 'https://example.com/account',
+                },
+                description: {
+                  action: 'urlAssertion',
+                  text: 'Verificou que a URL é "/account"',
+                  locale: 'pt-BR',
+                },
+              },
+            ],
+          },
+        },
+        'local',
+      );
+    });
+
+    expect(screen.getByText('Verificou que a URL é "/account"'))
+      .toBeInTheDocument();
     expect(screen.getByText('1 passo capturado')).toBeInTheDocument();
   });
 

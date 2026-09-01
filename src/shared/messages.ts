@@ -15,6 +15,7 @@ export type ExtensionMessage =
       payload: { tabId: number; origin: string; url: string };
     }
   | { type: 'STOP_RECORDING' }
+  | { type: 'ADD_CURRENT_URL_ASSERTION' }
   | { type: 'RECORDED_CLICK'; payload: RecordedClick }
   | {
       type: 'RECORDED_FOCUS_NAVIGATION';

@@ -1,5 +1,10 @@
 import type { ExtensionMessage, ExtensionResponse } from './shared/messages';
-import type { RecordedStep, RecordingState } from './shared/recordingTypes';
+import type {
+  RecordedStep,
+  RecordedUrlAssertion,
+  RecordingState,
+} from './shared/recordingTypes';
+import { createUrlAssertionDescription } from './shared/descriptions/createUrlAssertionDescription';
 import { validateStepDescriptionText } from './shared/descriptions/descriptionOverride';
 import { getRecordedStepReference } from './shared/recordedStepIdentity';
 import {
@@ -39,7 +44,8 @@ type RecordedStepActionMessage = Extract<
       | 'DELETE_RECORDED_STEP'
       | 'UPDATE_RECORDED_STEP_DESCRIPTION'
       | 'MOVE_RECORDED_STEP'
-      | 'CLEAR_RECORDED_STEPS';
+      | 'CLEAR_RECORDED_STEPS'
+      | 'ADD_CURRENT_URL_ASSERTION';
   }
 >;
 
@@ -178,6 +184,52 @@ async function deleteRecordedStep(
 
 async function clearRecordedSteps(): Promise<ExtensionResponse> {
   await chrome.storage.local.set({ [RECORDED_STEPS_KEY]: [] });
+  return { success: true };
+}
+
+async function addCurrentUrlAssertion(): Promise<ExtensionResponse> {
+  const result = await chrome.storage.local.get([
+    RECORDING_STATE_KEY,
+    RECORDED_STEPS_KEY,
+  ]);
+  const state = result[RECORDING_STATE_KEY] as RecordingState | undefined;
+
+  if (!state?.isRecording) {
+    return {
+      success: false,
+      error: 'Inicie uma gravação para verificar a URL atual.',
+    };
+  }
+
+  if (!state.currentUrl || !isHttpOrigin(state.currentUrl, state.origin)) {
+    return {
+      success: false,
+      error: 'Não foi possível identificar uma URL atual válida.',
+    };
+  }
+
+  const assertion: RecordedUrlAssertion = {
+    schemaVersion: 11,
+    id: crypto.randomUUID(),
+    type: 'assertion',
+    url: state.currentUrl,
+    timestamp: Date.now(),
+    assertion: {
+      kind: 'url',
+      operator: 'equals',
+      expected: state.currentUrl,
+    },
+    description: createUrlAssertionDescription({
+      expectedUrl: state.currentUrl,
+    }),
+  };
+  const storedSteps = result[RECORDED_STEPS_KEY];
+  const steps: RecordedStep[] = Array.isArray(storedSteps) ? storedSteps : [];
+
+  await chrome.storage.local.set({
+    [RECORDED_STEPS_KEY]: [...steps, assertion],
+  });
+
   return { success: true };
 }
 
@@ -334,6 +386,10 @@ function storeRecordedStep(
 
 function performRecordedStepAction(message: RecordedStepActionMessage) {
   return enqueueRecordedStepOperation(() => {
+    if (message.type === 'ADD_CURRENT_URL_ASSERTION') {
+      return addCurrentUrlAssertion();
+    }
+
     if (message.type === 'DELETE_RECORDED_STEP') {
       return deleteRecordedStep(message);
     }
@@ -578,7 +634,8 @@ chrome.runtime.onMessage.addListener(
         message.type === 'DELETE_RECORDED_STEP' ||
         message.type === 'UPDATE_RECORDED_STEP_DESCRIPTION' ||
         message.type === 'MOVE_RECORDED_STEP' ||
-        message.type === 'CLEAR_RECORDED_STEPS'
+        message.type === 'CLEAR_RECORDED_STEPS' ||
+        message.type === 'ADD_CURRENT_URL_ASSERTION'
       ) {
         return performRecordedStepAction(message);
       }

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  addCurrentUrlAssertion,
   clearRecordedSteps,
   deleteRecordedStep,
   moveRecordedStep,
@@ -16,6 +17,7 @@ const RECORDED_STEPS_KEY = 'recordedSteps';
 const FEEDBACK_DURATION_MS = 3000;
 
 export type RecordedStepMutation =
+  | { type: 'add-url-assertion' }
   | { type: 'delete'; stepIndex: number }
   | { type: 'edit'; stepIndex: number }
   | { type: 'move'; fromIndex: number; toIndex: number }
@@ -155,6 +157,17 @@ export function useRecordedSteps() {
     [runMutation],
   );
 
+  const addUrlAssertion = useCallback(
+    () =>
+      runMutation(
+        { type: 'add-url-assertion' },
+        addCurrentUrlAssertion,
+        'Verificação da URL adicionada.',
+        'Não foi possível adicionar a verificação da URL.',
+      ),
+    [runMutation],
+  );
+
   const editStepDescription = useCallback(
     (
       stepIndex: number,
@@ -219,6 +232,7 @@ export function useRecordedSteps() {
     isLoading,
     pendingMutation,
     feedback,
+    addUrlAssertion,
     removeStep,
     editStepDescription,
     moveStep,

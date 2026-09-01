@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ExtensionMessage } from '../shared/messages';
 import {
+  addCurrentUrlAssertion,
   clearRecordedSteps,
   deleteRecordedStep,
   moveRecordedStep,
@@ -39,6 +40,14 @@ describe('recordedStepActions', () => {
 
     expect(sendMessage).toHaveBeenCalledWith({
       type: 'CLEAR_RECORDED_STEPS',
+    } satisfies ExtensionMessage);
+  });
+
+  it('requests the current URL assertion without accepting a URL payload', async () => {
+    await addCurrentUrlAssertion();
+
+    expect(sendMessage).toHaveBeenCalledWith({
+      type: 'ADD_CURRENT_URL_ASSERTION',
     } satisfies ExtensionMessage);
   });
 

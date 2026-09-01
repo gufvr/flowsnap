@@ -2,11 +2,13 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
+  addCurrentUrlAssertion,
   deleteRecordedStep,
   clearRecordedSteps,
   moveRecordedStep,
   updateRecordedStepDescription,
 } = vi.hoisted(() => ({
+  addCurrentUrlAssertion: vi.fn(),
   deleteRecordedStep: vi.fn(),
   clearRecordedSteps: vi.fn(),
   moveRecordedStep: vi.fn(),
@@ -14,6 +16,7 @@ const {
 }));
 
 vi.mock('../services/recordedStepActions', () => ({
+  addCurrentUrlAssertion,
   deleteRecordedStep,
   clearRecordedSteps,
   moveRecordedStep,
@@ -50,11 +53,13 @@ describe('useRecordedSteps', () => {
     storageGet.mockReset();
     storageChangeAddListener.mockReset();
     storageChangeRemoveListener.mockReset();
+    addCurrentUrlAssertion.mockReset();
     deleteRecordedStep.mockReset();
     clearRecordedSteps.mockReset();
     moveRecordedStep.mockReset();
     updateRecordedStepDescription.mockReset();
     storageGet.mockResolvedValue({ recordedSteps: [] });
+    addCurrentUrlAssertion.mockResolvedValue(undefined);
     deleteRecordedStep.mockResolvedValue(undefined);
     clearRecordedSteps.mockResolvedValue(undefined);
     moveRecordedStep.mockResolvedValue(undefined);
@@ -192,6 +197,21 @@ describe('useRecordedSteps', () => {
     });
 
     expect(deleteRecordedStep).toHaveBeenCalledWith(0, undefined);
+  });
+
+  it('adds a URL assertion through the background and exposes feedback', async () => {
+    const { result } = renderHook(() => useRecordedSteps());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await expect(result.current.addUrlAssertion()).resolves.toBe(true);
+    });
+
+    expect(addCurrentUrlAssertion).toHaveBeenCalledOnce();
+    expect(result.current.feedback).toEqual({
+      type: 'success',
+      message: 'Verificação da URL adicionada.',
+    });
   });
 
   it('updates a description and exposes its pending and success states', async () => {

@@ -16,9 +16,11 @@ import { RecordedStepItem } from './RecordedStepItem';
 
 interface RecordedStepsListProps {
   steps: readonly unknown[];
+  isRecording?: boolean;
   isLoading: boolean;
   pendingMutation?: RecordedStepMutation;
   feedback?: RecordedStepsFeedback;
+  onAddUrlAssertion?: () => Promise<boolean>;
   onDeleteStep?: (stepIndex: number) => Promise<boolean>;
   onEditStep?: (
     stepIndex: number,
@@ -153,6 +155,16 @@ const ClearButton = styled.button`
   }
 `;
 
+const AddAssertionButton = styled(ClearButton)`
+  width: 100%;
+  min-height: 38px;
+  color: ${({ theme }) => theme.colors.text};
+
+  &:hover:not(:disabled) {
+    border-color: ${({ theme }) => theme.colors.accent};
+  }
+`;
+
 const GenerateButton = styled(ClearButton)`
   display: inline-flex;
   align-items: center;
@@ -227,9 +239,11 @@ function getStepReference(step: unknown, index: number) {
 
 export function RecordedStepsList({
   steps,
+  isRecording = false,
   isLoading,
   pendingMutation,
   feedback,
+  onAddUrlAssertion,
   onDeleteStep,
   onEditStep,
   onMoveStep,
@@ -386,7 +400,9 @@ export function RecordedStepsList({
   }
 
   const pendingMessage =
-    pendingMutation?.type === 'delete'
+    pendingMutation?.type === 'add-url-assertion'
+      ? 'Adicionando verificação da URL...'
+      : pendingMutation?.type === 'delete'
       ? `Excluindo passo ${pendingMutation.stepIndex + 1}...`
       : pendingMutation?.type === 'edit'
         ? `Salvando descrição do passo ${pendingMutation.stepIndex + 1}...`
@@ -418,56 +434,79 @@ export function RecordedStepsList({
         </HeaderActions>
       </Header>
 
-      {steps.length > 0 && (
+      {(onAddUrlAssertion || steps.length > 0) && (
         <ListActions role="group" aria-label="Ações dos passos gravados">
-          <UtilityActions>
-            <CopyAllSelectorsButton steps={steps} />
-            {onClearSteps && (
-              <ClearButton
-                type="button"
-                disabled={areMutationTriggersDisabled}
-                onClick={(event) =>
-                  setConfirmation({
-                    type: 'clear',
-                    stepCount: steps.length,
-                    trigger: event.currentTarget,
-                  })
-                }
+          {onAddUrlAssertion && (
+            <AddAssertionButton
+              type="button"
+              disabled={
+                !isRecording || isLoading || areMutationTriggersDisabled
+              }
+              title={
+                isRecording
+                  ? undefined
+                  : 'Inicie uma gravação para verificar a URL atual.'
+              }
+              onClick={() => void onAddUrlAssertion()}
+            >
+              Verificar URL atual
+            </AddAssertionButton>
+          )}
+          {steps.length > 0 && (
+            <>
+              <UtilityActions>
+                <CopyAllSelectorsButton steps={steps} />
+                {onClearSteps && (
+                  <ClearButton
+                    type="button"
+                    disabled={areMutationTriggersDisabled}
+                    onClick={(event) =>
+                      setConfirmation({
+                        type: 'clear',
+                        stepCount: steps.length,
+                        trigger: event.currentTarget,
+                      })
+                    }
+                  >
+                    Limpar tudo
+                  </ClearButton>
+                )}
+              </UtilityActions>
+              <GenerationActions
+                role="group"
+                aria-label="Geradores de código"
               >
-                Limpar tudo
-              </ClearButton>
-            )}
-          </UtilityActions>
-          <GenerationActions role="group" aria-label="Geradores de código">
-            <GenerateButton
-              ref={playwrightTrigger}
-              type="button"
-              aria-expanded={activeCodePanel === 'playwright'}
-              aria-controls="playwright-code-panel"
-              onClick={() => setActiveCodePanel('playwright')}
-            >
-              <GeneratorLogo
-                src="/icons/playwright-logo.svg"
-                alt=""
-                aria-hidden="true"
-              />
-              Gerar Playwright
-            </GenerateButton>
-            <GenerateButton
-              ref={cypressTrigger}
-              type="button"
-              aria-expanded={activeCodePanel === 'cypress'}
-              aria-controls="cypress-code-panel"
-              onClick={() => setActiveCodePanel('cypress')}
-            >
-              <GeneratorLogo
-                src="/icons/cypress-logo.svg"
-                alt=""
-                aria-hidden="true"
-              />
-              Gerar Cypress
-            </GenerateButton>
-          </GenerationActions>
+                <GenerateButton
+                  ref={playwrightTrigger}
+                  type="button"
+                  aria-expanded={activeCodePanel === 'playwright'}
+                  aria-controls="playwright-code-panel"
+                  onClick={() => setActiveCodePanel('playwright')}
+                >
+                  <GeneratorLogo
+                    src="/icons/playwright-logo.svg"
+                    alt=""
+                    aria-hidden="true"
+                  />
+                  Gerar Playwright
+                </GenerateButton>
+                <GenerateButton
+                  ref={cypressTrigger}
+                  type="button"
+                  aria-expanded={activeCodePanel === 'cypress'}
+                  aria-controls="cypress-code-panel"
+                  onClick={() => setActiveCodePanel('cypress')}
+                >
+                  <GeneratorLogo
+                    src="/icons/cypress-logo.svg"
+                    alt=""
+                    aria-hidden="true"
+                  />
+                  Gerar Cypress
+                </GenerateButton>
+              </GenerationActions>
+            </>
+          )}
         </ListActions>
       )}
 

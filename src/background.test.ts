@@ -678,6 +678,109 @@ describe('extension action', () => {
     });
   });
 
+  it('appends a schema 11 assertion from the background current URL', async () => {
+    const existingStep = createRecordedClick('existing');
+    localStorageData = {
+      recordingState: {
+        isRecording: true,
+        tabId: 21,
+        origin: 'https://example.com',
+        currentUrl: 'https://example.com/account?tab=security#password',
+      },
+      recordedSteps: [existingStep],
+    };
+
+    const response = await dispatchMessage({
+      type: 'ADD_CURRENT_URL_ASSERTION',
+    });
+
+    expect(response).toEqual({ success: true });
+    expect(localStorageData.recordedSteps).toEqual([
+      existingStep,
+      expect.objectContaining({
+        schemaVersion: 11,
+        type: 'assertion',
+        url: 'https://example.com/account?tab=security#password',
+        timestamp: expect.any(Number),
+        id: expect.any(String),
+        assertion: {
+          kind: 'url',
+          operator: 'equals',
+          expected: 'https://example.com/account?tab=security#password',
+        },
+        description: {
+          action: 'urlAssertion',
+          text: 'Verificou que a URL é "/account?tab=security#password"',
+          locale: 'pt-BR',
+        },
+      }),
+    ]);
+  });
+
+  it('rejects URL assertions while stopped or when background state is invalid', async () => {
+    localStorageData = {
+      recordingState: {
+        isRecording: false,
+        currentUrl: 'https://example.com/account',
+      },
+      recordedSteps: [],
+    };
+
+    await expect(
+      dispatchMessage({ type: 'ADD_CURRENT_URL_ASSERTION' }),
+    ).resolves.toEqual({
+      success: false,
+      error: 'Inicie uma gravação para verificar a URL atual.',
+    });
+
+    localStorageData.recordingState = {
+      isRecording: true,
+      tabId: 21,
+      origin: 'https://example.com',
+      currentUrl: 'https://other.example/account',
+    };
+
+    await expect(
+      dispatchMessage({ type: 'ADD_CURRENT_URL_ASSERTION' }),
+    ).resolves.toEqual({
+      success: false,
+      error: 'Não foi possível identificar uma URL atual válida.',
+    });
+    expect(localStorageData.recordedSteps).toEqual([]);
+  });
+
+  it('serializes a capture followed by a URL assertion without losing order', async () => {
+    const first = createRecordedClick('first');
+    const captured = createRecordedClick('captured');
+    localStorageData = {
+      recordingState: {
+        isRecording: true,
+        tabId: 21,
+        origin: 'https://example.com',
+        currentUrl: 'https://example.com/current',
+      },
+      recordedSteps: [first],
+    };
+
+    const capture = dispatchMessage(
+      { type: 'RECORDED_CLICK', payload: captured },
+      { tab: { id: 21 } },
+    );
+    const assertion = dispatchMessage({
+      type: 'ADD_CURRENT_URL_ASSERTION',
+    });
+
+    await expect(Promise.all([capture, assertion])).resolves.toEqual([
+      { success: true },
+      { success: true },
+    ]);
+    expect(
+      (localStorageData.recordedSteps as Array<Record<string, unknown>>).map(
+        ({ type }) => type,
+      ),
+    ).toEqual(['click', 'click', 'assertion']);
+  });
+
   it('serializes a capture followed by deletion without losing the capture', async () => {
     const first = createRecordedClick('first');
     const second = createRecordedClick('second');

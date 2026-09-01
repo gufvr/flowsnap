@@ -30,6 +30,13 @@ export function clearRecordedSteps() {
   );
 }
 
+export function addCurrentUrlAssertion() {
+  return sendAction(
+    { type: 'ADD_CURRENT_URL_ASSERTION' },
+    'Não foi possível adicionar a verificação da URL.',
+  );
+}
+
 export function updateRecordedStepDescription(
   stepIndex: number,
   expectedReference: string,

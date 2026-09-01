@@ -393,6 +393,9 @@ function generateStep(
   if (step.type === 'color-change') {
     return generateNativeInputChange(step, 'color');
   }
+  if (step.type === 'assertion') {
+    return todo('a exportação de verificações de URL ainda não é suportada.');
+  }
 
   return todo('tipo de ação ainda não suportado.');
 }

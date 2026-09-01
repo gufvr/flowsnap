@@ -23,6 +23,11 @@ interface StoredStep {
       attribute?: string;
     };
   };
+  assertion?: {
+    kind?: string;
+    operator?: string;
+    expected?: string;
+  };
 }
 
 interface StorageSnapshot {
@@ -74,7 +79,7 @@ test('records across a full navigation and resumes the real recorder', async ({
   const sidePanel = await context.newPage();
   await sidePanel.goto(`chrome-extension://${extensionId}/index.html`);
 
-  await expect(sidePanel.getByRole('status')).toContainText('Status: Parado');
+  await expect(sidePanel.getByText('Status: Parado')).toBeVisible();
   await expect(sidePanel.getByText('0 passos capturados')).toBeVisible();
 
   await sidePanel.getByRole('button', { name: 'Iniciar Gravação' }).click();
@@ -101,9 +106,17 @@ test('records across a full navigation and resumes the real recorder', async ({
     })
     .toBe(true);
 
+  await sidePanel
+    .getByRole('button', { name: 'Verificar URL atual' })
+    .click();
+  await expect(sidePanel.getByText('3 passos capturados')).toBeVisible();
+  await expect(
+    sidePanel.getByText('Verificou que a URL é "/next.html"'),
+  ).toBeVisible();
+
   await page.getByTestId('after-navigation').click();
 
-  await expect(sidePanel.getByText('3 passos capturados')).toBeVisible();
+  await expect(sidePanel.getByText('4 passos capturados')).toBeVisible();
   await expect(
     sidePanel.getByText('Clicou no link "Continuar"'),
   ).toBeVisible();
@@ -115,20 +128,36 @@ test('records across a full navigation and resumes the real recorder', async ({
   const snapshot = await readStorage(serviceWorker);
   const steps = snapshot.recordedSteps ?? [];
 
-  expect(steps).toHaveLength(3);
+  expect(steps).toHaveLength(4);
   expect(steps.map(({ type }) => type)).toEqual([
     'click',
     'navigation',
+    'assertion',
     'click',
   ]);
-  expect(steps.map(({ schemaVersion }) => schemaVersion)).toEqual([4, 10, 4]);
-  expect(steps.map(({ url }) => url)).toEqual([startUrl, nextUrl, nextUrl]);
+  expect(steps.map(({ schemaVersion }) => schemaVersion)).toEqual([
+    4,
+    10,
+    11,
+    4,
+  ]);
+  expect(steps.map(({ url }) => url)).toEqual([
+    startUrl,
+    nextUrl,
+    nextUrl,
+    nextUrl,
+  ]);
+  expect(steps[2]?.assertion).toEqual({
+    kind: 'url',
+    operator: 'equals',
+    expected: nextUrl,
+  });
   expect(steps[0]?.selectors?.recommended).toMatchObject({
     strategy: 'testId',
     value: 'continue-navigation',
     attribute: 'data-testid',
   });
-  expect(steps[2]?.selectors?.recommended).toMatchObject({
+  expect(steps[3]?.selectors?.recommended).toMatchObject({
     strategy: 'testId',
     value: 'after-navigation',
     attribute: 'data-testid',
@@ -144,7 +173,7 @@ test('records across a full navigation and resumes the real recorder', async ({
 
   await sidePanel.getByRole('button', { name: 'Parar Gravação' }).click();
 
-  await expect(sidePanel.getByRole('status')).toContainText('Status: Parado');
+  await expect(sidePanel.getByText('Status: Parado')).toBeVisible();
   await expect
     .poll(async () => (await readStorage(serviceWorker)).recordingState)
     .toEqual({ isRecording: false });

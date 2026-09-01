@@ -55,6 +55,7 @@ export function App() {
     isLoading: areStepsLoading,
     pendingMutation,
     feedback: stepsFeedback,
+    addUrlAssertion,
     removeStep,
     editStepDescription,
     moveStep,
@@ -79,9 +80,11 @@ export function App() {
         </RecordingCard>
         <RecordedStepsList
           steps={steps}
+          isRecording={isRecording}
           isLoading={areStepsLoading}
           pendingMutation={pendingMutation}
           feedback={stepsFeedback}
+          onAddUrlAssertion={addUrlAssertion}
           onDeleteStep={removeStep}
           onEditStep={editStepDescription}
           onMoveStep={moveStep}
