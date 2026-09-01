@@ -396,7 +396,7 @@ describe('generatePlaywrightTest', () => {
     );
   });
 
-  it('marks schema 11 URL assertions as TODO without exporting an assertion', () => {
+  it('exports an exact schema 11 URL assertion with the Playwright expect import', () => {
     const result = generatePlaywrightTest([
       {
         schemaVersion: 11,
@@ -418,13 +418,122 @@ describe('generatePlaywrightTest', () => {
 
     expect(result).toMatchObject({
       totalSteps: 1,
-      supportedSteps: 0,
-      unsupportedSteps: 1,
+      supportedSteps: 1,
+      unsupportedSteps: 0,
     });
     expect(result.code).toContain(
-      'TODO FlowSnap: a exportação de verificações de URL ainda não é suportada.',
+      'import { test, expect } from "@playwright/test";',
+    );
+    expect(result.code).toContain(
+      'await expect(page).toHaveURL("https://example.com/account?tab=security");',
+    );
+    expect(result.code).not.toContain('TODO FlowSnap');
+  });
+
+  it('keeps an edited description in the comment without changing the expected URL', () => {
+    const result = generatePlaywrightTest([
+      {
+        schemaVersion: 11,
+        type: 'assertion',
+        url: 'https://example.com/other',
+        assertion: {
+          kind: 'url',
+          operator: 'equals',
+          expected: 'https://example.com/account?tab=security#password',
+        },
+        descriptionOverride: {
+          text: 'Validou a área segura',
+          locale: 'pt-BR',
+        },
+      },
+    ]);
+
+    expect(result.code).toContain('// Passo 1: Validou a área segura');
+    expect(result.code).toContain(
+      'await expect(page).toHaveURL("https://example.com/account?tab=security#password");',
+    );
+    expect(result.code).not.toContain('toHaveURL("Validou a área segura")');
+  });
+
+  it('combines expect and Locator imports when native input helpers are required', () => {
+    const result = generatePlaywrightTest([
+      {
+        schemaVersion: 7,
+        type: 'range-change',
+        url: 'https://example.com/account',
+        selectors: selector('testId', 'experience'),
+        value: { kind: 'plain', value: '7' },
+      },
+      {
+        schemaVersion: 11,
+        type: 'assertion',
+        url: 'https://example.com/account',
+        assertion: {
+          kind: 'url',
+          operator: 'equals',
+          expected: 'https://example.com/account',
+        },
+      },
+    ]);
+
+    expect(result.code).toContain(
+      'import { test, expect, type Locator } from "@playwright/test";',
+    );
+    expect(result).toMatchObject({
+      totalSteps: 2,
+      supportedSteps: 2,
+      unsupportedSteps: 0,
+    });
+  });
+
+  it('keeps incomplete or invalid URL assertions as TODO', () => {
+    const validAssertion = {
+      kind: 'url',
+      operator: 'equals',
+      expected: 'https://example.com/account',
+    };
+    const result = generatePlaywrightTest([
+      { type: 'assertion', assertion: validAssertion },
+      { schemaVersion: 11, type: 'assertion' },
+      {
+        schemaVersion: 11,
+        type: 'assertion',
+        assertion: { ...validAssertion, kind: 'element' },
+      },
+      {
+        schemaVersion: 11,
+        type: 'assertion',
+        assertion: { ...validAssertion, operator: 'contains' },
+      },
+      {
+        schemaVersion: 11,
+        type: 'assertion',
+        assertion: { ...validAssertion, expected: '/account' },
+      },
+      {
+        schemaVersion: 11,
+        type: 'assertion',
+        assertion: { ...validAssertion, expected: ' javascript:alert(1)' },
+      },
+      {
+        schemaVersion: 11,
+        type: 'assertion',
+        assertion: { ...validAssertion, expected: ' https://example.com' },
+      },
+    ]);
+
+    expect(result).toMatchObject({
+      totalSteps: 7,
+      supportedSteps: 0,
+      unsupportedSteps: 7,
+    });
+    expect(result.code.match(/verificação exata de URL incompleta ou inválida/g))
+      .toHaveLength(7);
+    expect(result.code).toContain(
+      'import { test } from "@playwright/test";',
     );
     expect(result.code).not.toContain('toHaveURL');
+    expect(result.code).not.toContain('import { test, expect }');
   });
 
   it('produces syntactically valid TypeScript without resolving Playwright', () => {

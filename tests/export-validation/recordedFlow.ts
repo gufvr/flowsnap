@@ -201,3 +201,28 @@ export const exportValidationFlows = [
   { name: 'reload-navigation', steps: reloadNavigationFlow },
   { name: 'history-navigation', steps: historyNavigationFlow },
 ] as const;
+
+const exactUrlAssertion = `${fixtureRoot}?flow=url-assertion#verified`;
+const urlAssertionFlow = [
+  {
+    schemaVersion: 11,
+    id: 'url-assertion',
+    type: 'assertion',
+    url: exactUrlAssertion,
+    timestamp: 1,
+    assertion: {
+      kind: 'url',
+      operator: 'equals',
+      expected: exactUrlAssertion,
+    },
+    description: {
+      action: 'urlAssertion',
+      text: 'Verificou a URL da fixture exportada',
+      locale: 'pt-BR',
+    },
+  },
+] as const;
+
+export const playwrightOnlyValidationFlows = [
+  { name: 'url-assertion', steps: urlAssertionFlow },
+] as const;

@@ -656,9 +656,22 @@ describe('integrated recording flow', () => {
     ).toBe('Validou a página de formulários');
 
     await user.click(screen.getByRole('button', { name: 'Gerar Playwright' }));
-    expect(screen.getByLabelText('Prévia do código Playwright')).toHaveTextContent(
-      'TODO FlowSnap: a exportação de verificações de URL ainda não é suportada.',
+    const playwrightPreview = screen.getByLabelText(
+      'Prévia do código Playwright',
     );
+    expect(playwrightPreview).toHaveTextContent(
+      'import { test, expect } from "@playwright/test";',
+    );
+    expect(playwrightPreview).toHaveTextContent(
+      '// Passo 1: Validou a página de formulários',
+    );
+    expect(playwrightPreview).toHaveTextContent(
+      'await expect(page).toHaveURL("https://qapracticehub.com/#forms");',
+    );
+    expect(playwrightPreview).not.toHaveTextContent('TODO FlowSnap');
+    expect(
+      screen.getByText('1 de 1 passo exportado; 0 marcados como TODO.'),
+    ).toBeInTheDocument();
     await user.keyboard('{Escape}');
 
     await user.click(screen.getByRole('button', { name: 'Parar Gravação' }));

@@ -3,7 +3,10 @@ import { cwd } from 'node:process';
 import { resolve, sep } from 'node:path';
 import { generateCypressTest } from '../src/shared/cypress/generateCypressTest';
 import { generatePlaywrightTest } from '../src/shared/playwright/generatePlaywrightTest';
-import { exportValidationFlows } from '../tests/export-validation/recordedFlow';
+import {
+  exportValidationFlows,
+  playwrightOnlyValidationFlows,
+} from '../tests/export-validation/recordedFlow';
 
 const validationRoot = resolve(cwd(), 'test-results', 'export-validation');
 const generatedRoot = resolve(validationRoot, 'generated');
@@ -54,8 +57,22 @@ const generatedFlows = exportValidationFlows.map(({ name, steps }) => {
     ),
   };
 });
-const uniqueNames = new Set(generatedFlows.map(({ name }) => name));
-if (uniqueNames.size !== generatedFlows.length) {
+const generatedPlaywrightOnlyFlows = playwrightOnlyValidationFlows.map(
+  ({ name, steps }) => ({
+    name,
+    steps: steps.length,
+    playwrightCode: requireFullySupported(
+      `Playwright (${name})`,
+      generatePlaywrightTest(steps),
+    ),
+  }),
+);
+const allFlowNames = [
+  ...generatedFlows.map(({ name }) => name),
+  ...generatedPlaywrightOnlyFlows.map(({ name }) => name),
+];
+const uniqueNames = new Set(allFlowNames);
+if (uniqueNames.size !== allFlowNames.length) {
   throw new Error('FlowSnap: nomes duplicados na validação de exportação');
 }
 
@@ -63,21 +80,37 @@ await rm(generatedRoot, { recursive: true, force: true });
 await mkdir(playwrightDirectory, { recursive: true });
 await mkdir(cypressDirectory, { recursive: true });
 await Promise.all(
-  generatedFlows.flatMap(({ name, playwrightCode, cypressCode }) => [
-    writeFile(
-      resolve(playwrightDirectory, `${name}.pw.ts`),
-      playwrightCode,
-      'utf8',
+  [
+    ...generatedFlows.flatMap(({ name, playwrightCode, cypressCode }) => [
+      writeFile(
+        resolve(playwrightDirectory, `${name}.pw.ts`),
+        playwrightCode,
+        'utf8',
+      ),
+      writeFile(
+        resolve(cypressDirectory, `${name}.cy.ts`),
+        cypressCode,
+        'utf8',
+      ),
+    ]),
+    ...generatedPlaywrightOnlyFlows.map(({ name, playwrightCode }) =>
+      writeFile(
+        resolve(playwrightDirectory, `${name}.pw.ts`),
+        playwrightCode,
+        'utf8',
+      ),
     ),
-    writeFile(
-      resolve(cypressDirectory, `${name}.cy.ts`),
-      cypressCode,
-      'utf8',
-    ),
-  ]),
+  ],
 );
 
-const totalSteps = generatedFlows.reduce((total, flow) => total + flow.steps, 0);
+const sharedSteps = generatedFlows.reduce(
+  (total, flow) => total + flow.steps,
+  0,
+);
+const playwrightOnlySteps = generatedPlaywrightOnlyFlows.reduce(
+  (total, flow) => total + flow.steps,
+  0,
+);
 console.log(
-  `FlowSnap: generated ${generatedFlows.length} flows with ${totalSteps} supported steps for Playwright and Cypress.`,
+  `FlowSnap: generated ${generatedFlows.length} shared flows with ${sharedSteps} supported steps and ${generatedPlaywrightOnlyFlows.length} Playwright-only flow with ${playwrightOnlySteps} supported step.`,
 );

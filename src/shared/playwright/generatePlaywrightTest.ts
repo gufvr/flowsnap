@@ -17,6 +17,7 @@ interface GeneratedStep {
   command: string;
   safeDescription?: string;
   usesNativeInputHelper?: boolean;
+  usesPlaywrightExpect?: boolean;
 }
 
 type NativeInputType = 'range' | 'color';
@@ -233,6 +234,27 @@ function generateNavigation(step: Record<string, unknown>) {
   };
 }
 
+function generateUrlAssertion(step: Record<string, unknown>) {
+  const assertion = step.assertion;
+  if (
+    step.schemaVersion !== 11 ||
+    !isRecord(assertion) ||
+    assertion.kind !== 'url' ||
+    assertion.operator !== 'equals' ||
+    typeof assertion.expected !== 'string' ||
+    assertion.expected !== assertion.expected.trim() ||
+    !isHttpUrl(assertion.expected)
+  ) {
+    return todo('verificação exata de URL incompleta ou inválida.');
+  }
+
+  return {
+    supported: true,
+    command: `await expect(page).toHaveURL(${formatJavaScriptString(assertion.expected)});`,
+    usesPlaywrightExpect: true,
+  };
+}
+
 function isValidNativeInputValue(value: string, inputType: NativeInputType) {
   if (inputType === 'color') return /^#[\da-f]{6}$/i.test(value);
 
@@ -311,7 +333,7 @@ function generateStep(step: unknown): GeneratedStep {
     return generateNativeInputChange(step, 'color');
   }
   if (step.type === 'assertion') {
-    return todo('a exportação de verificações de URL ainda não é suportada.');
+    return generateUrlAssertion(step);
   }
 
   return todo('tipo de ação ainda não suportado.');
@@ -351,6 +373,9 @@ export function generatePlaywrightTest(
   const usesNativeInputHelper = generatedSteps.some(
     ({ usesNativeInputHelper }) => usesNativeInputHelper,
   );
+  const usesPlaywrightExpect = generatedSteps.some(
+    ({ usesPlaywrightExpect }) => usesPlaywrightExpect,
+  );
   const supportedSteps = generatedSteps.filter(
     ({ supported }) => supported,
   ).length;
@@ -372,12 +397,15 @@ export function generatePlaywrightTest(
     `  ${initialCommand}`,
     ...stepBlocks.flatMap((block) => ['', block]),
   ];
+  const imports = [
+    'test',
+    ...(usesPlaywrightExpect ? ['expect'] : []),
+    ...(usesNativeInputHelper ? ['type Locator'] : []),
+  ];
 
   return {
     code: [
-      usesNativeInputHelper
-        ? 'import { test, type Locator } from "@playwright/test";'
-        : 'import { test } from "@playwright/test";',
+      `import { ${imports.join(', ')} } from "@playwright/test";`,
       ...(usesNativeInputHelper
         ? [
             '',
