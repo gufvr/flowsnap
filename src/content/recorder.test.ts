@@ -19,6 +19,7 @@ function connectController(controller: RecorderController) {
   document.addEventListener('input', controller.handleInput, true);
   document.addEventListener('change', controller.handleChange, true);
   document.addEventListener('pointerdown', controller.handlePointerDown, true);
+  document.addEventListener('pointermove', controller.handlePointerMove, true);
   window.addEventListener('blur', controller.handleWindowBlur);
 
   disconnectors.push(() => {
@@ -33,6 +34,7 @@ function connectController(controller: RecorderController) {
       controller.handlePointerDown,
       true,
     );
+    document.removeEventListener('pointermove', controller.handlePointerMove, true);
     window.removeEventListener('blur', controller.handleWindowBlur);
   });
 }
@@ -227,6 +229,73 @@ describe('recording messages', () => {
 });
 
 describe('createRecorderController', () => {
+  it('selects a visible element without executing its original click action', async () => {
+    const sendMessage = vi.fn(async () => ({ success: true }));
+    const controller = createRecorderController(sendMessage);
+    const button = document.createElement('button');
+    button.dataset.testid = 'save-button';
+    button.textContent = 'Salvar';
+    Object.defineProperty(button, 'getBoundingClientRect', {
+      value: () => ({ top: 20, left: 20, width: 100, height: 40, right: 120, bottom: 60 }),
+    });
+    const originalClick = vi.fn();
+    button.addEventListener('click', originalClick);
+    document.body.append(button);
+    connectController(controller);
+    controller.setActive(true);
+    controller.setElementVisibilityPickerActive(true);
+
+    button.click();
+    await vi.waitFor(() =>
+      expect(sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'SELECT_ELEMENT_VISIBILITY_ASSERTION',
+          payload: expect.objectContaining({
+            selectors: expect.objectContaining({
+              recommended: expect.objectContaining({
+                strategy: 'testId',
+                value: 'save-button',
+              }),
+            }),
+          }),
+        }),
+      ),
+    );
+    expect(originalClick).not.toHaveBeenCalled();
+  });
+
+  it('cancels element selection with Escape without recording a key press', () => {
+    const sendMessage = vi.fn();
+    const controller = createRecorderController(sendMessage);
+    const button = document.createElement('button');
+    document.body.append(button);
+    connectController(controller);
+    controller.setActive(true);
+    controller.setElementVisibilityPickerActive(true);
+
+    button.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+
+    expect(sendMessage).toHaveBeenCalledOnce();
+    expect(sendMessage).toHaveBeenCalledWith({
+      type: 'CANCEL_ELEMENT_VISIBILITY_PICKER',
+    });
+  });
+
+  it('keeps the picker active when the target has no reliable visible selector', () => {
+    const sendMessage = vi.fn();
+    const controller = createRecorderController(sendMessage);
+    const hidden = document.createElement('span');
+    document.body.append(hidden);
+    connectController(controller);
+    controller.setActive(true);
+    controller.setElementVisibilityPickerActive(true);
+
+    hidden.click();
+
+    expect(sendMessage).not.toHaveBeenCalled();
+    expect(document.querySelector('[data-flowsnap-element-picker="true"]')).not.toBeNull();
+  });
+
   it('ignores a direct click on a structural container with aggregate text', () => {
     const sendMessage = vi.fn();
     const controller = createRecorderController(sendMessage);

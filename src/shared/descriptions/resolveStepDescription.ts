@@ -25,6 +25,7 @@ import { createNavigationDescription } from './createNavigationDescription';
 import { createRangeChangeDescription } from './createRangeChangeDescription';
 import { createSelectionChangeDescription } from './createSelectionChangeDescription';
 import { createUrlAssertionDescription } from './createUrlAssertionDescription';
+import { createElementVisibilityAssertionDescription } from './createElementVisibilityAssertionDescription';
 import { resolveDescriptionOverride } from './descriptionOverride';
 
 const SELECTOR_STRATEGIES: SelectorStrategy[] = [
@@ -141,6 +142,7 @@ function isStepDescription(value: unknown): value is StepDescription {
 
   return (
     (value.action === 'click' ||
+      value.action === 'elementVisibilityAssertion' ||
       value.action === 'colorChange' ||
       value.action === 'focusNavigation' ||
       value.action === 'fieldFill' ||
@@ -361,7 +363,8 @@ function resolveBaseStepDescription(step: unknown): StepDescription {
     step.schemaVersion === 8 ||
     step.schemaVersion === 9 ||
     step.schemaVersion === 10 ||
-    step.schemaVersion === 11;
+    step.schemaVersion === 11 ||
+    step.schemaVersion === 12;
 
   if (!isKnownSchema) return createFallbackDescription();
 
@@ -373,7 +376,8 @@ function resolveBaseStepDescription(step: unknown): StepDescription {
       step.schemaVersion === 8 ||
       step.schemaVersion === 9 ||
       step.schemaVersion === 10 ||
-      step.schemaVersion === 11) &&
+      step.schemaVersion === 11 ||
+      step.schemaVersion === 12) &&
     isStepDescription(step.description)
   ) {
     return step.description;
@@ -407,6 +411,13 @@ function resolveBaseStepDescription(step: unknown): StepDescription {
 
   if (step.type === 'assertion') {
     const assertion = isRecord(step.assertion) ? step.assertion : undefined;
+    if (
+      step.schemaVersion === 12 &&
+      assertion?.kind === 'element' &&
+      assertion.operator === 'visible'
+    ) {
+      return createElementVisibilityAssertionDescription(descriptionInput);
+    }
     const expectedUrl =
       assertion?.kind === 'url' &&
       assertion.operator === 'equals' &&

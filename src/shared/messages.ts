@@ -7,6 +7,8 @@ import type {
   RecordedKeyPress,
   RecordedRangeChange,
   RecordedSelectionChange,
+  ElementVisibilityPickerState,
+  ElementVisibilitySelection,
 } from './recordingTypes';
 
 export type ExtensionMessage =
@@ -16,6 +18,12 @@ export type ExtensionMessage =
     }
   | { type: 'STOP_RECORDING' }
   | { type: 'ADD_CURRENT_URL_ASSERTION' }
+  | { type: 'START_ELEMENT_VISIBILITY_PICKER' }
+  | { type: 'CANCEL_ELEMENT_VISIBILITY_PICKER' }
+  | {
+      type: 'SELECT_ELEMENT_VISIBILITY_ASSERTION';
+      payload: ElementVisibilitySelection;
+    }
   | { type: 'RECORDED_CLICK'; payload: RecordedClick }
   | {
       type: 'RECORDED_FOCUS_NAVIGATION';
@@ -68,10 +76,13 @@ export type ExtensionMessage =
   | { type: 'CLEAR_RECORDED_STEPS' }
   | { type: 'GET_ACTIVE_TAB_CONTEXT' }
   | { type: 'ACTIVATE_CLICK_RECORDER' }
-  | { type: 'DEACTIVATE_CLICK_RECORDER' };
+  | { type: 'DEACTIVATE_CLICK_RECORDER' }
+  | { type: 'ACTIVATE_ELEMENT_VISIBILITY_PICKER' }
+  | { type: 'DEACTIVATE_ELEMENT_VISIBILITY_PICKER' };
 
 export interface ExtensionResponse {
   success: boolean;
   error?: string;
   activeTabContext?: ActiveTabContext;
+  pickerState?: ElementVisibilityPickerState;
 }

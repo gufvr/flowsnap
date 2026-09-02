@@ -376,6 +376,16 @@ function generateNavigation(
 function generateUrlAssertion(step: Record<string, unknown>) {
   const assertion = step.assertion;
   if (
+    step.schemaVersion === 12 &&
+    isRecord(assertion) &&
+    assertion.kind === 'element' &&
+    assertion.operator === 'visible'
+  ) {
+    return todo(
+      'a exportação de verificações de visibilidade ainda não é suportada.',
+    );
+  }
+  if (
     step.schemaVersion !== 11 ||
     !isRecord(assertion) ||
     assertion.kind !== 'url' ||

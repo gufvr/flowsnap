@@ -28,6 +28,7 @@ const executeScript = vi.fn();
 const tabsSendMessage = vi.fn();
 
 let localStorageData: Record<string, unknown>;
+let sessionStorageData: Record<string, unknown>;
 
 function createRecordedClick(id: string): RecordedClick {
   return {
@@ -214,9 +215,20 @@ describe('extension action', () => {
     executeScript.mockReset();
     tabsSendMessage.mockReset();
     localStorageData = {};
+    sessionStorageData = {};
     openSidePanel.mockResolvedValue(undefined);
-    getSessionStorage.mockResolvedValue({});
-    setSessionStorage.mockResolvedValue(undefined);
+    getSessionStorage.mockImplementation((keys: string | string[]) => {
+      const requestedKeys = Array.isArray(keys) ? keys : [keys];
+      return Promise.resolve(
+        Object.fromEntries(
+          requestedKeys.map((key) => [key, sessionStorageData[key]]),
+        ),
+      );
+    });
+    setSessionStorage.mockImplementation((values: Record<string, unknown>) => {
+      Object.assign(sessionStorageData, values);
+      return Promise.resolve();
+    });
     getLocalStorage.mockImplementation((keys: string | string[]) => {
       const requestedKeys = Array.isArray(keys) ? keys : [keys];
       return Promise.resolve(
@@ -745,6 +757,112 @@ describe('extension action', () => {
     ).resolves.toEqual({
       success: false,
       error: 'Não foi possível identificar uma URL atual válida.',
+    });
+    expect(localStorageData.recordedSteps).toEqual([]);
+  });
+
+  it('coordinates selection and constructs a validated schema 12 assertion in the background', async () => {
+    localStorageData = {
+      recordingState: {
+        isRecording: true,
+        tabId: 21,
+        origin: 'https://example.com',
+        currentUrl: 'https://example.com/form',
+      },
+      recordedSteps: [],
+    };
+
+    await expect(
+      dispatchMessage({ type: 'START_ELEMENT_VISIBILITY_PICKER' }),
+    ).resolves.toMatchObject({ success: true, pickerState: { active: true, tabId: 21 } });
+    expect(tabsSendMessage).toHaveBeenCalledWith(21, {
+      type: 'ACTIVATE_ELEMENT_VISIBILITY_PICKER',
+    }, { frameId: 0 });
+
+    const response = await dispatchMessage(
+      {
+        type: 'SELECT_ELEMENT_VISIBILITY_ASSERTION',
+        payload: {
+          selectors: {
+            recommended: {
+              strategy: 'testId',
+              attribute: 'data-testid',
+              value: 'login-submit',
+              score: 100,
+              isUnique: true,
+              validation: {
+                status: 'valid',
+                matchCount: 1,
+                matchesTarget: true,
+              },
+            },
+            alternatives: [],
+          },
+          element: { tagName: 'button', text: 'Entrar' },
+        },
+      },
+      { tab: { id: 21 } },
+    );
+
+    expect(response).toMatchObject({
+      success: true,
+      pickerState: { active: false, outcome: 'success' },
+    });
+    expect(localStorageData.recordedSteps).toEqual([
+      expect.objectContaining({
+        schemaVersion: 12,
+        type: 'assertion',
+        url: 'https://example.com/form',
+        assertion: { kind: 'element', operator: 'visible' },
+        description: expect.objectContaining({
+          action: 'elementVisibilityAssertion',
+          text: 'Verificou que o botão "Entrar" está visível',
+        }),
+      }),
+    ]);
+  });
+
+  it('rejects forged visibility selections from another tab or an ambiguous selector', async () => {
+    localStorageData = {
+      recordingState: {
+        isRecording: true,
+        tabId: 21,
+        origin: 'https://example.com',
+        currentUrl: 'https://example.com/form',
+      },
+      recordedSteps: [],
+    };
+    sessionStorageData.elementVisibilityPickerState = {
+      active: true,
+      tabId: 21,
+      updatedAt: 1,
+    };
+    const message: ExtensionMessage = {
+      type: 'SELECT_ELEMENT_VISIBILITY_ASSERTION',
+      payload: {
+        selectors: {
+          recommended: {
+            strategy: 'css',
+            value: 'button',
+            score: 1,
+            isUnique: false,
+            validation: {
+              status: 'ambiguous',
+              matchCount: 2,
+              matchesTarget: true,
+            },
+          },
+          alternatives: [],
+        },
+        element: { tagName: 'button', text: 'Entrar' },
+      },
+    };
+
+    await expect(dispatchMessage(message, { tab: { id: 99 } })).resolves.toMatchObject({
+      success: false,
+    });
+    await expect(dispatchMessage(message, { tab: { id: 21 } })).resolves.toMatchObject({
+      success: false,
     });
     expect(localStorageData.recordedSteps).toEqual([]);
   });

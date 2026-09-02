@@ -1,9 +1,13 @@
 import type { ExtensionMessage, ExtensionResponse } from './shared/messages';
 import type {
+  ElementVisibilityPickerState,
+  ElementVisibilitySelection,
+  RecordedElementVisibilityAssertion,
   RecordedStep,
   RecordedUrlAssertion,
   RecordingState,
 } from './shared/recordingTypes';
+import { createElementVisibilityAssertionDescription } from './shared/descriptions/createElementVisibilityAssertionDescription';
 import { createUrlAssertionDescription } from './shared/descriptions/createUrlAssertionDescription';
 import { validateStepDescriptionText } from './shared/descriptions/descriptionOverride';
 import { getRecordedStepReference } from './shared/recordedStepIdentity';
@@ -22,6 +26,7 @@ import {
 
 const RECORDING_STATE_KEY = 'recordingState';
 const RECORDED_STEPS_KEY = 'recordedSteps';
+const ELEMENT_VISIBILITY_PICKER_KEY = 'elementVisibilityPickerState';
 
 type RecordedStepMessage = Extract<
   ExtensionMessage,
@@ -50,6 +55,108 @@ type RecordedStepActionMessage = Extract<
 >;
 
 let recordedStepOperationQueue: Promise<void> = Promise.resolve();
+
+async function setElementVisibilityPickerState(
+  state: ElementVisibilityPickerState,
+) {
+  await chrome.storage.session.set({ [ELEMENT_VISIBILITY_PICKER_KEY]: state });
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+const SELECTOR_STRATEGIES = new Set([
+  'testId',
+  'role',
+  'label',
+  'id',
+  'text',
+  'css',
+]);
+
+function sanitizeSelectorCandidate(value: unknown) {
+  if (
+    !isRecord(value) ||
+    typeof value.strategy !== 'string' ||
+    !SELECTOR_STRATEGIES.has(value.strategy) ||
+    typeof value.value !== 'string' ||
+    !value.value ||
+    value.value.length > 1000 ||
+    typeof value.score !== 'number' ||
+    !Number.isFinite(value.score) ||
+    typeof value.isUnique !== 'boolean' ||
+    !isRecord(value.validation) ||
+    !['valid', 'ambiguous', 'invalid'].includes(String(value.validation.status)) ||
+    typeof value.validation.matchCount !== 'number' ||
+    !Number.isInteger(value.validation.matchCount) ||
+    typeof value.validation.matchesTarget !== 'boolean'
+  ) {
+    return undefined;
+  }
+
+  return {
+    strategy: value.strategy as 'testId' | 'role' | 'label' | 'id' | 'text' | 'css',
+    value: value.value,
+    score: value.score,
+    isUnique: value.isUnique,
+    ...(typeof value.attribute === 'string' &&
+    ['data-testid', 'data-cy', 'data-test'].includes(value.attribute)
+      ? { attribute: value.attribute as 'data-testid' | 'data-cy' | 'data-test' }
+      : {}),
+    ...(Array.isArray(value.warnings) && value.warnings.includes('dynamic-id')
+      ? { warnings: ['dynamic-id' as const] }
+      : {}),
+    ...(typeof value.role === 'string' ? { role: value.role.slice(0, 100) } : {}),
+    ...(typeof value.name === 'string' ? { name: value.name.slice(0, 200) } : {}),
+    validation: {
+      status: value.validation.status as 'valid' | 'ambiguous' | 'invalid',
+      matchCount: value.validation.matchCount,
+      matchesTarget: value.validation.matchesTarget,
+    },
+  };
+}
+
+function sanitizeElementVisibilitySelection(
+  value: unknown,
+): ElementVisibilitySelection | undefined {
+  if (!isRecord(value) || !isRecord(value.selectors) || !isRecord(value.element)) {
+    return undefined;
+  }
+
+  const recommended = sanitizeSelectorCandidate(value.selectors.recommended);
+  if (
+    !recommended ||
+    !recommended.isUnique ||
+    recommended.validation.status !== 'valid' ||
+    recommended.validation.matchCount !== 1 ||
+    !recommended.validation.matchesTarget ||
+    !Array.isArray(value.selectors.alternatives) ||
+    value.selectors.alternatives.length > 10 ||
+    typeof value.element.tagName !== 'string' ||
+    !/^[a-z][a-z0-9-]{0,39}$/i.test(value.element.tagName)
+  ) {
+    return undefined;
+  }
+
+  const alternatives = value.selectors.alternatives
+    .map(sanitizeSelectorCandidate)
+    .filter((candidate): candidate is NonNullable<typeof candidate> => Boolean(candidate));
+  if (alternatives.length !== value.selectors.alternatives.length) return undefined;
+
+  return {
+    selectors: { recommended, alternatives },
+    element: {
+      tagName: value.element.tagName.toLocaleLowerCase('en-US'),
+      ...(typeof value.element.text === 'string'
+        ? { text: value.element.text.replace(/\s+/g, ' ').trim().slice(0, 200) }
+        : {}),
+      ...(typeof value.element.inputType === 'string'
+        ? { inputType: value.element.inputType.slice(0, 30) }
+        : {}),
+    },
+  };
+}
 
 chrome.runtime.onInstalled.addListener(() => {
   void chrome.sidePanel
@@ -94,6 +201,7 @@ async function startRecording(
       [RECORDING_STATE_KEY]: state,
       [RECORDED_STEPS_KEY]: [],
     });
+    await setElementVisibilityPickerState({ active: false, updatedAt: Date.now() });
 
     return { success: true };
   } catch {
@@ -121,7 +229,136 @@ async function stopRecording(): Promise<ExtensionResponse> {
   await chrome.storage.local.set({
     [RECORDING_STATE_KEY]: { isRecording: false } satisfies RecordingState,
   });
+  await setElementVisibilityPickerState({
+    active: false,
+    outcome: 'cancelled',
+    message: 'Seleção de elemento cancelada.',
+    updatedAt: Date.now(),
+  });
   return { success: true };
+}
+
+async function startElementVisibilityPicker(): Promise<ExtensionResponse> {
+  const result = await chrome.storage.local.get(RECORDING_STATE_KEY);
+  const state = result[RECORDING_STATE_KEY] as RecordingState | undefined;
+  if (
+    !state?.isRecording ||
+    !state.tabId ||
+    !state.currentUrl ||
+    !isHttpOrigin(state.currentUrl, state.origin)
+  ) {
+    return { success: false, error: 'Inicie uma gravação para selecionar um elemento.' };
+  }
+
+  const pickerState: ElementVisibilityPickerState = {
+    active: true,
+    tabId: state.tabId,
+    updatedAt: Date.now(),
+  };
+  await setElementVisibilityPickerState(pickerState);
+
+  try {
+    const response = (await chrome.tabs.sendMessage(state.tabId, {
+      type: 'ACTIVATE_ELEMENT_VISIBILITY_PICKER',
+    }, { frameId: 0 })) as ExtensionResponse | undefined;
+    if (!response?.success) throw new Error();
+    return { success: true, pickerState };
+  } catch {
+    const failedState: ElementVisibilityPickerState = {
+      active: false,
+      outcome: 'error',
+      message: 'Não foi possível iniciar a seleção nesta página.',
+      updatedAt: Date.now(),
+    };
+    await setElementVisibilityPickerState(failedState);
+    return { success: false, error: failedState.message, pickerState: failedState };
+  }
+}
+
+async function cancelElementVisibilityPicker(
+  sender?: chrome.runtime.MessageSender,
+): Promise<ExtensionResponse> {
+  const result = await chrome.storage.session.get(ELEMENT_VISIBILITY_PICKER_KEY);
+  const state = result[ELEMENT_VISIBILITY_PICKER_KEY] as
+    | ElementVisibilityPickerState
+    | undefined;
+  if (sender?.tab?.id && state?.tabId !== sender.tab.id) {
+    return { success: false, error: 'A seleção ativa pertence a outra aba.' };
+  }
+
+  if (state?.tabId) {
+    try {
+      await chrome.tabs.sendMessage(state.tabId, {
+        type: 'DEACTIVATE_ELEMENT_VISIBILITY_PICKER',
+      }, { frameId: 0 });
+    } catch {
+      // The document may have navigated or closed.
+    }
+  }
+
+  const pickerState: ElementVisibilityPickerState = {
+    active: false,
+    outcome: 'cancelled',
+    message: 'Seleção de elemento cancelada.',
+    updatedAt: Date.now(),
+  };
+  await setElementVisibilityPickerState(pickerState);
+  return { success: true, pickerState };
+}
+
+async function addElementVisibilityAssertion(
+  payload: unknown,
+  sender: chrome.runtime.MessageSender,
+): Promise<ExtensionResponse> {
+  const selection = sanitizeElementVisibilitySelection(payload);
+  const [local, session] = await Promise.all([
+    chrome.storage.local.get([RECORDING_STATE_KEY, RECORDED_STEPS_KEY]),
+    chrome.storage.session.get(ELEMENT_VISIBILITY_PICKER_KEY),
+  ]);
+  const state = local[RECORDING_STATE_KEY] as RecordingState | undefined;
+  const picker = session[ELEMENT_VISIBILITY_PICKER_KEY] as
+    | ElementVisibilityPickerState
+    | undefined;
+
+  if (
+    !selection ||
+    !state?.isRecording ||
+    !state.currentUrl ||
+    state.tabId !== sender.tab?.id ||
+    (sender.frameId !== undefined && sender.frameId !== 0) ||
+    (state.currentDocumentId !== undefined &&
+      sender.documentId !== undefined &&
+      state.currentDocumentId !== sender.documentId) ||
+    !picker?.active ||
+    picker.tabId !== sender.tab?.id ||
+    !isHttpOrigin(state.currentUrl, state.origin)
+  ) {
+    return { success: false, error: 'Não foi possível validar o elemento selecionado.' };
+  }
+
+  const assertion: RecordedElementVisibilityAssertion = {
+    schemaVersion: 12,
+    id: crypto.randomUUID(),
+    type: 'assertion',
+    url: state.currentUrl,
+    timestamp: Date.now(),
+    assertion: { kind: 'element', operator: 'visible' },
+    selectors: selection.selectors,
+    element: selection.element,
+    description: createElementVisibilityAssertionDescription(selection),
+  };
+  const storedSteps = local[RECORDED_STEPS_KEY];
+  const steps: RecordedStep[] = Array.isArray(storedSteps) ? storedSteps : [];
+  await chrome.storage.local.set({ [RECORDED_STEPS_KEY]: [...steps, assertion] });
+
+  const pickerState: ElementVisibilityPickerState = {
+    active: false,
+    outcome: 'success',
+    message: 'Verificação de visibilidade adicionada.',
+    updatedAt: Date.now(),
+  };
+  await setElementVisibilityPickerState(pickerState);
+  return { success: true, pickerState };
 }
 
 async function appendRecordedStep(
@@ -459,6 +696,13 @@ async function appendSameDocumentNavigation(
     return;
   }
 
+  await setElementVisibilityPickerState({
+    active: false,
+    outcome: 'cancelled',
+    message: 'Seleção de elemento cancelada após a navegação.',
+    updatedAt: Date.now(),
+  });
+
   if (state.currentUrl === details.url) return;
 
   const storedSteps = result[RECORDED_STEPS_KEY];
@@ -503,6 +747,13 @@ async function appendCommittedDocumentNavigation(
   ) {
     return;
   }
+
+  await setElementVisibilityPickerState({
+    active: false,
+    outcome: 'cancelled',
+    message: 'Seleção de elemento cancelada após a navegação.',
+    updatedAt: Date.now(),
+  });
 
   const nextState: RecordingState = {
     ...state,
@@ -617,6 +868,19 @@ chrome.runtime.onMessage.addListener(
 
       if (message.type === 'STOP_RECORDING') {
         return enqueueRecordedStepOperation(stopRecording);
+      }
+      if (message.type === 'START_ELEMENT_VISIBILITY_PICKER') {
+        return enqueueRecordedStepOperation(startElementVisibilityPicker);
+      }
+      if (message.type === 'CANCEL_ELEMENT_VISIBILITY_PICKER') {
+        return enqueueRecordedStepOperation(() =>
+          cancelElementVisibilityPicker(sender),
+        );
+      }
+      if (message.type === 'SELECT_ELEMENT_VISIBILITY_ASSERTION') {
+        return enqueueRecordedStepOperation(() =>
+          addElementVisibilityAssertion(message.payload, sender),
+        );
       }
       if (
         message.type === 'RECORDED_CLICK' ||

@@ -692,6 +692,76 @@ describe('integrated recording flow', () => {
     expect(assertionButton).toBeDisabled();
   });
 
+  it('selects a visible element through the coordinated schema 12 picker', async () => {
+    const user = userEvent.setup();
+    harness = createChromeExtensionHarness();
+    harness.install();
+    await import('../background');
+    const controller = createRecorderController((message) =>
+      harness?.sendFromTab(message),
+    );
+    harness.connectRecorder(controller);
+    practicePage = createPracticePage(controller);
+    Object.defineProperty(practicePage.login, 'getBoundingClientRect', {
+      value: () => ({
+        top: 20,
+        left: 20,
+        width: 100,
+        height: 40,
+        right: 120,
+        bottom: 60,
+      }),
+    });
+    const originalAction = vi.fn();
+    practicePage.login.addEventListener('click', originalAction);
+    renderSidePanel();
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Iniciar Gravação' }),
+    );
+    await user.click(
+      screen.getByRole('button', { name: 'Verificar elemento visível' }),
+    );
+    expect(
+      await screen.findByText(
+        'Selecione um elemento na página. Pressione Esc para cancelar.',
+      ),
+    ).toBeInTheDocument();
+
+    await user.click(practicePage.login);
+
+    expect(originalAction).not.toHaveBeenCalled();
+    expect(
+      await screen.findByText('Verificou que o botão "Login" está visível'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('1 passo capturado')).toBeInTheDocument();
+    expect(harness.getLocalValues().recordedSteps).toEqual([
+      expect.objectContaining({
+        schemaVersion: 12,
+        type: 'assertion',
+        assertion: { kind: 'element', operator: 'visible' },
+        selectors: expect.objectContaining({
+          recommended: expect.objectContaining({
+            isUnique: true,
+            validation: {
+              status: 'valid',
+              matchCount: 1,
+              matchesTarget: true,
+            },
+          }),
+        }),
+      }),
+    ]);
+    expect(
+      screen.getByRole('button', { name: 'Copiar seletor do passo 1' }),
+    ).toBeEnabled();
+
+    await user.click(screen.getByRole('button', { name: 'Gerar Playwright' }));
+    expect(screen.getByLabelText('Prévia do código Playwright')).toHaveTextContent(
+      'TODO FlowSnap: a exportação de verificações de visibilidade ainda não é suportada.',
+    );
+  });
+
   it('records and deduplicates same-document navigation in the active top frame', async () => {
     const user = userEvent.setup();
     harness = createChromeExtensionHarness();

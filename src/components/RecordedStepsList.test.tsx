@@ -154,6 +154,46 @@ describe('RecordedStepsList', () => {
     ).toBeEnabled();
   });
 
+  it('starts and cancels the accessible element visibility picker', async () => {
+    const user = userEvent.setup();
+    const onStartElementPicker = vi.fn().mockResolvedValue(true);
+    const onCancelElementPicker = vi.fn().mockResolvedValue(true);
+    const { rerender } = renderList([schema4Step], false, {
+      isRecording: true,
+      onStartElementPicker,
+      onCancelElementPicker,
+      onDeleteStep: vi.fn().mockResolvedValue(true),
+    });
+
+    await user.click(
+      screen.getByRole('button', { name: 'Verificar elemento visível' }),
+    );
+    expect(onStartElementPicker).toHaveBeenCalledOnce();
+
+    rerender(
+      <ThemeProvider theme={theme}>
+        <RecordedStepsList
+          steps={[schema4Step]}
+          isLoading={false}
+          isRecording
+          isElementPickerActive
+          onStartElementPicker={onStartElementPicker}
+          onCancelElementPicker={onCancelElementPicker}
+          onDeleteStep={vi.fn().mockResolvedValue(true)}
+        />
+      </ThemeProvider>,
+    );
+
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Selecione um elemento na página. Pressione Esc para cancelar.',
+    );
+    expect(screen.getByRole('button', { name: 'Excluir passo 1' })).toBeDisabled();
+    await user.click(
+      screen.getByRole('button', { name: 'Cancelar seleção de elemento' }),
+    );
+    expect(onCancelElementPicker).toHaveBeenCalledOnce();
+  });
+
   it('shows mixed schemas in their persisted capture order', () => {
     const steps = [
       schema4Step,

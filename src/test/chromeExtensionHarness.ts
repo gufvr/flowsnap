@@ -28,6 +28,7 @@ type WebNavigationListener = (details: WebNavigationDetails) => void
 
 interface RecorderController {
   setActive(active: boolean): void
+  setElementVisibilityPickerActive?(active: boolean): void
 }
 
 interface ChromeExtensionHarnessOptions {
@@ -147,6 +148,14 @@ export function createChromeExtensionHarness(
 
     if (type === 'DEACTIVATE_CLICK_RECORDER') {
       recorder?.setActive(false)
+    }
+
+    if (type === 'ACTIVATE_ELEMENT_VISIBILITY_PICKER') {
+      recorder?.setElementVisibilityPickerActive?.(true)
+    }
+
+    if (type === 'DEACTIVATE_ELEMENT_VISIBILITY_PICKER') {
+      recorder?.setElementVisibilityPickerActive?.(false)
     }
 
     return { success: true }

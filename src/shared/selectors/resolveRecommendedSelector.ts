@@ -170,7 +170,8 @@ export function resolveSelectorCandidates(step: unknown): ResolvedSelector[] {
     step.schemaVersion === 5 ||
     step.schemaVersion === 6 ||
     step.schemaVersion === 7 ||
-    step.schemaVersion === 8;
+    step.schemaVersion === 8 ||
+    step.schemaVersion === 12;
 
   if (isRankedSchema && isRecord(step.selectors)) {
     const values = [
@@ -204,7 +205,8 @@ export function resolveRecommendedSelector(
     step.schemaVersion === 5 ||
     step.schemaVersion === 6 ||
     step.schemaVersion === 7 ||
-    step.schemaVersion === 8;
+    step.schemaVersion === 8 ||
+    step.schemaVersion === 12;
 
   if (isRankedSchema && isRecord(step.selectors)) {
     return adaptCandidate(step.selectors.recommended);

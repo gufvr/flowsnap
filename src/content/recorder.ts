@@ -6,7 +6,7 @@ import { createKeyPressDescription } from '../shared/descriptions/createKeyPress
 import { createRangeChangeDescription } from '../shared/descriptions/createRangeChangeDescription';
 import { createSelectionChangeDescription } from '../shared/descriptions/createSelectionChangeDescription';
 import type { ExtensionMessage } from '../shared/messages';
-import type { InteractionKey } from '../shared/recordingTypes';
+import type { ElementVisibilitySelection, InteractionKey } from '../shared/recordingTypes';
 import { getImplicitRole, normalizeText } from './elementSemantics';
 import {
   captureColorValue,
@@ -70,13 +70,15 @@ interface PendingSelectionKey {
 export interface RecorderController {
   isActive: boolean;
   setActive: (isActive: boolean) => void;
+  setElementVisibilityPickerActive: (isActive: boolean) => void;
   handleClick: (event: MouseEvent) => void;
   handleKeyDown: (event: KeyboardEvent) => void;
   handleKeyUp: (event: KeyboardEvent) => void;
   handleFocusIn: (event: FocusEvent) => void;
   handleInput: (event: Event) => void;
   handleChange: (event: Event) => void;
-  handlePointerDown: () => void;
+  handlePointerDown: (event: PointerEvent) => void;
+  handlePointerMove: (event: PointerEvent) => void;
   handleWindowBlur: () => void;
 }
 
@@ -111,6 +113,109 @@ function getEventElement(event: Event) {
 
   if (pathElement) return pathElement;
   return event.target instanceof Element ? event.target : undefined;
+}
+
+function isSelectableVisibilityTarget(element: Element) {
+  if (
+    element === document.documentElement ||
+    element === document.body ||
+    element.getRootNode() !== document
+  ) {
+    return false;
+  }
+
+  const rect = element.getBoundingClientRect();
+  const style = window.getComputedStyle(element);
+  return (
+    rect.width > 0 &&
+    rect.height > 0 &&
+    style.display !== 'none' &&
+    style.visibility !== 'hidden'
+  );
+}
+
+function createVisibilitySelection(
+  element: Element,
+): ElementVisibilitySelection | undefined {
+  if (!isSelectableVisibilityTarget(element)) return undefined;
+  const selectors = buildSelectorCandidates(element);
+  const recommended = selectors.recommended;
+  if (
+    !recommended.isUnique ||
+    recommended.validation.status !== 'valid' ||
+    recommended.validation.matchCount !== 1 ||
+    !recommended.validation.matchesTarget
+  ) {
+    return undefined;
+  }
+
+  return { selectors, element: getElementData(element) };
+}
+
+function createPickerOverlay() {
+  const host = document.createElement('div');
+  host.dataset.flowsnapElementPicker = 'true';
+  Object.assign(host.style, {
+    all: 'initial',
+    position: 'fixed',
+    inset: '0',
+    zIndex: '2147483647',
+    pointerEvents: 'none',
+  });
+  const shadow = host.attachShadow({ mode: 'closed' });
+  const outline = document.createElement('div');
+  const message = document.createElement('div');
+  Object.assign(outline.style, {
+    position: 'fixed',
+    display: 'none',
+    boxSizing: 'border-box',
+    border: '3px solid #8b5cf6',
+    borderRadius: '4px',
+    background: 'rgba(139, 92, 246, 0.12)',
+  });
+  Object.assign(message.style, {
+    position: 'fixed',
+    top: '16px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    maxWidth: 'calc(100vw - 32px)',
+    padding: '10px 14px',
+    color: '#ffffff',
+    background: '#24143f',
+    borderRadius: '8px',
+    font: '600 13px/1.4 system-ui, sans-serif',
+    boxShadow: '0 4px 18px rgba(0, 0, 0, 0.3)',
+  });
+  message.setAttribute('role', 'status');
+  message.setAttribute('aria-live', 'polite');
+  message.textContent = 'Selecione um elemento. Pressione Esc para cancelar.';
+  shadow.append(outline, message);
+  document.documentElement.append(host);
+
+  return {
+    update(element?: Element) {
+      if (!element || !isSelectableVisibilityTarget(element)) {
+        outline.style.display = 'none';
+        return;
+      }
+      const rect = element.getBoundingClientRect();
+      Object.assign(outline.style, {
+        display: 'block',
+        top: `${rect.top}px`,
+        left: `${rect.left}px`,
+        width: `${rect.width}px`,
+        height: `${rect.height}px`,
+      });
+    },
+    showError() {
+      message.textContent =
+        'Este elemento não possui um seletor único confiável. Escolha outro.';
+      message.setAttribute('role', 'alert');
+    },
+    remove() {
+      host.remove();
+    },
+  };
 }
 
 export function createClickMessage(element: Element): ExtensionMessage {
@@ -352,6 +457,19 @@ export function createRecorderController(
   let dirtyColors = new WeakSet<ColorControl>();
   let lastCapturedColorValues = new WeakMap<ColorControl, string>();
   let lastSelectionSignatures = new WeakMap<SelectionControl, string>();
+  let isElementVisibilityPickerActive = false;
+  let pickerOverlay: ReturnType<typeof createPickerOverlay> | undefined;
+
+  const setElementVisibilityPickerActive = (isActive: boolean) => {
+    isElementVisibilityPickerActive = isActive && controller.isActive;
+    pickerOverlay?.remove();
+    pickerOverlay = isElementVisibilityPickerActive
+      ? createPickerOverlay()
+      : undefined;
+    clearPendingTabNavigation();
+    clearPendingSelectionKey();
+    clearSyntheticClickSuppression();
+  };
 
   const clearPendingTabNavigation = () => {
     if (!pendingTabNavigation) return;
@@ -463,6 +581,7 @@ export function createRecorderController(
     setActive(isActive) {
       controller.isActive = isActive;
       if (!isActive) {
+        setElementVisibilityPickerActive(false);
         clearPendingTabNavigation();
         clearPendingSelectionKey();
         clearSyntheticClickSuppression();
@@ -475,9 +594,40 @@ export function createRecorderController(
         lastSelectionSignatures = new WeakMap();
       }
     },
+    setElementVisibilityPickerActive,
     handleClick(event) {
       const eventElement = getEventElement(event);
       if (!controller.isActive || !eventElement) return;
+
+      if (isElementVisibilityPickerActive) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        const selection = createVisibilitySelection(eventElement);
+        if (!selection) {
+          pickerOverlay?.showError();
+          return;
+        }
+
+        void Promise.resolve()
+          .then(() => sendMessage({
+            type: 'SELECT_ELEMENT_VISIBILITY_ASSERTION',
+            payload: selection,
+          }))
+          .then((response) => {
+            if (
+              typeof response === 'object' &&
+              response !== null &&
+              'success' in response &&
+              response.success === true
+            ) {
+              setElementVisibilityPickerActive(false);
+            } else {
+              pickerOverlay?.showError();
+            }
+          })
+          .catch(() => pickerOverlay?.showError());
+        return;
+      }
 
       if (resolveColorControl(eventElement)) return;
       if (isRangeControl(eventElement)) return;
@@ -495,6 +645,16 @@ export function createRecorderController(
     },
     handleKeyDown(event) {
       if (!controller.isActive) return;
+
+      if (isElementVisibilityPickerActive) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        if (event.key === 'Escape') {
+          setElementVisibilityPickerActive(false);
+          void sendMessage({ type: 'CANCEL_ELEMENT_VISIBILITY_PICKER' });
+        }
+        return;
+      }
 
       if (
         event.key === 'Tab' &&
@@ -639,10 +799,19 @@ export function createRecorderController(
 
       recordFieldFill(element);
     },
-    handlePointerDown() {
+    handlePointerDown(event) {
+      if (isElementVisibilityPickerActive) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        return;
+      }
       clearPendingTabNavigation();
       clearPendingSelectionKey();
       clearSyntheticClickSuppression();
+    },
+    handlePointerMove(event) {
+      if (!isElementVisibilityPickerActive) return;
+      pickerOverlay?.update(getEventElement(event));
     },
     handleWindowBlur() {
       clearPendingTabNavigation();
@@ -668,13 +837,26 @@ function installRecorder() {
   document.addEventListener('input', controller.handleInput, true);
   document.addEventListener('change', controller.handleChange, true);
   document.addEventListener('pointerdown', controller.handlePointerDown, true);
+  document.addEventListener('pointermove', controller.handlePointerMove, true);
   window.addEventListener('blur', controller.handleWindowBlur);
   window.__flowsnapRecorder = controller;
 
-  chrome.runtime.onMessage.addListener((message: ExtensionMessage) => {
-    if (message.type === 'ACTIVATE_CLICK_RECORDER') controller.setActive(true);
+  chrome.runtime.onMessage.addListener((message: ExtensionMessage, _sender, sendResponse) => {
+    if (message.type === 'ACTIVATE_CLICK_RECORDER') {
+      controller.setActive(true);
+      sendResponse({ success: true });
+    }
     if (message.type === 'DEACTIVATE_CLICK_RECORDER') {
       controller.setActive(false);
+      sendResponse({ success: true });
+    }
+    if (message.type === 'ACTIVATE_ELEMENT_VISIBILITY_PICKER') {
+      controller.setElementVisibilityPickerActive(true);
+      sendResponse({ success: controller.isActive });
+    }
+    if (message.type === 'DEACTIVATE_ELEMENT_VISIBILITY_PICKER') {
+      controller.setElementVisibilityPickerActive(false);
+      sendResponse({ success: true });
     }
   });
 }

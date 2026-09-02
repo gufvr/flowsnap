@@ -20,6 +20,11 @@ interface RecordedStepsListProps {
   isLoading: boolean;
   pendingMutation?: RecordedStepMutation;
   feedback?: RecordedStepsFeedback;
+  isElementPickerActive?: boolean;
+  isElementPickerPending?: boolean;
+  elementPickerFeedback?: RecordedStepsFeedback;
+  onStartElementPicker?: () => Promise<boolean>;
+  onCancelElementPicker?: () => Promise<boolean>;
   onAddUrlAssertion?: () => Promise<boolean>;
   onDeleteStep?: (stepIndex: number) => Promise<boolean>;
   onEditStep?: (
@@ -243,6 +248,11 @@ export function RecordedStepsList({
   isLoading,
   pendingMutation,
   feedback,
+  isElementPickerActive = false,
+  isElementPickerPending = false,
+  elementPickerFeedback,
+  onStartElementPicker,
+  onCancelElementPicker,
   onAddUrlAssertion,
   onDeleteStep,
   onEditStep,
@@ -258,7 +268,7 @@ export function RecordedStepsList({
   const playwrightTrigger = useRef<HTMLButtonElement>(null);
   const cypressTrigger = useRef<HTMLButtonElement>(null);
   const countLabel = steps.length === 1 ? '1 passo' : `${steps.length} passos`;
-  const areMutationsDisabled = Boolean(pendingMutation);
+  const areMutationsDisabled = Boolean(pendingMutation) || isElementPickerActive;
   const isConfirmationStale = confirmation
     ? confirmation.type === 'clear'
       ? confirmation.stepCount !== steps.length
@@ -434,7 +444,7 @@ export function RecordedStepsList({
         </HeaderActions>
       </Header>
 
-      {(onAddUrlAssertion || steps.length > 0) && (
+      {(onAddUrlAssertion || onStartElementPicker || steps.length > 0) && (
         <ListActions role="group" aria-label="Ações dos passos gravados">
           {onAddUrlAssertion && (
             <AddAssertionButton
@@ -451,6 +461,39 @@ export function RecordedStepsList({
             >
               Verificar URL atual
             </AddAssertionButton>
+          )}
+          {onStartElementPicker && (
+            <AddAssertionButton
+              type="button"
+              aria-pressed={isElementPickerActive}
+              disabled={
+                !isRecording ||
+                isLoading ||
+                isElementPickerPending ||
+                Boolean(pendingMutation) ||
+                Boolean(activeConfirmation) ||
+                Boolean(activeEditingStep)
+              }
+              title={
+                isRecording
+                  ? undefined
+                  : 'Inicie uma gravação para selecionar um elemento.'
+              }
+              onClick={() =>
+                void (isElementPickerActive
+                  ? onCancelElementPicker?.()
+                  : onStartElementPicker())
+              }
+            >
+              {isElementPickerActive
+                ? 'Cancelar seleção de elemento'
+                : 'Verificar elemento visível'}
+            </AddAssertionButton>
+          )}
+          {isElementPickerActive && (
+            <OperationFeedback role="status" aria-live="polite">
+              Selecione um elemento na página. Pressione Esc para cancelar.
+            </OperationFeedback>
           )}
           {steps.length > 0 && (
             <>
@@ -532,6 +575,15 @@ export function RecordedStepsList({
           aria-live={feedback.type === 'success' ? 'polite' : undefined}
         >
           {feedback.message}
+        </OperationFeedback>
+      )}
+      {elementPickerFeedback && (
+        <OperationFeedback
+          $error={elementPickerFeedback.type === 'error'}
+          role={elementPickerFeedback.type === 'error' ? 'alert' : 'status'}
+          aria-live={elementPickerFeedback.type === 'success' ? 'polite' : undefined}
+        >
+          {elementPickerFeedback.message}
         </OperationFeedback>
       )}
       {!feedback && localFeedback && (

@@ -6,6 +6,7 @@ export type StepDescriptionAction =
   | "colorChange"
   | "navigation"
   | "urlAssertion"
+  | "elementVisibilityAssertion"
   | "selectionChange"
   | "keyPress";
 
@@ -83,6 +84,14 @@ export interface UrlAssertionStepDescription {
   locale: "pt-BR";
 }
 
+export interface ElementVisibilityAssertionStepDescription {
+  action: "elementVisibilityAssertion";
+  target: StepDescriptionTarget;
+  source: DescriptionSource;
+  text: string;
+  locale: "pt-BR";
+}
+
 export interface SelectionChangeStepDescription {
   action: "selectionChange";
   target: StepDescriptionTarget;
@@ -107,5 +116,6 @@ export type StepDescription =
   | ColorChangeStepDescription
   | NavigationStepDescription
   | UrlAssertionStepDescription
+  | ElementVisibilityAssertionStepDescription
   | SelectionChangeStepDescription
   | KeyPressStepDescription;

@@ -6,6 +6,7 @@ import { RecordingButton } from './components/RecordingButton';
 import { StatusBanner } from './components/StatusBanner';
 import { useRecordingState } from './hooks/useRecordingState';
 import { useRecordedSteps } from './hooks/useRecordedSteps';
+import { useElementVisibilityPicker } from './hooks/useElementVisibilityPicker';
 import { closeSidePanel } from './services/closeSidePanel';
 
 const Panel = styled.div`
@@ -61,6 +62,7 @@ export function App() {
     moveStep,
     clearSteps,
   } = useRecordedSteps();
+  const elementPicker = useElementVisibilityPicker();
   const stepCountLabel =
     steps.length === 1 ? '1 passo capturado' : `${steps.length} passos capturados`;
 
@@ -84,6 +86,11 @@ export function App() {
           isLoading={areStepsLoading}
           pendingMutation={pendingMutation}
           feedback={stepsFeedback}
+          isElementPickerActive={elementPicker.isActive}
+          isElementPickerPending={elementPicker.isPending}
+          elementPickerFeedback={elementPicker.feedback}
+          onStartElementPicker={elementPicker.start}
+          onCancelElementPicker={elementPicker.cancel}
           onAddUrlAssertion={addUrlAssertion}
           onDeleteStep={removeStep}
           onEditStep={editStepDescription}

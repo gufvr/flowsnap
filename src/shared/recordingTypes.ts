@@ -8,6 +8,7 @@ import type {
   RangeChangeStepDescription,
   SelectionChangeStepDescription,
   UrlAssertionStepDescription,
+  ElementVisibilityAssertionStepDescription,
 } from './stepDescriptionTypes';
 
 export interface RecordingState {
@@ -129,6 +130,23 @@ export interface RecordedFocusNavigation {
   description: FocusNavigationStepDescription;
 }
 
+export interface ElementVisibilityPickerState {
+  active: boolean;
+  tabId?: number;
+  outcome?: 'success' | 'cancelled' | 'error';
+  message?: string;
+  updatedAt: number;
+}
+
+export interface ElementVisibilitySelection {
+  selectors: SelectorAnalysis;
+  element: {
+    tagName: string;
+    text?: string;
+    inputType?: string;
+  };
+}
+
 export interface StepDescriptionOverride {
   text: string;
   locale: 'pt-BR';
@@ -245,6 +263,22 @@ export interface RecordedUrlAssertion {
   description: UrlAssertionStepDescription;
 }
 
+export interface RecordedElementVisibilityAssertion {
+  schemaVersion: 12;
+  id: string;
+  type: 'assertion';
+  url: string;
+  timestamp: number;
+  assertion: { kind: 'element'; operator: 'visible' };
+  selectors: SelectorAnalysis;
+  element: {
+    tagName: string;
+    text?: string;
+    inputType?: string;
+  };
+  description: ElementVisibilityAssertionStepDescription;
+}
+
 export type RecordedSelectValue =
   | {
       kind: 'plain';
@@ -327,6 +361,7 @@ export type RecordedStep =
   | RecordedNavigation
   | RecordedDocumentNavigation
   | RecordedUrlAssertion
+  | RecordedElementVisibilityAssertion
   | RecordedSelectionChange
   | RecordedKeyPress
   | RecordedClickV3
