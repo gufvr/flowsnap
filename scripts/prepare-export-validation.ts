@@ -4,6 +4,7 @@ import { resolve, sep } from 'node:path';
 import { generateCypressTest } from '../src/shared/cypress/generateCypressTest';
 import { generatePlaywrightTest } from '../src/shared/playwright/generatePlaywrightTest';
 import {
+  cypressOnlyValidationFlows,
   exportValidationFlows,
   playwrightOnlyValidationFlows,
 } from '../tests/export-validation/recordedFlow';
@@ -67,9 +68,20 @@ const generatedPlaywrightOnlyFlows = playwrightOnlyValidationFlows.map(
     ),
   }),
 );
+const generatedCypressOnlyFlows = cypressOnlyValidationFlows.map(
+  ({ name, steps }) => ({
+    name,
+    steps: steps.length,
+    cypressCode: requireFullySupported(
+      `Cypress (${name})`,
+      generateCypressTest(steps),
+    ),
+  }),
+);
 const allFlowNames = [
   ...generatedFlows.map(({ name }) => name),
   ...generatedPlaywrightOnlyFlows.map(({ name }) => name),
+  ...generatedCypressOnlyFlows.map(({ name }) => name),
 ];
 const uniqueNames = new Set(allFlowNames);
 if (uniqueNames.size !== allFlowNames.length) {
@@ -100,6 +112,13 @@ await Promise.all(
         'utf8',
       ),
     ),
+    ...generatedCypressOnlyFlows.map(({ name, cypressCode }) =>
+      writeFile(
+        resolve(cypressDirectory, `${name}.cy.ts`),
+        cypressCode,
+        'utf8',
+      ),
+    ),
   ],
 );
 
@@ -111,6 +130,10 @@ const playwrightOnlySteps = generatedPlaywrightOnlyFlows.reduce(
   (total, flow) => total + flow.steps,
   0,
 );
+const cypressOnlySteps = generatedCypressOnlyFlows.reduce(
+  (total, flow) => total + flow.steps,
+  0,
+);
 console.log(
-  `FlowSnap: generated ${generatedFlows.length} shared flows with ${sharedSteps} supported steps and ${generatedPlaywrightOnlyFlows.length} Playwright-only flow with ${playwrightOnlySteps} supported step.`,
+  `FlowSnap: generated ${generatedFlows.length} shared flows with ${sharedSteps} supported steps, ${generatedPlaywrightOnlyFlows.length} Playwright-only flow with ${playwrightOnlySteps} supported step, and ${generatedCypressOnlyFlows.length} Cypress-only flow with ${cypressOnlySteps} supported step.`,
 );

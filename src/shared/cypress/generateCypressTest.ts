@@ -373,6 +373,28 @@ function generateNavigation(
   return supportedCommand(`${historyFallback}cy.visit(${formattedUrl});`);
 }
 
+function generateUrlAssertion(step: Record<string, unknown>) {
+  const assertion = step.assertion;
+  if (
+    step.schemaVersion !== 11 ||
+    !isRecord(assertion) ||
+    assertion.kind !== 'url' ||
+    assertion.operator !== 'equals' ||
+    typeof assertion.expected !== 'string' ||
+    assertion.expected !== assertion.expected.trim() ||
+    !isHttpUrl(assertion.expected)
+  ) {
+    return todo(
+      'verificação exata de URL incompleta ou inválida.',
+      'Verificou uma URL inválida ou incompleta',
+    );
+  }
+
+  return supportedCommand(
+    `cy.url().should("eq", ${formatCypressJavaScriptString(assertion.expected)});`,
+  );
+}
+
 function generateStep(
   step: unknown,
   context: GenerationContext = {},
@@ -394,7 +416,7 @@ function generateStep(
     return generateNativeInputChange(step, 'color');
   }
   if (step.type === 'assertion') {
-    return todo('a exportação de verificações de URL ainda não é suportada.');
+    return generateUrlAssertion(step);
   }
 
   return todo('tipo de ação ainda não suportado.');

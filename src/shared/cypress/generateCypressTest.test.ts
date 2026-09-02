@@ -523,7 +523,7 @@ describe('generateCypressTest', () => {
     expect(transpiled.diagnostics).toEqual([]);
   });
 
-  it('marks schema 11 URL assertions as TODO without exporting an assertion', () => {
+  it('exports an exact schema 11 URL assertion', () => {
     const result = generateCypressTest([
       {
         schemaVersion: 11,
@@ -545,12 +545,95 @@ describe('generateCypressTest', () => {
 
     expect(result).toMatchObject({
       totalSteps: 1,
-      supportedSteps: 0,
-      unsupportedSteps: 1,
+      supportedSteps: 1,
+      unsupportedSteps: 0,
     });
     expect(result.code).toContain(
-      'TODO FlowSnap: a exportação de verificações de URL ainda não é suportada.',
+      'cy.url().should("eq", "https://example.com/account?tab=security");',
     );
+    expect(result.code).not.toContain('TODO FlowSnap');
+  });
+
+  it('keeps an edited description in the comment without changing the expected URL', () => {
+    const result = generateCypressTest([
+      {
+        schemaVersion: 11,
+        type: 'assertion',
+        url: 'https://example.com/other',
+        assertion: {
+          kind: 'url',
+          operator: 'equals',
+          expected: 'https://example.com/account?tab=security#password',
+        },
+        descriptionOverride: {
+          text: 'Validou a área segura',
+          locale: 'pt-BR',
+        },
+      },
+    ]);
+
+    expect(result.code).toContain('// Passo 1: Validou a área segura');
+    expect(result.code).toContain(
+      'cy.url().should("eq", "https://example.com/account?tab=security#password");',
+    );
+    expect(result.code).not.toContain(
+      'cy.url().should("eq", "Validou a área segura")',
+    );
+  });
+
+  it('keeps incomplete or invalid URL assertions as safe TODO comments', () => {
+    const validAssertion = {
+      kind: 'url',
+      operator: 'equals',
+      expected: 'https://never-export.example/account',
+    };
+    const result = generateCypressTest([
+      { type: 'assertion', assertion: validAssertion },
+      { schemaVersion: 11, type: 'assertion' },
+      {
+        schemaVersion: 11,
+        type: 'assertion',
+        assertion: { ...validAssertion, kind: 'element' },
+      },
+      {
+        schemaVersion: 11,
+        type: 'assertion',
+        assertion: { ...validAssertion, operator: 'contains' },
+      },
+      {
+        schemaVersion: 11,
+        type: 'assertion',
+        assertion: { ...validAssertion, expected: '/never-export' },
+      },
+      {
+        schemaVersion: 11,
+        type: 'assertion',
+        assertion: { ...validAssertion, expected: 'javascript:never-export' },
+      },
+      {
+        schemaVersion: 11,
+        type: 'assertion',
+        assertion: {
+          ...validAssertion,
+          expected: ' https://never-export.example/account',
+        },
+        descriptionOverride: {
+          text: 'never-export-override',
+          locale: 'pt-BR',
+        },
+      },
+    ]);
+
+    expect(result).toMatchObject({
+      totalSteps: 7,
+      supportedSteps: 0,
+      unsupportedSteps: 7,
+    });
+    expect(result.code.match(/verificação exata de URL incompleta ou inválida/g))
+      .toHaveLength(7);
     expect(result.code).not.toContain('cy.url().should');
+    expect(result.code).not.toContain('never-export');
+    expect(result.code.match(/Verificou uma URL inválida ou incompleta/g))
+      .toHaveLength(7);
   });
 });

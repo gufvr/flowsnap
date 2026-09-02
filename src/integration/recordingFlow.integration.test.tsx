@@ -674,6 +674,20 @@ describe('integrated recording flow', () => {
     ).toBeInTheDocument();
     await user.keyboard('{Escape}');
 
+    await user.click(screen.getByRole('button', { name: 'Gerar Cypress' }));
+    const cypressPreview = screen.getByLabelText('Prévia do código Cypress');
+    expect(cypressPreview).toHaveTextContent(
+      '// Passo 1: Validou a página de formulários',
+    );
+    expect(cypressPreview).toHaveTextContent(
+      'cy.url().should("eq", "https://qapracticehub.com/#forms");',
+    );
+    expect(cypressPreview).not.toHaveTextContent('TODO FlowSnap');
+    expect(
+      screen.getByText('1 de 1 passo exportado; 0 marcados como TODO.'),
+    ).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+
     await user.click(screen.getByRole('button', { name: 'Parar Gravação' }));
     expect(assertionButton).toBeDisabled();
   });

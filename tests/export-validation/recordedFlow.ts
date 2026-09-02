@@ -226,3 +226,7 @@ const urlAssertionFlow = [
 export const playwrightOnlyValidationFlows = [
   { name: 'url-assertion', steps: urlAssertionFlow },
 ] as const;
+
+export const cypressOnlyValidationFlows = [
+  { name: 'url-assertion-cypress', steps: urlAssertionFlow },
+] as const;
