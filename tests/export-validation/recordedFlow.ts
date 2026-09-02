@@ -223,8 +223,53 @@ const urlAssertionFlow = [
   },
 ] as const;
 
+const elementVisibilityUrl = `${fixtureRoot}?flow=element-visibility`;
+const elementVisibilityAssertionFlow = [
+  {
+    schemaVersion: 12,
+    id: 'element-visibility-assertion',
+    type: 'assertion',
+    url: elementVisibilityUrl,
+    timestamp: 1,
+    assertion: {
+      kind: 'element',
+      operator: 'visible',
+    },
+    selectors: {
+      recommended: {
+        strategy: 'testId',
+        attribute: 'data-testid',
+        value: 'status',
+        score: 100,
+        isUnique: true,
+        validation: {
+          status: 'valid',
+          matchCount: 1,
+          matchesTarget: true,
+        },
+      },
+      alternatives: [],
+    },
+    element: {
+      tagName: 'p',
+      text: 'Waiting for the exported flow.',
+    },
+    description: {
+      action: 'elementVisibilityAssertion',
+      target: { type: 'element', name: 'Waiting for the exported flow.' },
+      source: 'text',
+      text: 'Verificou que o status da fixture está visível',
+      locale: 'pt-BR',
+    },
+  },
+] as const;
+
 export const playwrightOnlyValidationFlows = [
   { name: 'url-assertion', steps: urlAssertionFlow },
+  {
+    name: 'element-visibility-assertion',
+    steps: elementVisibilityAssertionFlow,
+  },
 ] as const;
 
 export const cypressOnlyValidationFlows = [

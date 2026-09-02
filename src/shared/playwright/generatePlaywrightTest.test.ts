@@ -9,6 +9,19 @@ function selector(strategy: string, value: string, extra = {}) {
   };
 }
 
+function validatedSelector(strategy = 'testId', value = 'visible-target') {
+  return selector(strategy, value, {
+    ...(strategy === 'testId' ? { attribute: 'data-testid' } : {}),
+    score: 100,
+    isUnique: true,
+    validation: {
+      status: 'valid',
+      matchCount: 1,
+      matchesTarget: true,
+    },
+  });
+}
+
 function description(action: string, text: string) {
   return {
     action,
@@ -455,6 +468,38 @@ describe('generatePlaywrightTest', () => {
     expect(result.code).not.toContain('toHaveURL("Validou a área segura")');
   });
 
+  it('exports a validated schema 12 visibility assertion with expect', () => {
+    const result = generatePlaywrightTest([
+      {
+        schemaVersion: 12,
+        type: 'assertion',
+        url: 'https://example.com/account',
+        assertion: { kind: 'element', operator: 'visible' },
+        selectors: validatedSelector('testId', 'account-title'),
+        element: { tagName: 'h1', text: 'Minha conta' },
+        descriptionOverride: {
+          text: 'Confirmou a área da conta',
+          locale: 'pt-BR',
+        },
+      },
+    ]);
+
+    expect(result).toMatchObject({
+      totalSteps: 1,
+      supportedSteps: 1,
+      unsupportedSteps: 0,
+    });
+    expect(result.code).toContain(
+      'import { test, expect } from "@playwright/test";',
+    );
+    expect(result.code).toContain('// Passo 1: Confirmou a área da conta');
+    expect(result.code).toContain(
+      'await expect(page.getByTestId("account-title")).toBeVisible();',
+    );
+    expect(result.code).not.toContain('toBeVisible("Confirmou a área da conta")');
+    expect(result.code).not.toContain('TODO FlowSnap');
+  });
+
   it('combines expect and Locator imports when native input helpers are required', () => {
     const result = generatePlaywrightTest([
       {
@@ -465,14 +510,11 @@ describe('generatePlaywrightTest', () => {
         value: { kind: 'plain', value: '7' },
       },
       {
-        schemaVersion: 11,
+        schemaVersion: 12,
         type: 'assertion',
         url: 'https://example.com/account',
-        assertion: {
-          kind: 'url',
-          operator: 'equals',
-          expected: 'https://example.com/account',
-        },
+        assertion: { kind: 'element', operator: 'visible' },
+        selectors: validatedSelector('testId', 'account-title'),
       },
     ]);
 
@@ -484,6 +526,82 @@ describe('generatePlaywrightTest', () => {
       supportedSteps: 2,
       unsupportedSteps: 0,
     });
+  });
+
+  it('keeps incomplete, invalid or ambiguous visibility assertions as safe TODOs', () => {
+    const validAssertion = { kind: 'element', operator: 'visible' };
+    const validSelectors = validatedSelector();
+    const result = generatePlaywrightTest([
+      { schemaVersion: 12, type: 'assertion', selectors: validSelectors },
+      {
+        schemaVersion: 12,
+        type: 'assertion',
+        assertion: { ...validAssertion, kind: 'url' },
+        selectors: validSelectors,
+      },
+      {
+        schemaVersion: 12,
+        type: 'assertion',
+        assertion: { ...validAssertion, operator: 'hidden' },
+        selectors: validSelectors,
+      },
+      {
+        schemaVersion: 12,
+        type: 'assertion',
+        assertion: validAssertion,
+      },
+      {
+        schemaVersion: 12,
+        type: 'assertion',
+        assertion: validAssertion,
+        selectors: {
+          recommended: {
+            ...validSelectors.recommended,
+            isUnique: false,
+          },
+          alternatives: [],
+        },
+      },
+      {
+        schemaVersion: 12,
+        type: 'assertion',
+        assertion: validAssertion,
+        selectors: {
+          recommended: {
+            ...validSelectors.recommended,
+            validation: {
+              status: 'ambiguous',
+              matchCount: 2,
+              matchesTarget: true,
+            },
+          },
+          alternatives: [],
+        },
+      },
+      {
+        schemaVersion: 12,
+        type: 'assertion',
+        assertion: validAssertion,
+        selectors: validatedSelector('unsupported', 'unsafe-value'),
+      },
+    ].map((step) => ({ url: 'https://example.com', ...step })));
+
+    expect(result).toMatchObject({
+      totalSteps: 7,
+      supportedSteps: 0,
+      unsupportedSteps: 7,
+    });
+    expect(result.code.match(/TODO FlowSnap/g)).toHaveLength(7);
+    expect(result.code.match(/verificação de visibilidade incompleta ou inválida/g))
+      .toHaveLength(3);
+    expect(result.code.match(/seletor recomendado único e validado indisponível/g))
+      .toHaveLength(3);
+    expect(result.code).toContain(
+      'seletor recomendado inválido para esta verificação de visibilidade',
+    );
+    expect(result.code).not.toContain('unsafe-value');
+    expect(result.code).not.toContain('toBeVisible');
+    expect(result.code).not.toContain('import { test, expect }');
   });
 
   it('keeps incomplete or invalid URL assertions as TODO', () => {

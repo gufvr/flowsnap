@@ -758,6 +758,15 @@ describe('integrated recording flow', () => {
 
     await user.click(screen.getByRole('button', { name: 'Gerar Playwright' }));
     expect(screen.getByLabelText('Prévia do código Playwright')).toHaveTextContent(
+      'await expect(page.getByRole("button", { name: "Login", exact: true })).toBeVisible();',
+    );
+    expect(
+      screen.getByText('1 de 1 passo exportado; 0 marcados como TODO.'),
+    ).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+
+    await user.click(screen.getByRole('button', { name: 'Gerar Cypress' }));
+    expect(screen.getByLabelText('Prévia do código Cypress')).toHaveTextContent(
       'TODO FlowSnap: a exportação de verificações de visibilidade ainda não é suportada.',
     );
   });

@@ -234,16 +234,57 @@ function generateNavigation(step: Record<string, unknown>) {
   };
 }
 
-function generateUrlAssertion(step: Record<string, unknown>) {
+function hasValidatedUniqueRecommendedSelector(
+  step: Record<string, unknown>,
+) {
+  if (!isRecord(step.selectors) || !isRecord(step.selectors.recommended)) {
+    return false;
+  }
+
+  const recommended = step.selectors.recommended;
+  const validation = recommended.validation;
+  return (
+    recommended.isUnique === true &&
+    isRecord(validation) &&
+    validation.status === 'valid' &&
+    validation.matchCount === 1 &&
+    validation.matchesTarget === true
+  );
+}
+
+function generateElementVisibilityAssertion(step: Record<string, unknown>) {
   const assertion = step.assertion;
   if (
-    step.schemaVersion === 12 &&
-    isRecord(assertion) &&
-    assertion.kind === 'element' &&
-    assertion.operator === 'visible'
+    step.schemaVersion !== 12 ||
+    !isRecord(assertion) ||
+    assertion.kind !== 'element' ||
+    assertion.operator !== 'visible'
   ) {
-    return todo('a exportação de verificações de visibilidade ainda não é suportada.');
+    return todo('verificação de visibilidade incompleta ou inválida.');
   }
+
+  if (!hasValidatedUniqueRecommendedSelector(step)) {
+    return todo(
+      'seletor recomendado único e validado indisponível para esta verificação de visibilidade.',
+    );
+  }
+
+  const locator = resolveLocator(step);
+  if (!locator) {
+    return todo(
+      'seletor recomendado inválido para esta verificação de visibilidade.',
+    );
+  }
+
+  return {
+    supported: true,
+    command: `await expect(${locator}).toBeVisible();`,
+    usesPlaywrightExpect: true,
+  };
+}
+
+function generateUrlAssertion(step: Record<string, unknown>) {
+  const assertion = step.assertion;
   if (
     step.schemaVersion !== 11 ||
     !isRecord(assertion) ||
@@ -341,6 +382,9 @@ function generateStep(step: unknown): GeneratedStep {
     return generateNativeInputChange(step, 'color');
   }
   if (step.type === 'assertion') {
+    if (step.schemaVersion === 12) {
+      return generateElementVisibilityAssertion(step);
+    }
     return generateUrlAssertion(step);
   }
 

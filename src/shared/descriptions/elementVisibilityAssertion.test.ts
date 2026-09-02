@@ -61,20 +61,21 @@ describe('schema 12 element visibility assertions', () => {
     );
   });
 
-  it('keeps schema 12 as an explicit TODO in both generators', () => {
+  it('exports schema 12 only in Playwright and keeps Cypress as TODO', () => {
     const assertion = createAssertion();
     const playwright = generatePlaywrightTest([assertion]);
     const cypress = generateCypressTest([assertion]);
 
-    expect(playwright.unsupportedSteps).toBe(1);
+    expect(playwright.supportedSteps).toBe(1);
+    expect(playwright.unsupportedSteps).toBe(0);
     expect(cypress.unsupportedSteps).toBe(1);
     expect(playwright.code).toContain(
-      'TODO FlowSnap: a exportação de verificações de visibilidade ainda não é suportada.',
+      'await expect(page.getByTestId("login-submit")).toBeVisible();',
     );
     expect(cypress.code).toContain(
       'TODO FlowSnap: a exportação de verificações de visibilidade ainda não é suportada.',
     );
-    expect(playwright.code).not.toContain('toBeVisible');
+    expect(playwright.code).not.toContain('TODO FlowSnap');
     expect(cypress.code).not.toContain('be.visible');
   });
 });
