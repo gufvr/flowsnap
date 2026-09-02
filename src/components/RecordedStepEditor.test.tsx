@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ThemeProvider } from 'styled-components';
 import { describe, expect, it, vi } from 'vitest';
@@ -40,19 +40,18 @@ describe('RecordedStepEditor', () => {
   });
 
   it('rejects empty and oversized descriptions', async () => {
-    const user = userEvent.setup();
     renderEditor();
     const field = screen.getByRole('textbox', {
       name: 'Descrição do passo 2',
     });
 
-    await user.clear(field);
+    fireEvent.change(field, { target: { value: '' } });
     expect(screen.getByRole('alert')).toHaveTextContent(
       'A descrição não pode ficar vazia.',
     );
     expect(screen.getByRole('button', { name: 'Salvar' })).toBeDisabled();
 
-    await user.type(field, 'a'.repeat(201));
+    fireEvent.change(field, { target: { value: 'a'.repeat(201) } });
     expect(screen.getByRole('alert')).toHaveTextContent(
       'A descrição deve ter no máximo 200 caracteres.',
     );
