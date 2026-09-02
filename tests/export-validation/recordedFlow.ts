@@ -274,4 +274,8 @@ export const playwrightOnlyValidationFlows = [
 
 export const cypressOnlyValidationFlows = [
   { name: 'url-assertion-cypress', steps: urlAssertionFlow },
+  {
+    name: 'element-visibility-assertion-cypress',
+    steps: elementVisibilityAssertionFlow,
+  },
 ] as const;

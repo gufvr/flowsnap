@@ -1,5 +1,7 @@
 import { resolveStepDescription } from '../descriptions/resolveStepDescription';
+import { resolveRecommendedSelector } from '../selectors/resolveRecommendedSelector';
 import {
+  formatCypressLocator,
   formatCypressJavaScriptString,
   resolveCypressLocator,
 } from './formatCypressLocator';
@@ -373,18 +375,64 @@ function generateNavigation(
   return supportedCommand(`${historyFallback}cy.visit(${formattedUrl});`);
 }
 
-function generateUrlAssertion(step: Record<string, unknown>) {
+function hasValidatedUniqueRecommendedSelector(
+  step: Record<string, unknown>,
+) {
+  if (!isRecord(step.selectors) || !isRecord(step.selectors.recommended)) {
+    return false;
+  }
+
+  const recommended = step.selectors.recommended;
+  const validation = recommended.validation;
+  return (
+    recommended.isUnique === true &&
+    isRecord(validation) &&
+    validation.status === 'valid' &&
+    validation.matchCount === 1 &&
+    validation.matchesTarget === true
+  );
+}
+
+function generateElementVisibilityAssertion(step: Record<string, unknown>) {
   const assertion = step.assertion;
   if (
-    step.schemaVersion === 12 &&
-    isRecord(assertion) &&
-    assertion.kind === 'element' &&
-    assertion.operator === 'visible'
+    step.schemaVersion !== 12 ||
+    !isRecord(assertion) ||
+    assertion.kind !== 'element' ||
+    assertion.operator !== 'visible'
   ) {
     return todo(
-      'a exportação de verificações de visibilidade ainda não é suportada.',
+      'verificação de visibilidade incompleta ou inválida.',
+      'Verificou a visibilidade de um elemento inválido ou incompleto',
     );
   }
+
+  if (!hasValidatedUniqueRecommendedSelector(step)) {
+    return todo(
+      'seletor recomendado único e validado indisponível para esta verificação de visibilidade.',
+      'Verificou a visibilidade de um elemento inválido ou incompleto',
+    );
+  }
+
+  const recommended = resolveRecommendedSelector(step);
+  const locator = recommended
+    ? formatCypressLocator(recommended)
+    : undefined;
+  if (!locator) {
+    return todo(
+      'seletor recomendado inválido para esta verificação de visibilidade.',
+      'Verificou a visibilidade de um elemento inválido ou incompleto',
+    );
+  }
+
+  return supportedCommand(
+    `${locator.expression}.should("be.visible");`,
+    locator.usesLabelHelper,
+  );
+}
+
+function generateUrlAssertion(step: Record<string, unknown>) {
+  const assertion = step.assertion;
   if (
     step.schemaVersion !== 11 ||
     !isRecord(assertion) ||
@@ -426,6 +474,9 @@ function generateStep(
     return generateNativeInputChange(step, 'color');
   }
   if (step.type === 'assertion') {
+    if (step.schemaVersion === 12) {
+      return generateElementVisibilityAssertion(step);
+    }
     return generateUrlAssertion(step);
   }
 
