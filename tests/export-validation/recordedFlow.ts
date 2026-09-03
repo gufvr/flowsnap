@@ -264,11 +264,61 @@ const elementVisibilityAssertionFlow = [
   },
 ] as const;
 
+const elementTextUrl = `${fixtureRoot}?flow=element-text`;
+const elementTextAssertionFlow = [
+  {
+    schemaVersion: 13,
+    id: 'element-text-assertion',
+    type: 'assertion',
+    url: elementTextUrl,
+    timestamp: 1,
+    assertion: {
+      kind: 'element',
+      operator: 'text-equals',
+      expected: 'Waiting for the exported flow.',
+    },
+    selectors: {
+      recommended: {
+        strategy: 'testId',
+        attribute: 'data-testid',
+        value: 'status',
+        score: 100,
+        isUnique: true,
+        validation: {
+          status: 'valid',
+          matchCount: 1,
+          matchesTarget: true,
+        },
+      },
+      alternatives: [],
+    },
+    element: {
+      tagName: 'p',
+      text: 'Waiting for the exported flow.',
+    },
+    description: {
+      action: 'elementTextAssertion',
+      target: { type: 'element', name: 'Waiting for the exported flow.' },
+      source: 'text',
+      text: 'Verificou o texto exato do status da fixture',
+      locale: 'pt-BR',
+    },
+    descriptionOverride: {
+      text: 'Validou a mensagem inicial da fixture',
+      locale: 'pt-BR',
+    },
+  },
+] as const;
+
 export const playwrightOnlyValidationFlows = [
   { name: 'url-assertion', steps: urlAssertionFlow },
   {
     name: 'element-visibility-assertion',
     steps: elementVisibilityAssertionFlow,
+  },
+  {
+    name: 'element-text-assertion',
+    steps: elementTextAssertionFlow,
   },
 ] as const;
 

@@ -283,6 +283,46 @@ function generateElementVisibilityAssertion(step: Record<string, unknown>) {
   };
 }
 
+const INVALID_ELEMENT_TEXT_ASSERTION_DESCRIPTION =
+  'Verificou o texto exato de um elemento inválido ou incompleto';
+
+function invalidElementTextAssertion() {
+  return todo(
+    'verificação de texto exato incompleta ou inválida.',
+    INVALID_ELEMENT_TEXT_ASSERTION_DESCRIPTION,
+  );
+}
+
+function isValidExactText(value: unknown): value is string {
+  if (typeof value !== 'string') return false;
+
+  const normalized = value.replace(/\s+/g, ' ').trim();
+  return normalized.length > 0 && normalized.length <= 200 && value === normalized;
+}
+
+function generateElementTextAssertion(step: Record<string, unknown>) {
+  const assertion = step.assertion;
+  if (
+    step.schemaVersion !== 13 ||
+    !isRecord(assertion) ||
+    assertion.kind !== 'element' ||
+    assertion.operator !== 'text-equals' ||
+    !isValidExactText(assertion.expected) ||
+    !hasValidatedUniqueRecommendedSelector(step)
+  ) {
+    return invalidElementTextAssertion();
+  }
+
+  const locator = resolveLocator(step);
+  if (!locator) return invalidElementTextAssertion();
+
+  return {
+    supported: true,
+    command: `await expect(${locator}).toHaveText(${formatJavaScriptString(assertion.expected)}, { useInnerText: true });`,
+    usesPlaywrightExpect: true,
+  };
+}
+
 function generateUrlAssertion(step: Record<string, unknown>) {
   const assertion = step.assertion;
   if (
@@ -383,10 +423,7 @@ function generateStep(step: unknown): GeneratedStep {
   }
   if (step.type === 'assertion') {
     if (step.schemaVersion === 13) {
-      return todo(
-        'a exportação de verificações de texto exato ainda não é suportada.',
-        'Verificou o texto exato de um elemento',
-      );
+      return generateElementTextAssertion(step);
     }
     if (step.schemaVersion === 12) {
       return generateElementVisibilityAssertion(step);

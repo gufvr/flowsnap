@@ -264,9 +264,15 @@ describe('integrated recording flow', () => {
       'Prévia do código Playwright',
     );
     expect(playwrightPreview).toHaveTextContent(
-      'TODO FlowSnap: a exportação de verificações de texto exato ainda não é suportada.',
+      'import { test, expect } from "@playwright/test";',
     );
-    expect(playwrightPreview).not.toHaveTextContent('"Login"');
+    expect(playwrightPreview).toHaveTextContent(
+      'await expect(page.getByRole("button", { name: "Login", exact: true })).toHaveText("Login", { useInnerText: true });',
+    );
+    expect(playwrightPreview).not.toHaveTextContent('TODO FlowSnap');
+    expect(
+      screen.getByText('1 de 1 passo exportado; 0 marcados como TODO.'),
+    ).toBeInTheDocument();
     await user.keyboard('{Escape}');
 
     await user.click(screen.getByRole('button', { name: 'Gerar Cypress' }));

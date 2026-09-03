@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { generateCypressTest } from '../cypress/generateCypressTest';
-import { generatePlaywrightTest } from '../playwright/generatePlaywrightTest';
 import type { RecordedElementTextAssertion } from '../recordingTypes';
 import { resolveRecommendedSelector } from '../selectors/resolveRecommendedSelector';
 import { createElementTextAssertionDescription } from './createElementTextAssertionDescription';
@@ -75,7 +74,7 @@ describe('schema 13 exact element text assertions', () => {
     );
   });
 
-  it('keeps schema 13 as a safe TODO in both generators', () => {
+  it('keeps schema 13 as a safe TODO in Cypress', () => {
     const assertion = {
       ...createAssertion(),
       assertion: {
@@ -88,20 +87,17 @@ describe('schema 13 exact element text assertions', () => {
         locale: 'pt-BR' as const,
       },
     };
-    const playwright = generatePlaywrightTest([assertion]);
     const cypress = generateCypressTest([assertion]);
 
-    for (const result of [playwright, cypress]) {
-      expect(result.supportedSteps).toBe(0);
-      expect(result.unsupportedSteps).toBe(1);
-      expect(result.code).toContain(
-        'TODO FlowSnap: a exportação de verificações de texto exato ainda não é suportada.',
-      );
-      expect(result.code).toContain(
-        '// Passo 1: Verificou o texto exato de um elemento',
-      );
-      expect(result.code).not.toContain('segredo-nao-exportavel');
-      expect(result.code).not.toContain('descrição-não-exportável');
-    }
+    expect(cypress.supportedSteps).toBe(0);
+    expect(cypress.unsupportedSteps).toBe(1);
+    expect(cypress.code).toContain(
+      'TODO FlowSnap: a exportação de verificações de texto exato ainda não é suportada.',
+    );
+    expect(cypress.code).toContain(
+      '// Passo 1: Verificou o texto exato de um elemento',
+    );
+    expect(cypress.code).not.toContain('segredo-nao-exportavel');
+    expect(cypress.code).not.toContain('descrição-não-exportável');
   });
 });
