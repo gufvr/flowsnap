@@ -1,12 +1,16 @@
 import type { ExtensionMessage, ExtensionResponse } from './shared/messages';
 import type {
+  ElementAssertionPickerMode,
+  ElementTextSelection,
   ElementVisibilityPickerState,
   ElementVisibilitySelection,
+  RecordedElementTextAssertion,
   RecordedElementVisibilityAssertion,
   RecordedStep,
   RecordedUrlAssertion,
   RecordingState,
 } from './shared/recordingTypes';
+import { createElementTextAssertionDescription } from './shared/descriptions/createElementTextAssertionDescription';
 import { createElementVisibilityAssertionDescription } from './shared/descriptions/createElementVisibilityAssertionDescription';
 import { createUrlAssertionDescription } from './shared/descriptions/createUrlAssertionDescription';
 import { validateStepDescriptionText } from './shared/descriptions/descriptionOverride';
@@ -158,6 +162,36 @@ function sanitizeElementVisibilitySelection(
   };
 }
 
+function normalizeExactText(value: unknown) {
+  if (typeof value !== 'string') return undefined;
+
+  const normalized = value.replace(/\s+/g, ' ').trim();
+  return normalized && normalized.length <= 200 ? normalized : undefined;
+}
+
+function sanitizeElementTextSelection(
+  value: unknown,
+): ElementTextSelection | undefined {
+  const selection = sanitizeElementVisibilitySelection(value);
+  const expectedText = isRecord(value)
+    ? normalizeExactText(value.expectedText)
+    : undefined;
+
+  if (
+    !selection ||
+    !expectedText ||
+    ['input', 'textarea', 'select', 'option'].includes(selection.element.tagName)
+  ) {
+    return undefined;
+  }
+
+  return {
+    ...selection,
+    element: { ...selection.element, text: expectedText },
+    expectedText,
+  };
+}
+
 chrome.runtime.onInstalled.addListener(() => {
   void chrome.sidePanel
     .setPanelBehavior({ openPanelOnActionClick: false })
@@ -238,7 +272,9 @@ async function stopRecording(): Promise<ExtensionResponse> {
   return { success: true };
 }
 
-async function startElementVisibilityPicker(): Promise<ExtensionResponse> {
+async function startElementPicker(
+  mode: ElementAssertionPickerMode,
+): Promise<ExtensionResponse> {
   const result = await chrome.storage.local.get(RECORDING_STATE_KEY);
   const state = result[RECORDING_STATE_KEY] as RecordingState | undefined;
   if (
@@ -252,6 +288,7 @@ async function startElementVisibilityPicker(): Promise<ExtensionResponse> {
 
   const pickerState: ElementVisibilityPickerState = {
     active: true,
+    mode,
     tabId: state.tabId,
     updatedAt: Date.now(),
   };
@@ -259,7 +296,10 @@ async function startElementVisibilityPicker(): Promise<ExtensionResponse> {
 
   try {
     const response = (await chrome.tabs.sendMessage(state.tabId, {
-      type: 'ACTIVATE_ELEMENT_VISIBILITY_PICKER',
+      type:
+        mode === 'text'
+          ? 'ACTIVATE_ELEMENT_TEXT_PICKER'
+          : 'ACTIVATE_ELEMENT_VISIBILITY_PICKER',
     }, { frameId: 0 })) as ExtensionResponse | undefined;
     if (!response?.success) throw new Error();
     return { success: true, pickerState };
@@ -273,6 +313,14 @@ async function startElementVisibilityPicker(): Promise<ExtensionResponse> {
     await setElementVisibilityPickerState(failedState);
     return { success: false, error: failedState.message, pickerState: failedState };
   }
+}
+
+function startElementVisibilityPicker() {
+  return startElementPicker('visibility');
+}
+
+function startElementTextPicker() {
+  return startElementPicker('text');
 }
 
 async function cancelElementVisibilityPicker(
@@ -330,6 +378,7 @@ async function addElementVisibilityAssertion(
       sender.documentId !== undefined &&
       state.currentDocumentId !== sender.documentId) ||
     !picker?.active ||
+    (picker.mode !== undefined && picker.mode !== 'visibility') ||
     picker.tabId !== sender.tab?.id ||
     !isHttpOrigin(state.currentUrl, state.origin)
   ) {
@@ -355,6 +404,67 @@ async function addElementVisibilityAssertion(
     active: false,
     outcome: 'success',
     message: 'Verificação de visibilidade adicionada.',
+    updatedAt: Date.now(),
+  };
+  await setElementVisibilityPickerState(pickerState);
+  return { success: true, pickerState };
+}
+
+async function addElementTextAssertion(
+  payload: unknown,
+  sender: chrome.runtime.MessageSender,
+): Promise<ExtensionResponse> {
+  const selection = sanitizeElementTextSelection(payload);
+  const [local, session] = await Promise.all([
+    chrome.storage.local.get([RECORDING_STATE_KEY, RECORDED_STEPS_KEY]),
+    chrome.storage.session.get(ELEMENT_VISIBILITY_PICKER_KEY),
+  ]);
+  const state = local[RECORDING_STATE_KEY] as RecordingState | undefined;
+  const picker = session[ELEMENT_VISIBILITY_PICKER_KEY] as
+    | ElementVisibilityPickerState
+    | undefined;
+
+  if (
+    !selection ||
+    !state?.isRecording ||
+    !state.currentUrl ||
+    state.tabId !== sender.tab?.id ||
+    sender.frameId !== 0 ||
+    (state.currentDocumentId !== undefined &&
+      state.currentDocumentId !== sender.documentId) ||
+    !picker?.active ||
+    picker.mode !== 'text' ||
+    picker.tabId !== sender.tab?.id ||
+    !sender.url ||
+    !isHttpOrigin(sender.url, state.origin) ||
+    !isHttpOrigin(state.currentUrl, state.origin)
+  ) {
+    return { success: false, error: 'Não foi possível validar o texto selecionado.' };
+  }
+
+  const assertion: RecordedElementTextAssertion = {
+    schemaVersion: 13,
+    id: crypto.randomUUID(),
+    type: 'assertion',
+    url: state.currentUrl,
+    timestamp: Date.now(),
+    assertion: {
+      kind: 'element',
+      operator: 'text-equals',
+      expected: selection.expectedText,
+    },
+    selectors: selection.selectors,
+    element: selection.element,
+    description: createElementTextAssertionDescription(selection),
+  };
+  const storedSteps = local[RECORDED_STEPS_KEY];
+  const steps: RecordedStep[] = Array.isArray(storedSteps) ? storedSteps : [];
+  await chrome.storage.local.set({ [RECORDED_STEPS_KEY]: [...steps, assertion] });
+
+  const pickerState: ElementVisibilityPickerState = {
+    active: false,
+    outcome: 'success',
+    message: 'Verificação de texto exato adicionada.',
     updatedAt: Date.now(),
   };
   await setElementVisibilityPickerState(pickerState);
@@ -872,6 +982,9 @@ chrome.runtime.onMessage.addListener(
       if (message.type === 'START_ELEMENT_VISIBILITY_PICKER') {
         return enqueueRecordedStepOperation(startElementVisibilityPicker);
       }
+      if (message.type === 'START_ELEMENT_TEXT_PICKER') {
+        return enqueueRecordedStepOperation(startElementTextPicker);
+      }
       if (message.type === 'CANCEL_ELEMENT_VISIBILITY_PICKER') {
         return enqueueRecordedStepOperation(() =>
           cancelElementVisibilityPicker(sender),
@@ -880,6 +993,11 @@ chrome.runtime.onMessage.addListener(
       if (message.type === 'SELECT_ELEMENT_VISIBILITY_ASSERTION') {
         return enqueueRecordedStepOperation(() =>
           addElementVisibilityAssertion(message.payload, sender),
+        );
+      }
+      if (message.type === 'SELECT_ELEMENT_TEXT_ASSERTION') {
+        return enqueueRecordedStepOperation(() =>
+          addElementTextAssertion(message.payload, sender),
         );
       }
       if (

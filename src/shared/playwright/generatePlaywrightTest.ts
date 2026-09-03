@@ -382,6 +382,12 @@ function generateStep(step: unknown): GeneratedStep {
     return generateNativeInputChange(step, 'color');
   }
   if (step.type === 'assertion') {
+    if (step.schemaVersion === 13) {
+      return todo(
+        'a exportação de verificações de texto exato ainda não é suportada.',
+        'Verificou o texto exato de um elemento',
+      );
+    }
     if (step.schemaVersion === 12) {
       return generateElementVisibilityAssertion(step);
     }

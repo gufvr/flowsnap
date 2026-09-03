@@ -194,6 +194,51 @@ describe('RecordedStepsList', () => {
     expect(onCancelElementPicker).toHaveBeenCalledOnce();
   });
 
+  it('starts and cancels the accessible exact text picker independently', async () => {
+    const user = userEvent.setup();
+    const onStartElementPicker = vi.fn().mockResolvedValue(true);
+    const onStartElementTextPicker = vi.fn().mockResolvedValue(true);
+    const onCancelElementPicker = vi.fn().mockResolvedValue(true);
+    const { rerender } = renderList([schema4Step], false, {
+      isRecording: true,
+      onStartElementPicker,
+      onStartElementTextPicker,
+      onCancelElementPicker,
+    });
+
+    await user.click(
+      screen.getByRole('button', { name: 'Verificar texto do elemento' }),
+    );
+    expect(onStartElementTextPicker).toHaveBeenCalledOnce();
+    expect(onStartElementPicker).not.toHaveBeenCalled();
+
+    rerender(
+      <ThemeProvider theme={theme}>
+        <RecordedStepsList
+          steps={[schema4Step]}
+          isLoading={false}
+          isRecording
+          isElementPickerActive
+          elementPickerMode="text"
+          onStartElementPicker={onStartElementPicker}
+          onStartElementTextPicker={onStartElementTextPicker}
+          onCancelElementPicker={onCancelElementPicker}
+        />
+      </ThemeProvider>,
+    );
+
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Selecione um elemento com texto na página. Pressione Esc para cancelar.',
+    );
+    expect(
+      screen.getByRole('button', { name: 'Verificar elemento visível' }),
+    ).toBeDisabled();
+    await user.click(
+      screen.getByRole('button', { name: 'Cancelar seleção de elemento' }),
+    );
+    expect(onCancelElementPicker).toHaveBeenCalledOnce();
+  });
+
   it('shows mixed schemas in their persisted capture order', () => {
     const steps = [
       schema4Step,

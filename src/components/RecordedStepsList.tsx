@@ -8,6 +8,7 @@ import {
   getRecordedStepId,
   getRecordedStepReference,
 } from '../shared/recordedStepIdentity';
+import type { ElementAssertionPickerMode } from '../shared/recordingTypes';
 import { CopyAllSelectorsButton } from './CopyAllSelectorsButton';
 import { CypressCodePanel } from './CypressCodePanel';
 import { InlineConfirmation } from './InlineConfirmation';
@@ -21,9 +22,11 @@ interface RecordedStepsListProps {
   pendingMutation?: RecordedStepMutation;
   feedback?: RecordedStepsFeedback;
   isElementPickerActive?: boolean;
+  elementPickerMode?: ElementAssertionPickerMode;
   isElementPickerPending?: boolean;
   elementPickerFeedback?: RecordedStepsFeedback;
   onStartElementPicker?: () => Promise<boolean>;
+  onStartElementTextPicker?: () => Promise<boolean>;
   onCancelElementPicker?: () => Promise<boolean>;
   onAddUrlAssertion?: () => Promise<boolean>;
   onDeleteStep?: (stepIndex: number) => Promise<boolean>;
@@ -249,9 +252,11 @@ export function RecordedStepsList({
   pendingMutation,
   feedback,
   isElementPickerActive = false,
+  elementPickerMode,
   isElementPickerPending = false,
   elementPickerFeedback,
   onStartElementPicker,
+  onStartElementTextPicker,
   onCancelElementPicker,
   onAddUrlAssertion,
   onDeleteStep,
@@ -269,6 +274,11 @@ export function RecordedStepsList({
   const cypressTrigger = useRef<HTMLButtonElement>(null);
   const countLabel = steps.length === 1 ? '1 passo' : `${steps.length} passos`;
   const areMutationsDisabled = Boolean(pendingMutation) || isElementPickerActive;
+  const activeElementPickerMode = isElementPickerActive
+    ? (elementPickerMode ?? 'visibility')
+    : undefined;
+  const isVisibilityPickerActive = activeElementPickerMode === 'visibility';
+  const isTextPickerActive = activeElementPickerMode === 'text';
   const isConfirmationStale = confirmation
     ? confirmation.type === 'clear'
       ? confirmation.stepCount !== steps.length
@@ -444,7 +454,10 @@ export function RecordedStepsList({
         </HeaderActions>
       </Header>
 
-      {(onAddUrlAssertion || onStartElementPicker || steps.length > 0) && (
+      {(onAddUrlAssertion ||
+        onStartElementPicker ||
+        onStartElementTextPicker ||
+        steps.length > 0) && (
         <ListActions role="group" aria-label="Ações dos passos gravados">
           {onAddUrlAssertion && (
             <AddAssertionButton
@@ -465,14 +478,15 @@ export function RecordedStepsList({
           {onStartElementPicker && (
             <AddAssertionButton
               type="button"
-              aria-pressed={isElementPickerActive}
+              aria-pressed={isVisibilityPickerActive}
               disabled={
                 !isRecording ||
                 isLoading ||
                 isElementPickerPending ||
                 Boolean(pendingMutation) ||
                 Boolean(activeConfirmation) ||
-                Boolean(activeEditingStep)
+                Boolean(activeEditingStep) ||
+                (isElementPickerActive && !isVisibilityPickerActive)
               }
               title={
                 isRecording
@@ -480,19 +494,50 @@ export function RecordedStepsList({
                   : 'Inicie uma gravação para selecionar um elemento.'
               }
               onClick={() =>
-                void (isElementPickerActive
+                void (isVisibilityPickerActive
                   ? onCancelElementPicker?.()
                   : onStartElementPicker())
               }
             >
-              {isElementPickerActive
+              {isVisibilityPickerActive
                 ? 'Cancelar seleção de elemento'
                 : 'Verificar elemento visível'}
             </AddAssertionButton>
           )}
+          {onStartElementTextPicker && (
+            <AddAssertionButton
+              type="button"
+              aria-pressed={isTextPickerActive}
+              disabled={
+                !isRecording ||
+                isLoading ||
+                isElementPickerPending ||
+                Boolean(pendingMutation) ||
+                Boolean(activeConfirmation) ||
+                Boolean(activeEditingStep) ||
+                (isElementPickerActive && !isTextPickerActive)
+              }
+              title={
+                isRecording
+                  ? undefined
+                  : 'Inicie uma gravação para selecionar um elemento.'
+              }
+              onClick={() =>
+                void (isTextPickerActive
+                  ? onCancelElementPicker?.()
+                  : onStartElementTextPicker())
+              }
+            >
+              {isTextPickerActive
+                ? 'Cancelar seleção de elemento'
+                : 'Verificar texto do elemento'}
+            </AddAssertionButton>
+          )}
           {isElementPickerActive && (
             <OperationFeedback role="status" aria-live="polite">
-              Selecione um elemento na página. Pressione Esc para cancelar.
+              {isTextPickerActive
+                ? 'Selecione um elemento com texto na página. Pressione Esc para cancelar.'
+                : 'Selecione um elemento na página. Pressione Esc para cancelar.'}
             </OperationFeedback>
           )}
           {steps.length > 0 && (

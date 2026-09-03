@@ -6,7 +6,12 @@ import { createKeyPressDescription } from '../shared/descriptions/createKeyPress
 import { createRangeChangeDescription } from '../shared/descriptions/createRangeChangeDescription';
 import { createSelectionChangeDescription } from '../shared/descriptions/createSelectionChangeDescription';
 import type { ExtensionMessage } from '../shared/messages';
-import type { ElementVisibilitySelection, InteractionKey } from '../shared/recordingTypes';
+import type {
+  ElementAssertionPickerMode,
+  ElementTextSelection,
+  ElementVisibilitySelection,
+  InteractionKey,
+} from '../shared/recordingTypes';
 import { getImplicitRole, normalizeText } from './elementSemantics';
 import {
   captureColorValue,
@@ -71,6 +76,7 @@ export interface RecorderController {
   isActive: boolean;
   setActive: (isActive: boolean) => void;
   setElementVisibilityPickerActive: (isActive: boolean) => void;
+  setElementTextPickerActive: (isActive: boolean) => void;
   handleClick: (event: MouseEvent) => void;
   handleKeyDown: (event: KeyboardEvent) => void;
   handleKeyUp: (event: KeyboardEvent) => void;
@@ -152,7 +158,37 @@ function createVisibilitySelection(
   return { selectors, element: getElementData(element) };
 }
 
-function createPickerOverlay() {
+function getExactElementText(element: Element) {
+  if (
+    element.closest(
+      'input, textarea, select, option, [contenteditable]:not([contenteditable="false"])',
+    )
+  ) {
+    return undefined;
+  }
+
+  const renderedText =
+    element instanceof HTMLElement && typeof element.innerText === 'string'
+      ? element.innerText
+      : element.textContent;
+  const normalizedText = renderedText?.replace(/\s+/g, ' ').trim();
+  if (!normalizedText || normalizedText.length > 200) return undefined;
+
+  return normalizedText;
+}
+
+function createTextSelection(
+  element: Element,
+): ElementTextSelection | undefined {
+  const expectedText = getExactElementText(element);
+  if (!expectedText) return undefined;
+  const visibilitySelection = createVisibilitySelection(element);
+  if (!visibilitySelection) return undefined;
+
+  return { ...visibilitySelection, expectedText };
+}
+
+function createPickerOverlay(mode: ElementAssertionPickerMode) {
   const host = document.createElement('div');
   host.dataset.flowsnapElementPicker = 'true';
   Object.assign(host.style, {
@@ -188,7 +224,10 @@ function createPickerOverlay() {
   });
   message.setAttribute('role', 'status');
   message.setAttribute('aria-live', 'polite');
-  message.textContent = 'Selecione um elemento. Pressione Esc para cancelar.';
+  message.textContent =
+    mode === 'text'
+      ? 'Selecione um elemento com texto. Pressione Esc para cancelar.'
+      : 'Selecione um elemento. Pressione Esc para cancelar.';
   shadow.append(outline, message);
   document.documentElement.append(host);
 
@@ -207,8 +246,8 @@ function createPickerOverlay() {
         height: `${rect.height}px`,
       });
     },
-    showError() {
-      message.textContent =
+    showError(errorMessage?: string) {
+      message.textContent = errorMessage ??
         'Este elemento não possui um seletor único confiável. Escolha outro.';
       message.setAttribute('role', 'alert');
     },
@@ -457,18 +496,26 @@ export function createRecorderController(
   let dirtyColors = new WeakSet<ColorControl>();
   let lastCapturedColorValues = new WeakMap<ColorControl, string>();
   let lastSelectionSignatures = new WeakMap<SelectionControl, string>();
-  let isElementVisibilityPickerActive = false;
+  let elementPickerMode: ElementAssertionPickerMode | undefined;
   let pickerOverlay: ReturnType<typeof createPickerOverlay> | undefined;
 
-  const setElementVisibilityPickerActive = (isActive: boolean) => {
-    isElementVisibilityPickerActive = isActive && controller.isActive;
+  const setElementPickerMode = (mode?: ElementAssertionPickerMode) => {
+    elementPickerMode = controller.isActive ? mode : undefined;
     pickerOverlay?.remove();
-    pickerOverlay = isElementVisibilityPickerActive
-      ? createPickerOverlay()
+    pickerOverlay = elementPickerMode
+      ? createPickerOverlay(elementPickerMode)
       : undefined;
     clearPendingTabNavigation();
     clearPendingSelectionKey();
     clearSyntheticClickSuppression();
+  };
+
+  const setElementVisibilityPickerActive = (isActive: boolean) => {
+    setElementPickerMode(isActive ? 'visibility' : undefined);
+  };
+
+  const setElementTextPickerActive = (isActive: boolean) => {
+    setElementPickerMode(isActive ? 'text' : undefined);
   };
 
   const clearPendingTabNavigation = () => {
@@ -578,10 +625,11 @@ export function createRecorderController(
 
   const controller: RecorderController = {
     isActive: false,
+    setElementTextPickerActive,
     setActive(isActive) {
       controller.isActive = isActive;
       if (!isActive) {
-        setElementVisibilityPickerActive(false);
+        setElementPickerMode();
         clearPendingTabNavigation();
         clearPendingSelectionKey();
         clearSyntheticClickSuppression();
@@ -599,20 +647,27 @@ export function createRecorderController(
       const eventElement = getEventElement(event);
       if (!controller.isActive || !eventElement) return;
 
-      if (isElementVisibilityPickerActive) {
+      if (elementPickerMode) {
         event.preventDefault();
         event.stopImmediatePropagation();
-        const selection = createVisibilitySelection(eventElement);
+        const selection = elementPickerMode === 'text'
+          ? createTextSelection(eventElement)
+          : createVisibilitySelection(eventElement);
         if (!selection) {
-          pickerOverlay?.showError();
+          pickerOverlay?.showError(
+            elementPickerMode === 'text'
+              ? 'Escolha um elemento com texto visível, até 200 caracteres e seletor único.'
+              : undefined,
+          );
           return;
         }
 
+        const message: ExtensionMessage = elementPickerMode === 'text'
+          ? { type: 'SELECT_ELEMENT_TEXT_ASSERTION', payload: selection as ElementTextSelection }
+          : { type: 'SELECT_ELEMENT_VISIBILITY_ASSERTION', payload: selection };
+
         void Promise.resolve()
-          .then(() => sendMessage({
-            type: 'SELECT_ELEMENT_VISIBILITY_ASSERTION',
-            payload: selection,
-          }))
+          .then(() => sendMessage(message))
           .then((response) => {
             if (
               typeof response === 'object' &&
@@ -620,7 +675,7 @@ export function createRecorderController(
               'success' in response &&
               response.success === true
             ) {
-              setElementVisibilityPickerActive(false);
+              setElementPickerMode();
             } else {
               pickerOverlay?.showError();
             }
@@ -646,11 +701,11 @@ export function createRecorderController(
     handleKeyDown(event) {
       if (!controller.isActive) return;
 
-      if (isElementVisibilityPickerActive) {
+      if (elementPickerMode) {
         event.preventDefault();
         event.stopImmediatePropagation();
         if (event.key === 'Escape') {
-          setElementVisibilityPickerActive(false);
+          setElementPickerMode();
           void sendMessage({ type: 'CANCEL_ELEMENT_VISIBILITY_PICKER' });
         }
         return;
@@ -800,7 +855,7 @@ export function createRecorderController(
       recordFieldFill(element);
     },
     handlePointerDown(event) {
-      if (isElementVisibilityPickerActive) {
+      if (elementPickerMode) {
         event.preventDefault();
         event.stopImmediatePropagation();
         return;
@@ -810,7 +865,7 @@ export function createRecorderController(
       clearSyntheticClickSuppression();
     },
     handlePointerMove(event) {
-      if (!isElementVisibilityPickerActive) return;
+      if (!elementPickerMode) return;
       pickerOverlay?.update(getEventElement(event));
     },
     handleWindowBlur() {
@@ -852,6 +907,10 @@ function installRecorder() {
     }
     if (message.type === 'ACTIVATE_ELEMENT_VISIBILITY_PICKER') {
       controller.setElementVisibilityPickerActive(true);
+      sendResponse({ success: controller.isActive });
+    }
+    if (message.type === 'ACTIVATE_ELEMENT_TEXT_PICKER') {
+      controller.setElementTextPickerActive(true);
       sendResponse({ success: controller.isActive });
     }
     if (message.type === 'DEACTIVATE_ELEMENT_VISIBILITY_PICKER') {

@@ -1,7 +1,10 @@
 import type { ExtensionResponse } from '../shared/messages';
 
 async function sendPickerAction(
-  type: 'START_ELEMENT_VISIBILITY_PICKER' | 'CANCEL_ELEMENT_VISIBILITY_PICKER',
+  type:
+    | 'START_ELEMENT_VISIBILITY_PICKER'
+    | 'START_ELEMENT_TEXT_PICKER'
+    | 'CANCEL_ELEMENT_VISIBILITY_PICKER',
 ) {
   const response = (await chrome.runtime.sendMessage({ type })) as ExtensionResponse;
   if (!response?.success) {
@@ -11,6 +14,10 @@ async function sendPickerAction(
 
 export function startElementVisibilityPicker() {
   return sendPickerAction('START_ELEMENT_VISIBILITY_PICKER');
+}
+
+export function startElementTextPicker() {
+  return sendPickerAction('START_ELEMENT_TEXT_PICKER');
 }
 
 export function cancelElementVisibilityPicker() {

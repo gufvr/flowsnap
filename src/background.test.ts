@@ -185,7 +185,12 @@ function createRecordedColorChange(id: string): RecordedColorChange {
 
 function dispatchMessage(
   message: ExtensionMessage,
-  sender: { tab?: { id: number } } = {},
+  sender: {
+    tab?: { id: number };
+    frameId?: number;
+    documentId?: string;
+    url?: string;
+  } = {},
 ) {
   const handleMessage = runtimeOnMessage.mock.calls[0][0];
 
@@ -820,6 +825,192 @@ describe('extension action', () => {
         }),
       }),
     ]);
+  });
+
+  it('coordinates selection and constructs a validated schema 13 text assertion', async () => {
+    localStorageData = {
+      recordingState: {
+        isRecording: true,
+        tabId: 21,
+        origin: 'https://example.com',
+        currentUrl: 'https://example.com/form',
+        currentDocumentId: 'document-current',
+      },
+      recordedSteps: [],
+    };
+
+    await expect(
+      dispatchMessage({ type: 'START_ELEMENT_TEXT_PICKER' }),
+    ).resolves.toMatchObject({
+      success: true,
+      pickerState: { active: true, mode: 'text', tabId: 21 },
+    });
+    expect(tabsSendMessage).toHaveBeenCalledWith(
+      21,
+      { type: 'ACTIVATE_ELEMENT_TEXT_PICKER' },
+      { frameId: 0 },
+    );
+
+    const response = await dispatchMessage(
+      {
+        type: 'SELECT_ELEMENT_TEXT_ASSERTION',
+        payload: {
+          selectors: {
+            recommended: {
+              strategy: 'testId',
+              attribute: 'data-testid',
+              value: 'order-status',
+              score: 100,
+              isUnique: true,
+              validation: {
+                status: 'valid',
+                matchCount: 1,
+                matchesTarget: true,
+              },
+            },
+            alternatives: [],
+          },
+          element: { tagName: 'p', text: 'Pedido aprovado' },
+          expectedText: '  Pedido\n  aprovado  ',
+        },
+      },
+      {
+        tab: { id: 21 },
+        frameId: 0,
+        documentId: 'document-current',
+        url: 'https://example.com/form',
+      },
+    );
+
+    expect(response).toMatchObject({
+      success: true,
+      pickerState: { active: false, outcome: 'success' },
+    });
+    expect(localStorageData.recordedSteps).toEqual([
+      expect.objectContaining({
+        schemaVersion: 13,
+        type: 'assertion',
+        assertion: {
+          kind: 'element',
+          operator: 'text-equals',
+          expected: 'Pedido aprovado',
+        },
+        description: expect.objectContaining({
+          action: 'elementTextAssertion',
+          text: 'Verificou que o elemento "Pedido aprovado" tem o texto exato "Pedido aprovado"',
+        }),
+      }),
+    ]);
+  });
+
+  it('rejects unsafe text assertions before persisting them', async () => {
+    localStorageData = {
+      recordingState: {
+        isRecording: true,
+        tabId: 21,
+        origin: 'https://example.com',
+        currentUrl: 'https://example.com/form',
+        currentDocumentId: 'document-current',
+      },
+      recordedSteps: [],
+    };
+    sessionStorageData.elementVisibilityPickerState = {
+      active: true,
+      mode: 'text',
+      tabId: 21,
+      updatedAt: 1,
+    };
+    const validPayload = {
+      selectors: {
+        recommended: {
+          strategy: 'testId' as const,
+          attribute: 'data-testid' as const,
+          value: 'order-status',
+          score: 100,
+          isUnique: true,
+          validation: {
+            status: 'valid' as const,
+            matchCount: 1,
+            matchesTarget: true,
+          },
+        },
+        alternatives: [],
+      },
+      element: { tagName: 'p', text: 'Pedido aprovado' },
+      expectedText: 'Pedido aprovado',
+    };
+    const validSender = {
+      tab: { id: 21 },
+      frameId: 0,
+      documentId: 'document-current',
+      url: 'https://example.com/form',
+    };
+
+    const attempts: Array<[unknown, typeof validSender]> = [
+      [{ ...validPayload, expectedText: '   ' }, validSender],
+      [{ ...validPayload, expectedText: 'x'.repeat(201) }, validSender],
+      [
+        { ...validPayload, element: { tagName: 'input', inputType: 'text' } },
+        validSender,
+      ],
+      [validPayload, { ...validSender, frameId: 2 }],
+      [validPayload, { ...validSender, documentId: 'document-forged' }],
+      [validPayload, { ...validSender, url: 'https://other.example/form' }],
+    ];
+
+    for (const [payload, sender] of attempts) {
+      await expect(
+        dispatchMessage(
+          { type: 'SELECT_ELEMENT_TEXT_ASSERTION', payload } as ExtensionMessage,
+          sender,
+        ),
+      ).resolves.toMatchObject({ success: false });
+    }
+
+    sessionStorageData.elementVisibilityPickerState = {
+      active: true,
+      mode: 'visibility',
+      tabId: 21,
+      updatedAt: 2,
+    };
+    await expect(
+      dispatchMessage(
+        { type: 'SELECT_ELEMENT_TEXT_ASSERTION', payload: validPayload },
+        validSender,
+      ),
+    ).resolves.toMatchObject({ success: false });
+
+    sessionStorageData.elementVisibilityPickerState = {
+      active: true,
+      mode: 'text',
+      tabId: 21,
+      updatedAt: 3,
+    };
+    await expect(
+      dispatchMessage(
+        {
+          type: 'SELECT_ELEMENT_TEXT_ASSERTION',
+          payload: {
+            ...validPayload,
+            selectors: {
+              recommended: {
+                ...validPayload.selectors.recommended,
+                isUnique: false,
+                validation: {
+                  status: 'ambiguous',
+                  matchCount: 2,
+                  matchesTarget: true,
+                },
+              },
+              alternatives: [],
+            },
+          },
+        },
+        validSender,
+      ),
+    ).resolves.toMatchObject({ success: false });
+
+    expect(localStorageData.recordedSteps).toEqual([]);
   });
 
   it('rejects forged visibility selections from another tab or an ambiguous selector', async () => {

@@ -9,6 +9,7 @@ import type {
   SelectionChangeStepDescription,
   UrlAssertionStepDescription,
   ElementVisibilityAssertionStepDescription,
+  ElementTextAssertionStepDescription,
 } from './stepDescriptionTypes';
 
 export interface RecordingState {
@@ -132,11 +133,14 @@ export interface RecordedFocusNavigation {
 
 export interface ElementVisibilityPickerState {
   active: boolean;
+  mode?: ElementAssertionPickerMode;
   tabId?: number;
   outcome?: 'success' | 'cancelled' | 'error';
   message?: string;
   updatedAt: number;
 }
+
+export type ElementAssertionPickerMode = 'visibility' | 'text';
 
 export interface ElementVisibilitySelection {
   selectors: SelectorAnalysis;
@@ -145,6 +149,10 @@ export interface ElementVisibilitySelection {
     text?: string;
     inputType?: string;
   };
+}
+
+export interface ElementTextSelection extends ElementVisibilitySelection {
+  expectedText: string;
 }
 
 export interface StepDescriptionOverride {
@@ -279,6 +287,26 @@ export interface RecordedElementVisibilityAssertion {
   description: ElementVisibilityAssertionStepDescription;
 }
 
+export interface RecordedElementTextAssertion {
+  schemaVersion: 13;
+  id: string;
+  type: 'assertion';
+  url: string;
+  timestamp: number;
+  assertion: {
+    kind: 'element';
+    operator: 'text-equals';
+    expected: string;
+  };
+  selectors: SelectorAnalysis;
+  element: {
+    tagName: string;
+    text?: string;
+    inputType?: string;
+  };
+  description: ElementTextAssertionStepDescription;
+}
+
 export type RecordedSelectValue =
   | {
       kind: 'plain';
@@ -362,6 +390,7 @@ export type RecordedStep =
   | RecordedDocumentNavigation
   | RecordedUrlAssertion
   | RecordedElementVisibilityAssertion
+  | RecordedElementTextAssertion
   | RecordedSelectionChange
   | RecordedKeyPress
   | RecordedClickV3

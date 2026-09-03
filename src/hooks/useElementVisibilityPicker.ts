@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   cancelElementVisibilityPicker,
+  startElementTextPicker,
   startElementVisibilityPicker,
 } from '../services/elementVisibilityPicker';
 import type { ElementVisibilityPickerState } from '../shared/recordingTypes';
@@ -72,9 +73,11 @@ export function useElementVisibilityPicker() {
 
   return {
     isActive: Boolean(state?.active),
+    mode: state?.active ? (state.mode ?? 'visibility') : undefined,
     isPending,
     feedback,
     start: () => run(startElementVisibilityPicker),
+    startText: () => run(startElementTextPicker),
     cancel: () => run(cancelElementVisibilityPicker),
   };
 }

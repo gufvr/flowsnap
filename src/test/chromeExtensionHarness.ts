@@ -29,6 +29,7 @@ type WebNavigationListener = (details: WebNavigationDetails) => void
 interface RecorderController {
   setActive(active: boolean): void
   setElementVisibilityPickerActive?(active: boolean): void
+  setElementTextPickerActive?(active: boolean): void
 }
 
 interface ChromeExtensionHarnessOptions {
@@ -152,6 +153,10 @@ export function createChromeExtensionHarness(
 
     if (type === 'ACTIVATE_ELEMENT_VISIBILITY_PICKER') {
       recorder?.setElementVisibilityPickerActive?.(true)
+    }
+
+    if (type === 'ACTIVATE_ELEMENT_TEXT_PICKER') {
+      recorder?.setElementTextPickerActive?.(true)
     }
 
     if (type === 'DEACTIVATE_ELEMENT_VISIBILITY_PICKER') {
@@ -371,8 +376,17 @@ export function createChromeExtensionHarness(
     localSet,
     permissionRequest,
     sendFromTab(message: unknown, targetTabId = tabId) {
+      const recordingState = localValues.recordingState as
+        | { currentDocumentId?: string; currentUrl?: string }
+        | undefined
       return dispatchRuntimeMessage(message, {
-        tab: { id: targetTabId } as chrome.tabs.Tab,
+        tab: {
+          id: targetTabId,
+          url: recordingState?.currentUrl,
+        } as chrome.tabs.Tab,
+        frameId: 0,
+        documentId: recordingState?.currentDocumentId,
+        url: recordingState?.currentUrl,
       })
     },
     tabsSendMessage,

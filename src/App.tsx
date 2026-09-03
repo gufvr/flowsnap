@@ -87,9 +87,11 @@ export function App() {
           pendingMutation={pendingMutation}
           feedback={stepsFeedback}
           isElementPickerActive={elementPicker.isActive}
+          elementPickerMode={elementPicker.mode}
           isElementPickerPending={elementPicker.isPending}
           elementPickerFeedback={elementPicker.feedback}
           onStartElementPicker={elementPicker.start}
+          onStartElementTextPicker={elementPicker.startText}
           onCancelElementPicker={elementPicker.cancel}
           onAddUrlAssertion={addUrlAssertion}
           onDeleteStep={removeStep}

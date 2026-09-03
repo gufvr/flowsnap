@@ -9,6 +9,7 @@ import type {
   RecordedSelectionChange,
   ElementVisibilityPickerState,
   ElementVisibilitySelection,
+  ElementTextSelection,
 } from './recordingTypes';
 
 export type ExtensionMessage =
@@ -19,10 +20,15 @@ export type ExtensionMessage =
   | { type: 'STOP_RECORDING' }
   | { type: 'ADD_CURRENT_URL_ASSERTION' }
   | { type: 'START_ELEMENT_VISIBILITY_PICKER' }
+  | { type: 'START_ELEMENT_TEXT_PICKER' }
   | { type: 'CANCEL_ELEMENT_VISIBILITY_PICKER' }
   | {
       type: 'SELECT_ELEMENT_VISIBILITY_ASSERTION';
       payload: ElementVisibilitySelection;
+    }
+  | {
+      type: 'SELECT_ELEMENT_TEXT_ASSERTION';
+      payload: ElementTextSelection;
     }
   | { type: 'RECORDED_CLICK'; payload: RecordedClick }
   | {
@@ -78,6 +84,7 @@ export type ExtensionMessage =
   | { type: 'ACTIVATE_CLICK_RECORDER' }
   | { type: 'DEACTIVATE_CLICK_RECORDER' }
   | { type: 'ACTIVATE_ELEMENT_VISIBILITY_PICKER' }
+  | { type: 'ACTIVATE_ELEMENT_TEXT_PICKER' }
   | { type: 'DEACTIVATE_ELEMENT_VISIBILITY_PICKER' };
 
 export interface ExtensionResponse {

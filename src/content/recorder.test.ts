@@ -264,6 +264,100 @@ describe('createRecorderController', () => {
     expect(originalClick).not.toHaveBeenCalled();
   });
 
+  it('selects normalized exact text without executing the original action', async () => {
+    const sendMessage = vi.fn(async () => ({ success: true }));
+    const controller = createRecorderController(sendMessage);
+    const status = document.createElement('p');
+    status.dataset.testid = 'order-status';
+    status.textContent = '  Pedido\n   aprovado  ';
+    Object.defineProperty(status, 'getBoundingClientRect', {
+      value: () => ({
+        top: 20,
+        left: 20,
+        width: 100,
+        height: 40,
+        right: 120,
+        bottom: 60,
+      }),
+    });
+    const originalClick = vi.fn();
+    status.addEventListener('click', originalClick);
+    document.body.append(status);
+    connectController(controller);
+    controller.setActive(true);
+    controller.setElementTextPickerActive(true);
+
+    status.click();
+
+    await vi.waitFor(() =>
+      expect(sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'SELECT_ELEMENT_TEXT_ASSERTION',
+          payload: expect.objectContaining({
+            expectedText: 'Pedido aprovado',
+            selectors: expect.objectContaining({
+              recommended: expect.objectContaining({
+                strategy: 'testId',
+                value: 'order-status',
+              }),
+            }),
+          }),
+        }),
+      ),
+    );
+    expect(originalClick).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['empty', '   '],
+    ['oversized', 'x'.repeat(201)],
+  ])('keeps exact text selection active for %s text', (_case, text) => {
+    const sendMessage = vi.fn();
+    const controller = createRecorderController(sendMessage);
+    const target = document.createElement('p');
+    target.dataset.testid = `text-${_case}`;
+    target.textContent = text;
+    document.body.append(target);
+    connectController(controller);
+    controller.setActive(true);
+    controller.setElementTextPickerActive(true);
+
+    target.click();
+
+    expect(sendMessage).not.toHaveBeenCalled();
+    expect(document.querySelector('[data-flowsnap-element-picker="true"]')).not.toBeNull();
+  });
+
+  it('does not read values from editable controls in exact text mode', () => {
+    const sendMessage = vi.fn();
+    const controller = createRecorderController(sendMessage);
+    const input = document.createElement('input');
+    input.dataset.testid = 'editable-value';
+    const valueGetter = vi.fn(() => {
+      throw new Error('Editable values must not be read');
+    });
+    Object.defineProperty(input, 'value', { get: valueGetter });
+    Object.defineProperty(input, 'getBoundingClientRect', {
+      value: () => ({
+        top: 20,
+        left: 20,
+        width: 100,
+        height: 40,
+        right: 120,
+        bottom: 60,
+      }),
+    });
+    document.body.append(input);
+    connectController(controller);
+    controller.setActive(true);
+    controller.setElementTextPickerActive(true);
+
+    input.click();
+
+    expect(sendMessage).not.toHaveBeenCalled();
+    expect(valueGetter).not.toHaveBeenCalled();
+  });
+
   it('cancels element selection with Escape without recording a key press', () => {
     const sendMessage = vi.fn();
     const controller = createRecorderController(sendMessage);

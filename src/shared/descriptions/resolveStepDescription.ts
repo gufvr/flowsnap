@@ -18,6 +18,8 @@ import type {
 } from '../stepDescriptionTypes';
 import { createClickDescription } from './createClickDescription';
 import { createColorChangeDescription } from './createColorChangeDescription';
+import { createElementTextAssertionDescription } from './createElementTextAssertionDescription';
+import { createElementVisibilityAssertionDescription } from './createElementVisibilityAssertionDescription';
 import { createFieldFillDescription } from './createFieldFillDescription';
 import { createFocusNavigationDescription } from './createFocusNavigationDescription';
 import { createKeyPressDescription } from './createKeyPressDescription';
@@ -25,7 +27,6 @@ import { createNavigationDescription } from './createNavigationDescription';
 import { createRangeChangeDescription } from './createRangeChangeDescription';
 import { createSelectionChangeDescription } from './createSelectionChangeDescription';
 import { createUrlAssertionDescription } from './createUrlAssertionDescription';
-import { createElementVisibilityAssertionDescription } from './createElementVisibilityAssertionDescription';
 import { resolveDescriptionOverride } from './descriptionOverride';
 
 const SELECTOR_STRATEGIES: SelectorStrategy[] = [
@@ -142,6 +143,7 @@ function isStepDescription(value: unknown): value is StepDescription {
 
   return (
     (value.action === 'click' ||
+      value.action === 'elementTextAssertion' ||
       value.action === 'elementVisibilityAssertion' ||
       value.action === 'colorChange' ||
       value.action === 'focusNavigation' ||
@@ -364,7 +366,8 @@ function resolveBaseStepDescription(step: unknown): StepDescription {
     step.schemaVersion === 9 ||
     step.schemaVersion === 10 ||
     step.schemaVersion === 11 ||
-    step.schemaVersion === 12;
+    step.schemaVersion === 12 ||
+    step.schemaVersion === 13;
 
   if (!isKnownSchema) return createFallbackDescription();
 
@@ -377,7 +380,8 @@ function resolveBaseStepDescription(step: unknown): StepDescription {
       step.schemaVersion === 9 ||
       step.schemaVersion === 10 ||
       step.schemaVersion === 11 ||
-      step.schemaVersion === 12) &&
+      step.schemaVersion === 12 ||
+      step.schemaVersion === 13) &&
     isStepDescription(step.description)
   ) {
     return step.description;
@@ -417,6 +421,18 @@ function resolveBaseStepDescription(step: unknown): StepDescription {
       assertion.operator === 'visible'
     ) {
       return createElementVisibilityAssertionDescription(descriptionInput);
+    }
+    if (
+      step.schemaVersion === 13 &&
+      assertion?.kind === 'element' &&
+      assertion.operator === 'text-equals'
+    ) {
+      return createElementTextAssertionDescription({
+        ...descriptionInput,
+        expectedText: isString(assertion.expected)
+          ? assertion.expected
+          : undefined,
+      });
     }
     const expectedUrl =
       assertion?.kind === 'url' &&
