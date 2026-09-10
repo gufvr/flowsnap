@@ -1,4 +1,8 @@
 import styled from 'styled-components';
+import {
+  LOCAL_PRIVACY_POLICY_PATH,
+  PUBLIC_PRIVACY_POLICY_URL,
+} from '../config/privacyPolicy';
 
 export const RECORDING_PRIVACY_NOTICE_ID = 'recording-privacy-notice';
 
@@ -14,8 +18,6 @@ const Notice = styled.aside`
 `;
 
 const PolicyLink = styled.a`
-  display: inline-block;
-  margin-top: ${({ theme }) => theme.spacing.sm};
   color: ${({ theme }) => theme.colors.accent};
   font-weight: 600;
   text-decoration: none;
@@ -33,6 +35,14 @@ const PolicyLink = styled.a`
   }
 `;
 
+const PolicyLinks = styled.p`
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2px ${({ theme }) => theme.spacing.sm};
+  margin-top: ${({ theme }) => theme.spacing.sm};
+`;
+
 export function PrivacyNotice() {
   return (
     <Notice id={RECORDING_PRIVACY_NOTICE_ID} aria-label="Privacidade da gravação">
@@ -41,14 +51,25 @@ export function PrivacyNotice() {
         valores não sensíveis localmente no navegador. Campos sensíveis
         reconhecidos são protegidos.
       </p>
-      <PolicyLink
-        href="/privacy.html"
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label="Saiba como seus dados são tratados (abre em uma nova aba)"
-      >
-        Saiba como seus dados são tratados
-      </PolicyLink>
+      <PolicyLinks>
+        <PolicyLink
+          href={PUBLIC_PRIVACY_POLICY_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Saiba como seus dados são tratados online (abre em uma nova aba)"
+        >
+          Saiba como seus dados são tratados
+        </PolicyLink>
+        <span aria-hidden="true">·</span>
+        <PolicyLink
+          href={LOCAL_PRIVACY_POLICY_PATH}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Abrir cópia local da política de privacidade (abre em uma nova aba)"
+        >
+          Cópia local
+        </PolicyLink>
+      </PolicyLinks>
     </Notice>
   );
 }

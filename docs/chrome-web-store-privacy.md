@@ -114,16 +114,40 @@ download operations occur only when explicitly requested by the user.
 
 ## Privacy policy URL
 
-The packaged policy is available inside the extension at `privacy.html`. Before
-submitting to the Chrome Web Store, publish that same policy at a stable public
-HTTPS address and enter the address in the Privacy policy field.
-
-Proposed future address:
+Use this exact address in the Privacy policy field after the manual GitHub Pages
+deployment has completed and the page has been verified without authentication:
 
 > https://gufvr.github.io/flowsnap/privacy.html
 
-Do not submit this address until it serves the current policy without requiring
-authentication. Publishing or hosting the page is outside Release Store 1B.
+The Side Panel uses the same address as its primary policy link and preserves a
+local packaged copy at `privacy.html`. The public page is hosted by GitHub Pages,
+which may process ordinary request metadata such as an IP address when the user
+opens it. FlowSnap does not attach recorded data to that request.
+
+Do not submit the public address to the Chrome Web Store until it returns the
+current policy over HTTPS without requiring authentication.
+
+## Publication and maintenance
+
+`public/privacy.html` is the only editable policy source. The extension build
+copies it into the distribution package, and the manual GitHub Pages workflow
+uses the same file for the public artifact. Do not maintain a separate policy
+body in documentation or in a deployment branch.
+
+For every policy change:
+
+1. Update `public/privacy.html` and its effective date.
+2. Run the focused policy checks, full test suite, lint, build, and package
+   verification.
+3. Commit and push the reviewed source changes.
+4. Manually run the **Publish privacy policy** workflow.
+5. Verify the public title, effective date, Limited Use statement, styles, and
+   HTTPS address.
+6. Only then submit an extension or Privacy practices update that depends on
+   the revised policy.
+
+The workflow is deliberately manual and must not be changed to deploy on every
+push without a separate review of that operational decision.
 
 ## Official references
 

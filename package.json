@@ -18,6 +18,7 @@
     "prepare:test:extension": "tsx scripts/prepare-extension-e2e.ts",
     "serve:test:extension": "vite tests/extension-e2e/fixture --host 127.0.0.1 --port 4175 --strictPort",
     "test:extension": "npm run build && npm run prepare:test:extension && tsx scripts/run-extension-e2e.ts",
+    "prepare:privacy-site": "node scripts/prepare-privacy-site.mjs",
     "test:watch": "vitest",
     "package:extension": "npm run build && node scripts/package-extension.mjs"
   },

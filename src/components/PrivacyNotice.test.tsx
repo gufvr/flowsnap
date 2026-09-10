@@ -2,10 +2,14 @@ import { render, screen } from '@testing-library/react';
 import { ThemeProvider } from 'styled-components';
 import { describe, expect, it } from 'vitest';
 import { PrivacyNotice, RECORDING_PRIVACY_NOTICE_ID } from './PrivacyNotice';
+import {
+  LOCAL_PRIVACY_POLICY_PATH,
+  PUBLIC_PRIVACY_POLICY_URL,
+} from '../config/privacyPolicy';
 import { theme } from '../styles/theme';
 
 describe('PrivacyNotice', () => {
-  it('discloses local processing and links to the packaged privacy policy', () => {
+  it('discloses local processing and links to the public and packaged policies', () => {
     render(
       <ThemeProvider theme={theme}>
         <PrivacyNotice />
@@ -21,11 +25,21 @@ describe('PrivacyNotice', () => {
       'Campos sensíveis reconhecidos são protegidos.',
     );
 
-    const policyLink = screen.getByRole('link', {
-      name: 'Saiba como seus dados são tratados (abre em uma nova aba)',
+    const publicPolicyLink = screen.getByRole('link', {
+      name: 'Saiba como seus dados são tratados online (abre em uma nova aba)',
     });
-    expect(policyLink).toHaveAttribute('href', '/privacy.html');
-    expect(policyLink).toHaveAttribute('target', '_blank');
-    expect(policyLink).toHaveAttribute('rel', 'noopener noreferrer');
+    expect(publicPolicyLink).toHaveAttribute(
+      'href',
+      PUBLIC_PRIVACY_POLICY_URL,
+    );
+    expect(publicPolicyLink).toHaveAttribute('target', '_blank');
+    expect(publicPolicyLink).toHaveAttribute('rel', 'noopener noreferrer');
+
+    const localPolicyLink = screen.getByRole('link', {
+      name: 'Abrir cópia local da política de privacidade (abre em uma nova aba)',
+    });
+    expect(localPolicyLink).toHaveAttribute('href', LOCAL_PRIVACY_POLICY_PATH);
+    expect(localPolicyLink).toHaveAttribute('target', '_blank');
+    expect(localPolicyLink).toHaveAttribute('rel', 'noopener noreferrer');
   });
 });
