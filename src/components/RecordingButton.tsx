@@ -4,6 +4,7 @@ interface RecordingButtonProps {
   isRecording: boolean;
   isLoading: boolean;
   onClick: () => void | Promise<void>;
+  describedBy?: string;
 }
 
 const Button = styled.button<{ $isRecording: boolean }>`
@@ -45,6 +46,7 @@ export function RecordingButton({
   isRecording,
   isLoading,
   onClick,
+  describedBy,
 }: RecordingButtonProps) {
   return (
     <Button
@@ -52,6 +54,7 @@ export function RecordingButton({
       $isRecording={isRecording}
       disabled={isLoading}
       onClick={onClick}
+      aria-describedby={describedBy}
     >
       {isRecording ? 'Parar Gravação' : 'Iniciar Gravação'}
     </Button>

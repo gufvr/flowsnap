@@ -7,7 +7,11 @@ const END_OF_CENTRAL_DIRECTORY_SIGNATURE = 0x06054b50;
 const LOCAL_FILE_HEADER_SIGNATURE = 0x04034b50;
 const MAX_ZIP_COMMENT_LENGTH = 0xffff;
 
-const REQUIRED_PACKAGE_FILES = ['manifest.json', 'assets/recorder.js'];
+const REQUIRED_PACKAGE_FILES = [
+  'manifest.json',
+  'assets/recorder.js',
+  'privacy.html',
+];
 
 function normalizeArchivePath(value) {
   return value.replaceAll('\\', '/').replace(/^\.\//, '');
@@ -251,9 +255,13 @@ export function validateExtensionPackageEntries(entries) {
     requireEntry(entries, path, 'manifest.json');
   }
 
-  const htmlDocuments = [...manifestReferences].filter((path) =>
-    path.toLowerCase().endsWith('.html'),
-  );
+  const htmlDocuments = [
+    ...new Set(
+      [...manifestReferences, ...REQUIRED_PACKAGE_FILES].filter((path) =>
+        path.toLowerCase().endsWith('.html'),
+      ),
+    ),
+  ];
   for (const documentPath of htmlDocuments) {
     const html = entries.get(documentPath).toString('utf8');
     for (const path of collectHtmlReferences(documentPath, html)) {

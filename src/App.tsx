@@ -2,6 +2,10 @@ import styled from 'styled-components';
 import { AppFooter } from './components/AppFooter';
 import { BrandHeader } from './components/BrandHeader';
 import { RecordedStepsList } from './components/RecordedStepsList';
+import {
+  PrivacyNotice,
+  RECORDING_PRIVACY_NOTICE_ID,
+} from './components/PrivacyNotice';
 import { RecordingButton } from './components/RecordingButton';
 import { StatusBanner } from './components/StatusBanner';
 import { useRecordingState } from './hooks/useRecordingState';
@@ -74,10 +78,12 @@ export function App() {
           <StatusBanner isRecording={isRecording} isLoading={isLoading} />
           <StepCount>{stepCountLabel}</StepCount>
           {error && <ErrorMessage role="alert">{error}</ErrorMessage>}
+          <PrivacyNotice />
           <RecordingButton
             isRecording={isRecording}
             isLoading={isLoading}
             onClick={toggleRecording}
+            describedBy={RECORDING_PRIVACY_NOTICE_ID}
           />
         </RecordingCard>
         <RecordedStepsList

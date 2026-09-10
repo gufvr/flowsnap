@@ -1,0 +1,133 @@
+# Chrome Web Store privacy practices
+
+This document contains the proposed answers for FlowSnap's Chrome Web Store
+Privacy practices tab. Review the dashboard wording at submission time and keep
+these answers consistent with the published privacy policy and actual extension
+behavior.
+
+## Single purpose
+
+> Record user-initiated browser interactions locally and convert the recorded
+> steps into Playwright or Cypress test code.
+
+## Permission justifications
+
+### `activeTab`
+
+FlowSnap uses `activeTab` to identify the tab explicitly selected by the user
+when opening the Side Panel and starting a recording. Access is limited to the
+user-initiated recording workflow.
+
+### `scripting`
+
+FlowSnap uses `scripting` to inject its packaged recorder into the authorized
+tab only after the user starts recording. It does not inject remote code.
+
+### `sidePanel`
+
+FlowSnap uses `sidePanel` to provide its primary interface for controlling a
+recording, reviewing steps, adding assertions, and generating test code.
+
+### `storage`
+
+FlowSnap uses `storage` to keep recorded steps and recording state in
+`chrome.storage.local` and short-lived active-tab and element-picker context in
+`chrome.storage.session`. FlowSnap does not use `chrome.storage.sync` or send
+this information to an external service.
+
+### `webNavigation`
+
+FlowSnap uses `webNavigation` to detect supported URL changes, full document
+navigations, history traversal, and reloads in the tab currently being
+recorded. It also uses those events to safely resume the packaged recorder after
+a supported navigation. Subframes and tabs outside the active recording are
+ignored.
+
+### Optional host permissions
+
+FlowSnap declares optional access to HTTP and HTTPS sites so it can request
+access only to the current site's origin after the user starts a recording.
+This access is necessary to capture interactions and resume the
+recorder across same-origin navigations. FlowSnap does not request access to all
+sites at installation time.
+
+## Remote code
+
+Select **No, I am not using remote code**.
+
+All executable JavaScript, styles, fonts, and icons used by FlowSnap are
+included in the extension package. The extension does not download or execute
+remote code.
+
+## Data disclosure
+
+Select every category exposed by the current dashboard that corresponds to the
+following locally processed information:
+
+- **Personally identifiable information:** ordinary fields, page text, and URLs
+  may contain names, usernames, email addresses, telephone numbers, or similar
+  identifiers.
+- **Web history / web browsing activity:** FlowSnap stores full URLs and
+  navigation events for the tab during an active recording.
+- **User activity:** FlowSnap records user-initiated clicks, focus navigation,
+  supported key presses, selections, and control changes.
+- **Website content:** FlowSnap processes labels, accessible names, visible
+  text, attributes, element details, and selector candidates.
+- **Form data:** if the dashboard presents this as a separate category, select
+  it because FlowSnap can store ordinary form values and selection states.
+
+FlowSnap is designed not to retain recognized passwords, one-time codes,
+payment values, personal identification values, tokens, or similar secrets.
+Those controls are classified before their values are read and are represented
+only by a protected marker. Because detection is heuristic, do not describe
+this safeguard as an absolute guarantee. Review the dashboard's current
+definitions for **Authentication information** and **Financial and payment
+information** at submission time and answer conservatively if they encompass
+potential content in ordinary fields, URLs, or page text.
+
+Do not select health information, precise location, or personal communications
+unless the product behavior changes to intentionally process those categories.
+If a future recorder feature begins processing them, update the product,
+policy, disclosure, and dashboard answers together before release.
+
+## Data usage certifications
+
+Certify that FlowSnap:
+
+- does not sell or transfer user data to third parties;
+- does not use or transfer user data for personalized advertising;
+- does not use user data for creditworthiness or lending purposes;
+- uses user data only to provide or improve its disclosed recording and
+  test-generation purpose; and
+- does not allow humans to read recorded user data.
+
+The data is processed and stored locally in the user's Chrome profile. Copy and
+download operations occur only when explicitly requested by the user.
+
+## Limited Use statement
+
+> FlowSnap's use of information received from Chrome APIs adheres to the Chrome
+> Web Store User Data Policy, including the Limited Use requirements. FlowSnap
+> uses that information only to provide or improve its user-facing recording
+> and test-generation features. FlowSnap does not sell user data, use it for
+> advertising, transfer it to third parties, or allow humans to access it.
+
+## Privacy policy URL
+
+The packaged policy is available inside the extension at `privacy.html`. Before
+submitting to the Chrome Web Store, publish that same policy at a stable public
+HTTPS address and enter the address in the Privacy policy field.
+
+Proposed future address:
+
+> https://gufvr.github.io/flowsnap/privacy.html
+
+Do not submit this address until it serves the current policy without requiring
+authentication. Publishing or hosting the page is outside Release Store 1B.
+
+## Official references
+
+- [Chrome Web Store Privacy practices fields](https://developer.chrome.com/docs/webstore/cws-dashboard-privacy)
+- [Chrome Web Store User Data FAQ](https://developer.chrome.com/docs/webstore/program-policies/user-data-faq)
+- [Chrome Web Store Program Policies](https://developer.chrome.com/docs/webstore/program-policies/policies)
+- [Chrome extensions Storage API](https://developer.chrome.com/docs/extensions/reference/api/storage)

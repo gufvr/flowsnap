@@ -87,7 +87,15 @@ describe('App', () => {
     renderApp();
 
     expect(await screen.findByText('Status: Parado')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Iniciar Gravação' })).toBeEnabled();
+    const startButton = screen.getByRole('button', { name: 'Iniciar Gravação' });
+    const privacyNotice = screen.getByLabelText('Privacidade da gravação');
+
+    expect(startButton).toBeEnabled();
+    expect(startButton).toHaveAttribute('aria-describedby', privacyNotice.id);
+    expect(
+      privacyNotice.compareDocumentPosition(startButton) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 
   it('shows the accessible authorship footer with a safe external link', async () => {

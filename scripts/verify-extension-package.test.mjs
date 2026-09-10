@@ -27,6 +27,14 @@ function validEntries() {
     ['assets/recorder.js', Buffer.from('')],
     ['assets/sidePanel.js', Buffer.from('')],
     ['assets/sidePanel.css', Buffer.from('')],
+    [
+      'privacy.html',
+      Buffer.from(
+        '<link rel="stylesheet" href="privacy.css">' +
+          '<img src="icons/icon-128.png" alt="">',
+      ),
+    ],
+    ['privacy.css', Buffer.from('')],
     ['icons/icon-16.png', Buffer.from('')],
     ['icons/icon-128.png', Buffer.from('')],
   ]);
@@ -35,7 +43,7 @@ function validEntries() {
 describe('extension package verification', () => {
   it('accepts a root manifest and complete local references', () => {
     expect(validateExtensionPackageEntries(validEntries())).toEqual({
-      files: 8,
+      files: 10,
       manifestVersion: '0.5.0',
     });
   });
@@ -70,6 +78,12 @@ describe('extension package verification', () => {
     expect(() => validateExtensionPackageEntries(missingIcon)).toThrow(
       'package is missing icons/icon-128.png referenced by manifest.json',
     );
+
+    const missingPolicy = validEntries();
+    missingPolicy.delete('privacy.html');
+    expect(() => validateExtensionPackageEntries(missingPolicy)).toThrow(
+      'package is missing privacy.html referenced by FlowSnap package requirements',
+    );
   });
 
   it('rejects broken local references from the side panel HTML', () => {
@@ -78,6 +92,15 @@ describe('extension package verification', () => {
 
     expect(() => validateExtensionPackageEntries(entries)).toThrow(
       'package is missing assets/sidePanel.css referenced by index.html',
+    );
+  });
+
+  it('rejects broken local references from the privacy policy HTML', () => {
+    const entries = validEntries();
+    entries.delete('privacy.css');
+
+    expect(() => validateExtensionPackageEntries(entries)).toThrow(
+      'package is missing privacy.css referenced by privacy.html',
     );
   });
 });
