@@ -328,4 +328,8 @@ export const cypressOnlyValidationFlows = [
     name: 'element-visibility-assertion-cypress',
     steps: elementVisibilityAssertionFlow,
   },
+  {
+    name: 'element-text-assertion-cypress',
+    steps: elementTextAssertionFlow,
+  },
 ] as const;

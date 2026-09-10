@@ -74,7 +74,7 @@ describe('schema 13 exact element text assertions', () => {
     );
   });
 
-  it('keeps schema 13 as a safe TODO in Cypress', () => {
+  it('exports schema 13 in Cypress without using descriptive fields as values', () => {
     const assertion = {
       ...createAssertion(),
       assertion: {
@@ -89,15 +89,18 @@ describe('schema 13 exact element text assertions', () => {
     };
     const cypress = generateCypressTest([assertion]);
 
-    expect(cypress.supportedSteps).toBe(0);
-    expect(cypress.unsupportedSteps).toBe(1);
+    expect(cypress.supportedSteps).toBe(1);
+    expect(cypress.unsupportedSteps).toBe(0);
     expect(cypress.code).toContain(
-      'TODO FlowSnap: a exportação de verificações de texto exato ainda não é suportada.',
+      '// Passo 1: descrição-não-exportável',
     );
     expect(cypress.code).toContain(
-      '// Passo 1: Verificou o texto exato de um elemento',
+      'expect(normalizeVisibleText($elements[0])).to.eq(',
     );
-    expect(cypress.code).not.toContain('segredo-nao-exportavel');
-    expect(cypress.code).not.toContain('descrição-não-exportável');
+    expect(cypress.code).toContain('"segredo-nao-exportavel"');
+    expect(cypress.code).not.toContain(
+      'to.eq(\n        "descrição-não-exportável"',
+    );
+    expect(cypress.code).not.toContain('TODO FlowSnap');
   });
 });

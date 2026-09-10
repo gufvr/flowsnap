@@ -278,11 +278,11 @@ describe('integrated recording flow', () => {
     await user.click(screen.getByRole('button', { name: 'Gerar Cypress' }));
     const cypressPreview = screen.getByLabelText('Prévia do código Cypress');
     expect(cypressPreview).toHaveTextContent(
-      'TODO FlowSnap: a exportação de verificações de texto exato ainda não é suportada.',
+      'expect(normalizeVisibleText($elements[0])).to.eq( "Login", );',
     );
-    expect(cypressPreview).not.toHaveTextContent('"Login"');
+    expect(cypressPreview).not.toHaveTextContent('TODO FlowSnap');
     expect(
-      screen.getByText('0 de 1 passo exportado; 1 marcado como TODO.'),
+      screen.getByText('1 de 1 passo exportado; 0 marcados como TODO.'),
     ).toBeInTheDocument();
   });
 });

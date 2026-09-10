@@ -20,6 +20,7 @@ interface GeneratedStep {
   usesLabelHelper?: boolean;
   usesCypressPress?: boolean;
   usesNativeInputHelper?: boolean;
+  usesVisibleTextHelper?: boolean;
 }
 
 type NativeInputType = 'range' | 'color';
@@ -72,6 +73,7 @@ function supportedCommand(
   usesLabelHelper = false,
   usesCypressPress = false,
   usesNativeInputHelper = false,
+  usesVisibleTextHelper = false,
 ): GeneratedStep {
   return {
     supported: true,
@@ -79,6 +81,7 @@ function supportedCommand(
     usesLabelHelper,
     usesCypressPress,
     usesNativeInputHelper,
+    usesVisibleTextHelper,
   };
 }
 
@@ -431,6 +434,50 @@ function generateElementVisibilityAssertion(step: Record<string, unknown>) {
   );
 }
 
+function invalidElementTextAssertion() {
+  return todo(
+    'verificação de texto exato incompleta ou inválida.',
+    'Verificou o texto exato de um elemento inválido ou incompleto',
+  );
+}
+
+function generateElementTextAssertion(step: Record<string, unknown>) {
+  const assertion = step.assertion;
+  if (
+    step.schemaVersion !== 13 ||
+    !isRecord(assertion) ||
+    assertion.kind !== 'element' ||
+    assertion.operator !== 'text-equals' ||
+    typeof assertion.expected !== 'string' ||
+    assertion.expected.length === 0 ||
+    assertion.expected.length > 200 ||
+    assertion.expected !== assertion.expected.replace(/\s+/g, ' ').trim() ||
+    !hasValidatedUniqueRecommendedSelector(step)
+  ) {
+    return invalidElementTextAssertion();
+  }
+
+  const recommended = resolveRecommendedSelector(step);
+  const locator = recommended
+    ? formatCypressLocator(recommended)
+    : undefined;
+  if (!locator) return invalidElementTextAssertion();
+
+  return supportedCommand(
+    [
+      `${locator.expression}.should(($elements) => {`,
+      '  expect(normalizeVisibleText($elements[0])).to.eq(',
+      `    ${formatCypressJavaScriptString(assertion.expected)},`,
+      '  );',
+      '});',
+    ].join('\n'),
+    locator.usesLabelHelper,
+    false,
+    false,
+    true,
+  );
+}
+
 function generateUrlAssertion(step: Record<string, unknown>) {
   const assertion = step.assertion;
   if (
@@ -475,10 +522,7 @@ function generateStep(
   }
   if (step.type === 'assertion') {
     if (step.schemaVersion === 13) {
-      return todo(
-        'a exportação de verificações de texto exato ainda não é suportada.',
-        'Verificou o texto exato de um elemento',
-      );
+      return generateElementTextAssertion(step);
     }
     if (step.schemaVersion === 12) {
       return generateElementVisibilityAssertion(step);
@@ -540,6 +584,10 @@ export function generateCypressTest(
   const usesNativeInputHelper = generatedSteps.some(
     ({ supported, usesNativeInputHelper }) =>
       supported && usesNativeInputHelper,
+  );
+  const usesVisibleTextHelper = generatedSteps.some(
+    ({ supported, usesVisibleTextHelper }) =>
+      supported && usesVisibleTextHelper,
   );
   const initialUrl = resolveInitialUrl(steps);
   const initialCommand = initialUrl
@@ -616,6 +664,14 @@ export function generateCypressTest(
             '    })',
             '    .trigger("input")',
             '    .trigger("change");',
+            '}',
+            '',
+          ]
+        : []),
+      ...(usesVisibleTextHelper
+        ? [
+            'function normalizeVisibleText(element: HTMLElement) {',
+            '  return element.innerText.replace(/\\s+/g, " ").trim();',
             '}',
             '',
           ]
