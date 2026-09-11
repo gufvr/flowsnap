@@ -41,7 +41,7 @@ export function AppFooter() {
   return (
     <Footer>
       <p>
-        © 2026 FlowSnap. Todos os direitos reservados.
+        © 2026 StepScript. Todos os direitos reservados.
         <br />
         <GithubIcon
           viewBox="0 0 24 24"

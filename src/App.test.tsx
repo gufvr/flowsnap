@@ -87,6 +87,9 @@ describe('App', () => {
     renderApp();
 
     expect(await screen.findByText('Status: Parado')).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'StepScript' }),
+    ).toBeInTheDocument();
     const startButton = screen.getByRole('button', { name: 'Iniciar Gravação' });
     const privacyNotice = screen.getByLabelText('Privacidade da gravação');
 
@@ -105,7 +108,7 @@ describe('App', () => {
     expect(screen.getByRole('main')).toBeInTheDocument();
     const footer = screen.getByRole('contentinfo');
     expect(footer).toHaveTextContent(
-      '© 2026 FlowSnap. Todos os direitos reservados.',
+      '© 2026 StepScript. Todos os direitos reservados.',
     );
     expect(footer).toHaveTextContent('Desenvolvido por Gustavo Favero');
 

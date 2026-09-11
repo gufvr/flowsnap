@@ -47,7 +47,7 @@ export function PrivacyNotice() {
   return (
     <Notice id={RECORDING_PRIVACY_NOTICE_ID} aria-label="Privacidade da gravação">
       <p>
-        O FlowSnap registra interações, informações da página, URLs e
+        O StepScript registra interações, informações da página, URLs e
         valores não sensíveis localmente no navegador. Campos sensíveis
         reconhecidos são protegidos.
       </p>

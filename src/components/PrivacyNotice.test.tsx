@@ -19,7 +19,7 @@ describe('PrivacyNotice', () => {
     const notice = screen.getByLabelText('Privacidade da gravação');
     expect(notice).toHaveAttribute('id', RECORDING_PRIVACY_NOTICE_ID);
     expect(notice).toHaveTextContent(
-      'O FlowSnap registra interações, informações da página, URLs e valores não sensíveis localmente no navegador.',
+      'O StepScript registra interações, informações da página, URLs e valores não sensíveis localmente no navegador.',
     );
     expect(notice).toHaveTextContent(
       'Campos sensíveis reconhecidos são protegidos.',

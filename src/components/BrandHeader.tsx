@@ -41,7 +41,7 @@ export function BrandHeader({ onClose }: BrandHeaderProps) {
     <Header>
       <Logo src="/icons/icon-128.png" alt="" />
       <BrandText>
-        <Title>FlowSnap</Title>
+        <Title>StepScript</Title>
         <Subtitle>Gravador de fluxos</Subtitle>
       </BrandText>
       <ClosePanelButton onClick={onClose} />
