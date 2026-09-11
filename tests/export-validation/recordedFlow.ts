@@ -18,7 +18,7 @@ const recordedFlow = [
     url: fixtureRoot,
     timestamp: 1,
     selectors: testIdSelector('username'),
-    value: { kind: 'plain', value: 'flowsnap-user' },
+    value: { kind: 'plain', value: 'stepscript-user' },
   },
   {
     schemaVersion: 6,

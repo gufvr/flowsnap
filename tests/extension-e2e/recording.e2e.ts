@@ -64,7 +64,7 @@ test('records across a full navigation and resumes the real recorder', async ({
       targetTab.windowId === undefined ||
       !targetTab.url
     ) {
-      throw new Error('FlowSnap E2E: fixture tab context was not found.');
+      throw new Error('StepScript E2E: fixture tab context was not found.');
     }
 
     await chrome.storage.session.set({

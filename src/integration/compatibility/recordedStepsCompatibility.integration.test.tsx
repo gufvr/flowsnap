@@ -13,11 +13,12 @@ describe('integrated recording flow', () => {
     const user = userEvent.setup();
     const mixedSteps = createMixedSchemaSteps();
     const originalSteps = structuredClone(mixedSteps);
+    const originalStorage = {
+      recordingState: { isRecording: false },
+      recordedSteps: originalSteps,
+    };
     context.harness = createChromeExtensionHarness({
-      local: {
-        recordingState: { isRecording: false },
-        recordedSteps: mixedSteps,
-      },
+      local: originalStorage,
     });
     context.harness.install();
     await import('../../background');
@@ -58,7 +59,11 @@ describe('integrated recording flow', () => {
     expect(screen.getByText('Recarregou "/account"')).toBeInTheDocument();
     expect(screen.getAllByText('Seletor indisponível')).toHaveLength(3);
     expect(context.harness.localSet).not.toHaveBeenCalled();
-    expect(context.harness.getLocalValues().recordedSteps).toEqual(originalSteps);
+    expect(Object.keys(context.harness.getLocalValues()).sort()).toEqual([
+      'recordedSteps',
+      'recordingState',
+    ]);
+    expect(context.harness.getLocalValues()).toEqual(originalStorage);
 
     await user.click(
       screen.getByRole('button', { name: 'Mover passo 12 para cima' }),
@@ -255,4 +260,3 @@ describe('integrated recording flow', () => {
     expect(context.harness.getLocalValues().recordedSteps).toEqual([]);
   }, 15_000);
 });
-

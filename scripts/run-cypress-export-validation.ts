@@ -24,7 +24,7 @@ const child = spawn(
 );
 
 child.on('error', (error) => {
-  console.error('FlowSnap: não foi possível iniciar o Cypress.', error);
+  console.error('StepScript: não foi possível iniciar o Cypress.', error);
   process.exitCode = 1;
 });
 

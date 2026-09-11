@@ -11,7 +11,7 @@ export default defineConfig({
       output: {
         format: 'iife',
         entryFileNames: 'assets/recorder.js',
-        name: 'FlowSnapRecorder',
+        name: 'StepScriptRecorder',
       },
     },
   },

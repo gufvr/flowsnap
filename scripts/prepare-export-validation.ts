@@ -15,7 +15,7 @@ const playwrightDirectory = resolve(generatedRoot, 'playwright');
 const cypressDirectory = resolve(generatedRoot, 'cypress');
 
 if (!generatedRoot.startsWith(`${validationRoot}${sep}`)) {
-  throw new Error('FlowSnap: diretório gerado fora da validação de exportação');
+  throw new Error('StepScript: diretório gerado fora da validação de exportação');
 }
 
 function requireFullySupported(
@@ -33,7 +33,7 @@ function requireFullySupported(
     result.code.includes('TODO FlowSnap')
   ) {
     throw new Error(
-      `FlowSnap: ${framework} gerou ${result.supportedSteps}/${result.totalSteps} passos suportados`,
+      `StepScript: ${framework} gerou ${result.supportedSteps}/${result.totalSteps} passos suportados`,
     );
   }
 
@@ -42,7 +42,7 @@ function requireFullySupported(
 
 const generatedFlows = exportValidationFlows.map(({ name, steps }) => {
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(name)) {
-    throw new Error(`FlowSnap: nome de fluxo inválido: ${name}`);
+    throw new Error(`StepScript: nome de fluxo inválido: ${name}`);
   }
 
   return {
@@ -85,7 +85,7 @@ const allFlowNames = [
 ];
 const uniqueNames = new Set(allFlowNames);
 if (uniqueNames.size !== allFlowNames.length) {
-  throw new Error('FlowSnap: nomes duplicados na validação de exportação');
+  throw new Error('StepScript: nomes duplicados na validação de exportação');
 }
 
 await rm(generatedRoot, { recursive: true, force: true });
@@ -135,5 +135,5 @@ const cypressOnlySteps = generatedCypressOnlyFlows.reduce(
   0,
 );
 console.log(
-  `FlowSnap: generated ${generatedFlows.length} shared flows with ${sharedSteps} supported steps, ${generatedPlaywrightOnlyFlows.length} Playwright-only flow with ${playwrightOnlySteps} supported step, and ${generatedCypressOnlyFlows.length} Cypress-only flow with ${cypressOnlySteps} supported step.`,
+  `StepScript: generated ${generatedFlows.length} shared flows with ${sharedSteps} supported steps, ${generatedPlaywrightOnlyFlows.length} Playwright-only flow with ${playwrightOnlySteps} supported step, and ${generatedCypressOnlyFlows.length} Cypress-only flow with ${cypressOnlySteps} supported step.`,
 );

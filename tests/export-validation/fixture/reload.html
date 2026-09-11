@@ -3,11 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>FlowSnap Reload Validation</title>
+    <title>StepScript Reload Validation</title>
   </head>
   <body>
     <main>
-      <h1>FlowSnap Reload Validation</h1>
+      <h1>StepScript Reload Validation</h1>
       <button data-testid="reload-complete" type="button" disabled>
         Complete reload flow
       </button>
@@ -15,7 +15,7 @@
     </main>
 
     <script>
-      const storageKey = 'flowsnap-export-validation-reload-count';
+      const storageKey = 'stepscript-export-validation-reload-count';
       const previousCount = Number(sessionStorage.getItem(storageKey) ?? '0');
       const loadCount = previousCount + 1;
       const complete = document.querySelector('[data-testid="reload-complete"]');

@@ -29,12 +29,12 @@ function findEndOfCentralDirectory(archive) {
     }
   }
 
-  throw new Error('FlowSnap: invalid ZIP; central directory was not found.');
+  throw new Error('StepScript: invalid ZIP; central directory was not found.');
 }
 
 function extractEntry(archive, centralOffset) {
   if (archive.readUInt32LE(centralOffset) !== CENTRAL_DIRECTORY_SIGNATURE) {
-    throw new Error('FlowSnap: invalid ZIP central directory entry.');
+    throw new Error('StepScript: invalid ZIP central directory entry.');
   }
 
   const flags = archive.readUInt16LE(centralOffset + 8);
@@ -52,10 +52,10 @@ function extractEntry(archive, centralOffset) {
   );
 
   if ((flags & 0x1) !== 0) {
-    throw new Error(`FlowSnap: encrypted ZIP entry is not supported: ${name}`);
+    throw new Error(`StepScript: encrypted ZIP entry is not supported: ${name}`);
   }
   if (archive.readUInt32LE(localHeaderOffset) !== LOCAL_FILE_HEADER_SIGNATURE) {
-    throw new Error(`FlowSnap: invalid local ZIP header: ${name}`);
+    throw new Error(`StepScript: invalid local ZIP header: ${name}`);
   }
 
   const localFileNameLength = archive.readUInt16LE(localHeaderOffset + 26);
@@ -71,12 +71,12 @@ function extractEntry(archive, centralOffset) {
     contents = inflateRawSync(compressed);
   } else {
     throw new Error(
-      `FlowSnap: unsupported ZIP compression method ${compressionMethod}: ${name}`,
+      `StepScript: unsupported ZIP compression method ${compressionMethod}: ${name}`,
     );
   }
 
   if (contents.length !== uncompressedSize) {
-    throw new Error(`FlowSnap: invalid uncompressed size for ZIP entry: ${name}`);
+    throw new Error(`StepScript: invalid uncompressed size for ZIP entry: ${name}`);
   }
 
   return {
@@ -92,7 +92,7 @@ export function readZipEntries(archive) {
   const centralDirectoryOffset = archive.readUInt32LE(endOffset + 16);
 
   if (entryCount === 0xffff || centralDirectoryOffset === 0xffffffff) {
-    throw new Error('FlowSnap: ZIP64 packages are not supported.');
+    throw new Error('StepScript: ZIP64 packages are not supported.');
   }
 
   const entries = new Map();
@@ -109,10 +109,10 @@ export function readZipEntries(archive) {
       entry.name.startsWith('../') ||
       entry.name.includes('/../')
     ) {
-      throw new Error(`FlowSnap: unsafe ZIP entry path: ${entry.name}`);
+      throw new Error(`StepScript: unsafe ZIP entry path: ${entry.name}`);
     }
     if (entries.has(entry.name)) {
-      throw new Error(`FlowSnap: duplicate ZIP entry: ${entry.name}`);
+      throw new Error(`StepScript: duplicate ZIP entry: ${entry.name}`);
     }
 
     entries.set(entry.name, entry.contents);
@@ -123,12 +123,12 @@ export function readZipEntries(archive) {
 
 function requireStringPath(value, field) {
   if (typeof value !== 'string' || !value.trim()) {
-    throw new Error(`FlowSnap: manifest reference is invalid: ${field}`);
+    throw new Error(`StepScript: manifest reference is invalid: ${field}`);
   }
 
   const normalized = normalizeArchivePath(value.replace(/^\//, ''));
   if (normalized.startsWith('../') || normalized.includes('/../')) {
-    throw new Error(`FlowSnap: manifest reference escapes the package: ${field}`);
+    throw new Error(`StepScript: manifest reference escapes the package: ${field}`);
   }
 
   return normalized;
@@ -192,7 +192,7 @@ function resolveHtmlReference(documentPath, value) {
   try {
     decoded = decodeURIComponent(withoutSuffix);
   } catch {
-    throw new Error(`FlowSnap: invalid encoded HTML reference: ${value}`);
+    throw new Error(`StepScript: invalid encoded HTML reference: ${value}`);
   }
 
   const resolved = decoded.startsWith('/')
@@ -200,7 +200,7 @@ function resolveHtmlReference(documentPath, value) {
     : posix.normalize(posix.join(posix.dirname(documentPath), decoded));
 
   if (!resolved || resolved === '..' || resolved.startsWith('../')) {
-    throw new Error(`FlowSnap: HTML reference escapes the package: ${value}`);
+    throw new Error(`StepScript: HTML reference escapes the package: ${value}`);
   }
 
   return resolved;
@@ -221,33 +221,33 @@ function collectHtmlReferences(documentPath, html) {
 
 function requireEntry(entries, path, source) {
   if (!entries.has(path)) {
-    throw new Error(`FlowSnap: package is missing ${path} referenced by ${source}.`);
+    throw new Error(`StepScript: package is missing ${path} referenced by ${source}.`);
   }
 }
 
 export function validateExtensionPackageEntries(entries) {
   if (entries.has('dist/manifest.json')) {
     throw new Error(
-      'FlowSnap: manifest.json must be at the ZIP root, not inside dist/.',
+      'StepScript: manifest.json must be at the ZIP root, not inside dist/.',
     );
   }
   if (!entries.has('manifest.json')) {
-    throw new Error('FlowSnap: package is missing manifest.json at the ZIP root.');
+    throw new Error('StepScript: package is missing manifest.json at the ZIP root.');
   }
 
   let manifest;
   try {
     manifest = JSON.parse(entries.get('manifest.json').toString('utf8'));
   } catch {
-    throw new Error('FlowSnap: package manifest.json is not valid JSON.');
+    throw new Error('StepScript: package manifest.json is not valid JSON.');
   }
 
   if (manifest.manifest_version !== 3) {
-    throw new Error('FlowSnap: package must use manifest_version 3.');
+    throw new Error('StepScript: package must use manifest_version 3.');
   }
 
   for (const path of REQUIRED_PACKAGE_FILES) {
-    requireEntry(entries, path, 'FlowSnap package requirements');
+    requireEntry(entries, path, 'StepScript package requirements');
   }
 
   const manifestReferences = collectManifestReferences(manifest);

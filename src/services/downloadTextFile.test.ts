@@ -10,7 +10,7 @@ describe('downloadTextFile', () => {
     const code = 'test("fluxo", async () => {});';
     const createObjectURL = vi.fn((blob: Blob) => {
       expect(blob).toBeInstanceOf(Blob);
-      return 'blob:flowsnap-test';
+      return 'blob:stepscript-test';
     });
     const revokeObjectURL = vi.fn();
     const click = vi
@@ -33,10 +33,10 @@ describe('downloadTextFile', () => {
     expect(blob).toHaveProperty('type', 'text/typescript;charset=utf-8');
     expect(clickedAnchor).toMatchObject({
       download: 'flowsnap-playwright.spec.ts',
-      href: 'blob:flowsnap-test',
+      href: 'blob:stepscript-test',
     });
     expect(clickedAnchor?.isConnected).toBe(false);
-    expect(revokeObjectURL).toHaveBeenCalledWith('blob:flowsnap-test');
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:stepscript-test');
   });
 
   it('rejects unsafe names before creating an object URL', () => {

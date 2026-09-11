@@ -29,7 +29,7 @@ const child = spawn(
 
 child.on('error', (error) => {
   console.error(
-    'FlowSnap: não foi possível iniciar o E2E da extensão.',
+    'StepScript: não foi possível iniciar o E2E da extensão.',
     error,
   );
   process.exitCode = 1;

@@ -6,6 +6,7 @@ import {
   createFocusNavigationMessage,
   createRangeChangeMessage,
   createRecorderController,
+  installRecorder,
   type RecorderController,
 } from './recorder';
 
@@ -56,6 +57,8 @@ function createFields() {
 afterEach(() => {
   disconnectors.splice(0).forEach((disconnect) => disconnect());
   document.body.replaceChildren();
+  delete window.__stepScriptRecorder;
+  vi.unstubAllGlobals();
   vi.useRealTimers();
 });
 
@@ -228,6 +231,27 @@ describe('recording messages', () => {
   );
 });
 
+describe('recorder installation', () => {
+  it('installs only once under the StepScript internal marker', () => {
+    const sendMessage = vi.fn();
+    const addListener = vi.fn();
+    vi.stubGlobal('chrome', {
+      runtime: {
+        sendMessage,
+        onMessage: { addListener },
+      },
+    });
+
+    installRecorder();
+    const installedController = window.__stepScriptRecorder;
+    installRecorder();
+
+    expect(installedController).toBeDefined();
+    expect(window.__stepScriptRecorder).toBe(installedController);
+    expect(addListener).toHaveBeenCalledOnce();
+  });
+});
+
 describe('createRecorderController', () => {
   it('selects a visible element without executing its original click action', async () => {
     const sendMessage = vi.fn(async () => ({ success: true }));
@@ -325,7 +349,7 @@ describe('createRecorderController', () => {
     target.click();
 
     expect(sendMessage).not.toHaveBeenCalled();
-    expect(document.querySelector('[data-flowsnap-element-picker="true"]')).not.toBeNull();
+    expect(document.querySelector('[data-step-script-element-picker="true"]')).not.toBeNull();
   });
 
   it('does not read values from editable controls in exact text mode', () => {
@@ -387,7 +411,7 @@ describe('createRecorderController', () => {
     hidden.click();
 
     expect(sendMessage).not.toHaveBeenCalled();
-    expect(document.querySelector('[data-flowsnap-element-picker="true"]')).not.toBeNull();
+    expect(document.querySelector('[data-step-script-element-picker="true"]')).not.toBeNull();
   });
 
   it('ignores a direct click on a structural container with aggregate text', () => {

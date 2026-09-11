@@ -90,7 +90,7 @@ export interface RecorderController {
 
 declare global {
   interface Window {
-    __flowsnapRecorder?: RecorderController;
+    __stepScriptRecorder?: RecorderController;
   }
 }
 
@@ -190,7 +190,7 @@ function createTextSelection(
 
 function createPickerOverlay(mode: ElementAssertionPickerMode) {
   const host = document.createElement('div');
-  host.dataset.flowsnapElementPicker = 'true';
+  host.dataset.stepScriptElementPicker = 'true';
   Object.assign(host.style, {
     all: 'initial',
     position: 'fixed',
@@ -878,8 +878,8 @@ export function createRecorderController(
   return controller;
 }
 
-function installRecorder() {
-  if (window.__flowsnapRecorder) return;
+export function installRecorder() {
+  if (window.__stepScriptRecorder) return;
 
   const controller = createRecorderController((message) =>
     chrome.runtime.sendMessage(message),
@@ -894,7 +894,7 @@ function installRecorder() {
   document.addEventListener('pointerdown', controller.handlePointerDown, true);
   document.addEventListener('pointermove', controller.handlePointerMove, true);
   window.addEventListener('blur', controller.handleWindowBlur);
-  window.__flowsnapRecorder = controller;
+  window.__stepScriptRecorder = controller;
 
   chrome.runtime.onMessage.addListener((message: ExtensionMessage, _sender, sendResponse) => {
     if (message.type === 'ACTIVATE_CLICK_RECORDER') {

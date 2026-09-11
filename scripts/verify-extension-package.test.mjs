@@ -4,7 +4,7 @@ import { validateExtensionPackageEntries } from './verify-extension-package.mjs'
 function validEntries() {
   const manifest = {
     manifest_version: 3,
-    name: 'FlowSnap',
+    name: 'StepScript',
     version: '0.5.0',
     background: { service_worker: 'assets/background.js' },
     side_panel: { default_path: 'index.html' },
@@ -82,7 +82,7 @@ describe('extension package verification', () => {
     const missingPolicy = validEntries();
     missingPolicy.delete('privacy.html');
     expect(() => validateExtensionPackageEntries(missingPolicy)).toThrow(
-      'package is missing privacy.html referenced by FlowSnap package requirements',
+      'package is missing privacy.html referenced by StepScript package requirements',
     );
   });
 

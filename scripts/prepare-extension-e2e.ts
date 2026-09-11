@@ -27,5 +27,5 @@ delete manifest.optional_host_permissions;
 await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
 
 console.log(
-  `Prepared the FlowSnap extension E2E build at ${extensionDirectory}.`,
+  `Prepared the StepScript extension E2E build at ${extensionDirectory}.`,
 );
