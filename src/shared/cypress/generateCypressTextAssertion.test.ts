@@ -64,7 +64,7 @@ describe('Cypress schema 13 exact text assertions', () => {
       `expect(normalizeVisibleText($elements[0])).to.eq(\n        ${JSON.stringify(expected)},`,
     );
     expect(result.code).not.toContain('Este texto não deve ser exportado');
-    expect(result.code).not.toContain('TODO FlowSnap');
+    expect(result.code).not.toContain('TODO StepScript');
     expect(result.code.match(/function normalizeVisibleText/g)).toHaveLength(1);
   });
 
@@ -164,7 +164,7 @@ describe('Cypress schema 13 exact text assertions', () => {
       supportedSteps: 0,
       unsupportedSteps: invalidSteps.length,
     });
-    expect(result.code.match(/TODO FlowSnap/g)).toHaveLength(invalidSteps.length);
+    expect(result.code.match(/TODO StepScript/g)).toHaveLength(invalidSteps.length);
     expect(
       result.code.match(/verificação de texto exato incompleta ou inválida/g),
     ).toHaveLength(invalidSteps.length);

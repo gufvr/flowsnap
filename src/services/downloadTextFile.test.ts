@@ -18,7 +18,7 @@ describe('downloadTextFile', () => {
       .mockImplementation(() => {});
 
     downloadTextFile(
-      { content: code, fileName: 'flowsnap-playwright.spec.ts' },
+      { content: code, fileName: 'stepscript-playwright.spec.ts' },
       {
         Blob,
         document,
@@ -32,7 +32,7 @@ describe('downloadTextFile', () => {
     expect(blob).toHaveProperty('size', code.length);
     expect(blob).toHaveProperty('type', 'text/typescript;charset=utf-8');
     expect(clickedAnchor).toMatchObject({
-      download: 'flowsnap-playwright.spec.ts',
+      download: 'stepscript-playwright.spec.ts',
       href: 'blob:stepscript-test',
     });
     expect(clickedAnchor?.isConnected).toBe(false);
@@ -63,7 +63,7 @@ describe('downloadTextFile', () => {
 
     expect(() =>
       downloadTextFile(
-        { content: 'code', fileName: 'flowsnap-cypress.cy.ts' },
+        { content: 'code', fileName: 'stepscript-cypress.cy.ts' },
         {
           Blob,
           document,
@@ -74,7 +74,7 @@ describe('downloadTextFile', () => {
         },
       ),
     ).toThrow('Download blocked');
-    expect(document.querySelector('a[download="flowsnap-cypress.cy.ts"]'))
+    expect(document.querySelector('a[download="stepscript-cypress.cy.ts"]'))
       .not.toBeInTheDocument();
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:blocked');
   });

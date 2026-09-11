@@ -29,7 +29,7 @@ export function CypressCodePanel({
       previewLabel="Prévia do código Cypress"
       copiedMessage="Código Cypress copiado"
       downloadedMessage="Arquivo Cypress baixado"
-      downloadFileName="flowsnap-cypress.cy.ts"
+      downloadFileName="stepscript-cypress.cy.ts"
       result={result}
       onClose={onClose}
       onCopy={onCopy}

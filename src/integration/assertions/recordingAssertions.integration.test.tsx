@@ -78,7 +78,7 @@ describe('integrated recording flow', () => {
     expect(playwrightPreview).toHaveTextContent(
       'await expect(page).toHaveURL("https://qapracticehub.com/#forms");',
     );
-    expect(playwrightPreview).not.toHaveTextContent('TODO FlowSnap');
+    expect(playwrightPreview).not.toHaveTextContent('TODO StepScript');
     expect(
       screen.getByText('1 de 1 passo exportado; 0 marcados como TODO.'),
     ).toBeInTheDocument();
@@ -92,7 +92,7 @@ describe('integrated recording flow', () => {
     expect(cypressPreview).toHaveTextContent(
       'cy.url().should("eq", "https://qapracticehub.com/#forms");',
     );
-    expect(cypressPreview).not.toHaveTextContent('TODO FlowSnap');
+    expect(cypressPreview).not.toHaveTextContent('TODO StepScript');
     expect(
       screen.getByText('1 de 1 passo exportado; 0 marcados como TODO.'),
     ).toBeInTheDocument();
@@ -180,7 +180,7 @@ describe('integrated recording flow', () => {
     expect(cypressPreview).toHaveTextContent(
       'new RegExp("^Login$")).should("be.visible");',
     );
-    expect(cypressPreview).not.toHaveTextContent('TODO FlowSnap');
+    expect(cypressPreview).not.toHaveTextContent('TODO StepScript');
     expect(
       screen.getByText('1 de 1 passo exportado; 0 marcados como TODO.'),
     ).toBeInTheDocument();
@@ -269,7 +269,7 @@ describe('integrated recording flow', () => {
     expect(playwrightPreview).toHaveTextContent(
       'await expect(page.getByRole("button", { name: "Login", exact: true })).toHaveText("Login", { useInnerText: true });',
     );
-    expect(playwrightPreview).not.toHaveTextContent('TODO FlowSnap');
+    expect(playwrightPreview).not.toHaveTextContent('TODO StepScript');
     expect(
       screen.getByText('1 de 1 passo exportado; 0 marcados como TODO.'),
     ).toBeInTheDocument();
@@ -280,7 +280,7 @@ describe('integrated recording flow', () => {
     expect(cypressPreview).toHaveTextContent(
       'expect(normalizeVisibleText($elements[0])).to.eq( "Login", );',
     );
-    expect(cypressPreview).not.toHaveTextContent('TODO FlowSnap');
+    expect(cypressPreview).not.toHaveTextContent('TODO StepScript');
     expect(
       screen.getByText('1 de 1 passo exportado; 0 marcados como TODO.'),
     ).toBeInTheDocument();

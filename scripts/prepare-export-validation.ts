@@ -30,7 +30,7 @@ function requireFullySupported(
   if (
     result.supportedSteps !== result.totalSteps ||
     result.unsupportedSteps !== 0 ||
-    result.code.includes('TODO FlowSnap')
+    result.code.includes('TODO StepScript')
   ) {
     throw new Error(
       `StepScript: ${framework} gerou ${result.supportedSteps}/${result.totalSteps} passos suportados`,

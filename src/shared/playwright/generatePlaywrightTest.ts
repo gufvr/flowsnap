@@ -48,7 +48,7 @@ function isInteractionKey(
 function todo(message: string, safeDescription?: string): GeneratedStep {
   return {
     supported: false,
-    command: `// TODO FlowSnap: ${message}`,
+    command: `// TODO StepScript: ${message}`,
     ...(safeDescription ? { safeDescription } : {}),
   };
 }
@@ -477,7 +477,7 @@ export function generatePlaywrightTest(
   const initialUrl = resolveInitialUrl(steps);
   const initialCommand = initialUrl
     ? `await page.goto(${formatJavaScriptString(initialUrl)});`
-    : '// TODO FlowSnap: defina a URL inicial antes de executar o teste.';
+    : '// TODO StepScript: defina a URL inicial antes de executar o teste.';
   const stepBlocks = generatedSteps.map((generatedStep, index) => {
     const description = sanitizeComment(
       generatedStep.safeDescription ??
@@ -515,7 +515,7 @@ export function generatePlaywrightTest(
             '        !(element instanceof HTMLInputElement) ||',
             '        element.type !== nextValue.expectedType',
             '      ) {',
-            '        throw new Error(`FlowSnap: expected input[type="${nextValue.expectedType}"]`);',
+            '        throw new Error(`StepScript: expected input[type="${nextValue.expectedType}"]`);',
             '      }',
             '',
             '      const valueSetter = Object.getOwnPropertyDescriptor(',
@@ -523,7 +523,7 @@ export function generatePlaywrightTest(
             '        "value",',
             '      )?.set;',
             '      if (!valueSetter) {',
-            '        throw new Error("FlowSnap: native input value setter unavailable");',
+            '        throw new Error("StepScript: native input value setter unavailable");',
             '      }',
             '',
             '      valueSetter.call(element, nextValue.value);',
@@ -536,7 +536,7 @@ export function generatePlaywrightTest(
           ]
         : []),
       '',
-      'test("fluxo gravado pelo FlowSnap", async ({ page }) => {',
+      'test("fluxo gravado pelo StepScript", async ({ page }) => {',
       ...body,
       '});',
     ].join('\n'),

@@ -95,7 +95,7 @@ describe('CypressCodePanel', () => {
     });
 
     expect(onCopy).toHaveBeenCalledWith(
-      expect.stringContaining('describe("fluxo gravado pelo FlowSnap"'),
+      expect.stringContaining('describe("fluxo gravado pelo StepScript"'),
     );
     expect(screen.getByRole('status')).toHaveTextContent(
       'Código Cypress copiado',
@@ -115,7 +115,7 @@ describe('CypressCodePanel', () => {
 
     expect(onDownload).toHaveBeenCalledWith({
       content: preview.textContent,
-      fileName: 'flowsnap-cypress.cy.ts',
+      fileName: 'stepscript-cypress.cy.ts',
     });
     expect(screen.getByRole('status')).toHaveTextContent(
       'Arquivo Cypress baixado',

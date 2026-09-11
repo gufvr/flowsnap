@@ -76,7 +76,7 @@ describe('schema 12 element visibility assertions', () => {
     expect(cypress.code).toContain(
       'cy.get("[data-testid=\\"login-submit\\"]").should("be.visible");',
     );
-    expect(playwright.code).not.toContain('TODO FlowSnap');
-    expect(cypress.code).not.toContain('TODO FlowSnap');
+    expect(playwright.code).not.toContain('TODO StepScript');
+    expect(cypress.code).not.toContain('TODO StepScript');
   });
 });

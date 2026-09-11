@@ -44,7 +44,7 @@ describe('formatRecordedStepSelectors', () => {
     expect(result).toEqual({
       selectorCount: 2,
       text: [
-        'FlowSnap — seletores gravados',
+        'StepScript — seletores gravados',
         '',
         '1. Entrou na conta',
         '   Seletor: data-testid=login-submit',

@@ -53,7 +53,7 @@ describe('CopyAllSelectorsButton', () => {
 
     expect(onCopy).toHaveBeenCalledWith(
       [
-        'FlowSnap — seletores gravados',
+        'StepScript — seletores gravados',
         '',
         '1. Clicou no botão "Entrar"',
         '   Seletor: role=button;name=Entrar',

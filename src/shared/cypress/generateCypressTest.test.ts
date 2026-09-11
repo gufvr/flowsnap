@@ -128,7 +128,7 @@ describe('generateCypressTest', () => {
     expect(result.code).toContain('.select(["js", "py"]);');
     expect(result.code).toContain('cy.get("button.legacy").click();');
     expect(result.code.match(/function getByLabel/g)).toHaveLength(1);
-    expect(result.code).not.toContain('TODO FlowSnap');
+    expect(result.code).not.toContain('TODO StepScript');
     expect(steps).toEqual(originalSteps);
   });
 
@@ -193,10 +193,10 @@ describe('generateCypressTest', () => {
       );
     });
     expect(result.code).toContain(
-      'TODO FlowSnap: Shift+Tab ainda não pode ser reproduzido',
+      'TODO StepScript: Shift+Tab ainda não pode ser reproduzido',
     );
     expect(result.code).toContain(
-      'TODO FlowSnap: teclas com Shift ainda não podem ser reproduzidas',
+      'TODO StepScript: teclas com Shift ainda não podem ser reproduzidas',
     );
   });
 
@@ -270,14 +270,14 @@ describe('generateCypressTest', () => {
     );
     expect(result.code).toContain('cy.visit("https://example.com/account");');
     expect(result.code).toContain(
-      '// FlowSnap: recarregamento produzido pelo passo anterior.',
+      '// StepScript: recarregamento produzido pelo passo anterior.',
     );
     expect(result.code).toContain(
       'cy.url().should("eq", "https://example.com/account");',
     );
     expect(result.code).toContain('cy.reload();');
     expect(result.code).toContain(
-      '// FlowSnap: direção do histórico não persistida; reproduzindo o destino diretamente.',
+      '// StepScript: direção do histórico não persistida; reproduzindo o destino diretamente.',
     );
     expect(result.code).toContain('cy.visit("https://example.com/previous");');
   });
@@ -321,7 +321,7 @@ describe('generateCypressTest', () => {
       result.code.indexOf('.trigger("change")'),
     );
     expect(result.code).not.toContain('Release 1C');
-    expect(result.code).not.toContain('TODO FlowSnap');
+    expect(result.code).not.toContain('TODO StepScript');
 
     const transpiled = ts.transpileModule(result.code, {
       compilerOptions: { module: ts.ModuleKind.ESNext },
@@ -367,7 +367,7 @@ describe('generateCypressTest', () => {
       unsupportedSteps: 4,
     });
     expect(result.code).not.toContain('function setNativeInputValue');
-    expect(result.code.match(/TODO FlowSnap/g)).toHaveLength(4);
+    expect(result.code.match(/TODO StepScript/g)).toHaveLength(4);
     expect(result.code).toContain('valor do controle range inválido');
     expect(result.code).toContain('valor do seletor de cor inválido');
     expect(result.code).toContain(
@@ -483,23 +483,23 @@ describe('generateCypressTest', () => {
     });
     expect(result.code).not.toContain('never-export');
     expect(result.code).toContain(
-      'TODO FlowSnap: direção da navegação por Tab indisponível.',
+      'TODO StepScript: direção da navegação por Tab indisponível.',
     );
     expect(result.code).toContain(
-      'TODO FlowSnap: tecla de interação não reconhecida.',
+      'TODO StepScript: tecla de interação não reconhecida.',
     );
     expect(result.code).toContain(
-      'TODO FlowSnap: origem da navegação não reconhecida.',
+      'TODO StepScript: origem da navegação não reconhecida.',
     );
     expect(result.code).toContain(
-      'TODO FlowSnap: informe o valor protegido do controle range manualmente',
+      'TODO StepScript: informe o valor protegido do controle range manualmente',
     );
     expect(result.code).toContain(
-      'TODO FlowSnap: o valor gravado do seletor de cor foi truncado',
+      'TODO StepScript: o valor gravado do seletor de cor foi truncado',
     );
     expect(result.code).not.toContain('function setNativeInputValue');
     expect(result.code).not.toContain('Release 1C');
-    expect(result.code.match(/TODO FlowSnap/g)).toHaveLength(6);
+    expect(result.code.match(/TODO StepScript/g)).toHaveLength(6);
   });
 
   it('uses edited descriptions, a safe URL fallback and valid TypeScript', () => {
@@ -514,7 +514,7 @@ describe('generateCypressTest', () => {
 
     expect(result.code).toContain('Passo 1: Salvou o cadastro');
     expect(result.code).toContain(
-      'TODO FlowSnap: defina a URL inicial antes de executar o teste.',
+      'TODO StepScript: defina a URL inicial antes de executar o teste.',
     );
     const transpiled = ts.transpileModule(result.code, {
       compilerOptions: { module: ts.ModuleKind.ESNext },
@@ -551,7 +551,7 @@ describe('generateCypressTest', () => {
     expect(result.code).toContain(
       'cy.url().should("eq", "https://example.com/account?tab=security");',
     );
-    expect(result.code).not.toContain('TODO FlowSnap');
+    expect(result.code).not.toContain('TODO StepScript');
   });
 
   it('keeps an edited description in the comment without changing the expected URL', () => {

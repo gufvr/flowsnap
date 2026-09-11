@@ -183,7 +183,7 @@ describe('generatePlaywrightTest', () => {
     );
     expect(result.code).toContain('await page.reload();');
     expect(result.code).toContain('await page.locator("a.logout").click();');
-    expect(result.code).not.toContain('TODO FlowSnap');
+    expect(result.code).not.toContain('TODO StepScript');
     expect(steps).toEqual(originalSteps);
   });
 
@@ -347,7 +347,7 @@ describe('generatePlaywrightTest', () => {
       'Ajustou um controle range para um valor protegido',
     );
     expect(result.code).toContain('Selecionou um valor de cor truncado');
-    expect(result.code.match(/TODO FlowSnap/g)).toHaveLength(7);
+    expect(result.code.match(/TODO StepScript/g)).toHaveLength(7);
   });
 
   it('marks malformed native values and missing selectors as TODO', () => {
@@ -402,7 +402,7 @@ describe('generatePlaywrightTest', () => {
     const result = generatePlaywrightTest([second, first]);
 
     expect(result.code).toContain(
-      '// TODO FlowSnap: defina a URL inicial antes de executar o teste.',
+      '// TODO StepScript: defina a URL inicial antes de executar o teste.',
     );
     expect(result.code.indexOf('Passo 1: Segundo editado')).toBeLessThan(
       result.code.indexOf('Passo 2: Primeiro editado'),
@@ -440,7 +440,7 @@ describe('generatePlaywrightTest', () => {
     expect(result.code).toContain(
       'await expect(page).toHaveURL("https://example.com/account?tab=security");',
     );
-    expect(result.code).not.toContain('TODO FlowSnap');
+    expect(result.code).not.toContain('TODO StepScript');
   });
 
   it('keeps an edited description in the comment without changing the expected URL', () => {
@@ -497,7 +497,7 @@ describe('generatePlaywrightTest', () => {
       'await expect(page.getByTestId("account-title")).toBeVisible();',
     );
     expect(result.code).not.toContain('toBeVisible("Confirmou a área da conta")');
-    expect(result.code).not.toContain('TODO FlowSnap');
+    expect(result.code).not.toContain('TODO StepScript');
   });
 
   it('combines expect and Locator imports when native input helpers are required', () => {
@@ -591,7 +591,7 @@ describe('generatePlaywrightTest', () => {
       supportedSteps: 0,
       unsupportedSteps: 7,
     });
-    expect(result.code.match(/TODO FlowSnap/g)).toHaveLength(7);
+    expect(result.code.match(/TODO StepScript/g)).toHaveLength(7);
     expect(result.code.match(/verificação de visibilidade incompleta ou inválida/g))
       .toHaveLength(3);
     expect(result.code.match(/seletor recomendado único e validado indisponível/g))

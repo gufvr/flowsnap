@@ -58,7 +58,7 @@ describe('Playwright schema 13 exact text assertions', () => {
       `await expect(page.getByTestId("order-status")).toHaveText(${JSON.stringify(expected)}, { useInnerText: true });`,
     );
     expect(result.code).not.toContain('Este texto não deve ser exportado');
-    expect(result.code).not.toContain('TODO FlowSnap');
+    expect(result.code).not.toContain('TODO StepScript');
   });
 
   it('accepts the persisted 200-character boundary without truncating it', () => {
@@ -150,7 +150,7 @@ describe('Playwright schema 13 exact text assertions', () => {
       supportedSteps: 0,
       unsupportedSteps: invalidSteps.length,
     });
-    expect(result.code.match(/TODO FlowSnap/g)).toHaveLength(invalidSteps.length);
+    expect(result.code.match(/TODO StepScript/g)).toHaveLength(invalidSteps.length);
     expect(
       result.code.match(/verificação de texto exato incompleta ou inválida/g),
     ).toHaveLength(invalidSteps.length);

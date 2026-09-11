@@ -60,7 +60,7 @@ describe('generateCypressTest visibility assertions', () => {
     expect(result.code).not.toContain(
       'should("be.visible", "Confirmou a área da conta")',
     );
-    expect(result.code).not.toContain('TODO FlowSnap');
+    expect(result.code).not.toContain('TODO StepScript');
   });
 
   it('keeps incomplete, invalid or ambiguous visibility assertions as safe TODOs', () => {
@@ -146,7 +146,7 @@ describe('generateCypressTest visibility assertions', () => {
       supportedSteps: 0,
       unsupportedSteps: 8,
     });
-    expect(result.code.match(/TODO FlowSnap/g)).toHaveLength(8);
+    expect(result.code.match(/TODO StepScript/g)).toHaveLength(8);
     expect(result.code.match(/verificação de visibilidade incompleta ou inválida/g))
       .toHaveLength(3);
     expect(result.code.match(/seletor recomendado único e validado indisponível/g))
@@ -160,4 +160,3 @@ describe('generateCypressTest visibility assertions', () => {
     expect(result.code).not.toContain('be.visible');
   });
 });
-

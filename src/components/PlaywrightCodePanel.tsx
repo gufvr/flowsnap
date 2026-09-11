@@ -29,7 +29,7 @@ export function PlaywrightCodePanel({
       previewLabel="Prévia do código Playwright"
       copiedMessage="Código Playwright copiado"
       downloadedMessage="Arquivo Playwright baixado"
-      downloadFileName="flowsnap-playwright.spec.ts"
+      downloadFileName="stepscript-playwright.spec.ts"
       result={result}
       onClose={onClose}
       onCopy={onCopy}

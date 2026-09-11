@@ -119,7 +119,7 @@ describe('PlaywrightCodePanel', () => {
 
     expect(onDownload).toHaveBeenCalledWith({
       content: preview.textContent,
-      fileName: 'flowsnap-playwright.spec.ts',
+      fileName: 'stepscript-playwright.spec.ts',
     });
     expect(screen.getByRole('status')).toHaveTextContent(
       'Arquivo Playwright baixado',

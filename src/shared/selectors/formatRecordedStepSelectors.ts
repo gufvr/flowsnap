@@ -23,7 +23,7 @@ export function formatRecordedStepSelectors(
   return {
     text:
       entries.length > 0
-        ? `FlowSnap — seletores gravados\n\n${entries.join('\n\n')}`
+        ? `StepScript — seletores gravados\n\n${entries.join('\n\n')}`
         : '',
     selectorCount: entries.length,
   };

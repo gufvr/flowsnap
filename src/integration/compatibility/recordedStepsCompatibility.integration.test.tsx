@@ -215,7 +215,7 @@ describe('integrated recording flow', () => {
 
     await user.click(screen.getByRole('button', { name: 'Copiar código' }));
     expect(context.harness.clipboardWrite).toHaveBeenLastCalledWith(
-      expect.stringContaining('describe("fluxo gravado pelo FlowSnap"'),
+      expect.stringContaining('describe("fluxo gravado pelo StepScript"'),
     );
     expect(
       await screen.findByText('Código Cypress copiado'),

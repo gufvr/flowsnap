@@ -63,7 +63,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function todo(message: string, safeDescription?: string): GeneratedStep {
   return {
     supported: false,
-    command: `// TODO FlowSnap: ${message}`,
+    command: `// TODO StepScript: ${message}`,
     ...(safeDescription ? { safeDescription } : {}),
   };
 }
@@ -360,8 +360,8 @@ function generateNavigation(
   if (wasNavigationProducedByPreviousStep(step, context)) {
     const message =
       step.trigger === 'reload'
-        ? '// FlowSnap: recarregamento produzido pelo passo anterior.'
-        : '// FlowSnap: navegação produzida pelo passo anterior.';
+        ? '// StepScript: recarregamento produzido pelo passo anterior.'
+        : '// StepScript: navegação produzida pelo passo anterior.';
     return supportedCommand(
       `${message}\ncy.url().should("eq", ${formattedUrl});`,
     );
@@ -373,7 +373,7 @@ function generateNavigation(
 
   const historyFallback =
     step.trigger === 'history-traversal'
-      ? '// FlowSnap: direção do histórico não persistida; reproduzindo o destino diretamente.\n'
+      ? '// StepScript: direção do histórico não persistida; reproduzindo o destino diretamente.\n'
       : '';
   return supportedCommand(`${historyFallback}cy.visit(${formattedUrl});`);
 }
@@ -592,7 +592,7 @@ export function generateCypressTest(
   const initialUrl = resolveInitialUrl(steps);
   const initialCommand = initialUrl
     ? `cy.visit(${formatCypressJavaScriptString(initialUrl)});`
-    : '// TODO FlowSnap: defina a URL inicial antes de executar o teste.';
+    : '// TODO StepScript: defina a URL inicial antes de executar o teste.';
   const stepBlocks = generatedSteps.map((generatedStep, index) => {
     const description = sanitizeComment(
       generatedStep.safeDescription ??
@@ -623,7 +623,7 @@ export function generateCypressTest(
             '  return cy.contains("label", label).then(($label) => {',
             '    const control = ($label[0] as HTMLLabelElement).control;',
             '    if (!control) {',
-            '      throw new Error("FlowSnap: label sem controle associado");',
+            '      throw new Error("StepScript: label sem controle associado");',
             '    }',
             '',
             '    return cy.wrap(control);',
@@ -649,7 +649,7 @@ export function generateCypressTest(
             '        !(element instanceof InputConstructor) ||',
             '        element.type !== expectedType',
             '      ) {',
-            '        throw new Error(`FlowSnap: expected input[type="${expectedType}"]`);',
+            '        throw new Error(`StepScript: expected input[type="${expectedType}"]`);',
             '      }',
             '',
             '      const valueSetter = Object.getOwnPropertyDescriptor(',
@@ -657,7 +657,7 @@ export function generateCypressTest(
             '        "value",',
             '      )?.set;',
             '      if (!valueSetter) {',
-            '        throw new Error("FlowSnap: native input value setter unavailable");',
+            '        throw new Error("StepScript: native input value setter unavailable");',
             '      }',
             '',
             '      valueSetter.call(element, value);',
@@ -676,7 +676,7 @@ export function generateCypressTest(
             '',
           ]
         : []),
-      'describe("fluxo gravado pelo FlowSnap", () => {',
+      'describe("fluxo gravado pelo StepScript", () => {',
       '  it("reproduz o fluxo gravado", () => {',
       ...body,
       '  });',

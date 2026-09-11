@@ -101,6 +101,6 @@ describe('schema 13 exact element text assertions', () => {
     expect(cypress.code).not.toContain(
       'to.eq(\n        "descrição-não-exportável"',
     );
-    expect(cypress.code).not.toContain('TODO FlowSnap');
+    expect(cypress.code).not.toContain('TODO StepScript');
   });
 });
