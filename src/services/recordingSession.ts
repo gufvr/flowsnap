@@ -5,7 +5,7 @@ function getPermissionPattern(url: string) {
   const parsedUrl = new URL(url);
 
   if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
-    throw new Error('O FlowSnap funciona apenas em páginas HTTP ou HTTPS.');
+    throw new Error('O StepScript funciona apenas em páginas HTTP ou HTTPS.');
   }
 
   return `${parsedUrl.protocol}//${parsedUrl.hostname}/*`;
@@ -18,7 +18,7 @@ async function getActiveTab() {
   const activeTab = response.activeTabContext;
 
   if (!activeTab) {
-    throw new Error('Reabra o FlowSnap pelo ícone para acessar a aba ativa.');
+    throw new Error('Reabra o StepScript pelo ícone para acessar a aba ativa.');
   }
 
   return { id: activeTab.tabId, url: activeTab.url };

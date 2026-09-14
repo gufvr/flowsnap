@@ -1,36 +1,31 @@
 <p align="center">
-  <img src="assets/qaquest.png" width="150" alt="logo">
+  <img src="assets/qaquest.png" width="150" alt="StepScript logo">
 </p>
 
-<h1 align="center">FlowSnap</h1>
+<h1 align="center">StepScript</h1>
 
-FlowSnap é uma extensão Chrome que grava fluxos de navegação e gera código Playwright e Cypress pronto para copiar ou baixar.
+StepScript is a Chrome extension that records browser flows and turns them into readable Playwright and Cypress tests.
 
-## Recursos
+## Core features
 
-- Captura cliques, preenchimentos, seleções, controles e teclas de interação.
-- Registra navegação por `Tab`, mudanças de URL, carregamentos e recarregamentos.
-- Gera descrições e recomenda seletores confiáveis para cada passo.
-- Protege dados sensíveis e mantém as gravações localmente no navegador.
-- Permite verificar a URL ou a visibilidade de um elemento, copiar seletores e organizar os passos pelo Side Panel.
+- Records clicks, form changes, selections, keyboard interactions, and navigation.
+- Captures reliable selectors and editable human-readable descriptions.
+- Adds URL, element visibility, and exact text assertions.
+- Protects recognized sensitive values and stores recordings locally.
+- Supports previewing, copying, organizing, and downloading generated tests.
 
-## Requisitos
+## Requirements
 
-- Node.js 24 ou superior
-- npm 11 ou superior
-- Google Chrome com suporte a extensões Manifest V3
+- Node.js 24 or later
+- npm 11 or later
+- Google Chrome with Manifest V3 extension support
 
-## Desenvolvimento
+## Development
 
 ```bash
 npm install
 npx playwright install chromium
 npm run dev
-```
-
-## Testes e validação
-
-```bash
 npm run lint
 npm test
 npm run test:integration
@@ -39,23 +34,16 @@ npm run test:extension
 npm run build
 ```
 
-`npm run test:integration` valida a jornada completa da extensão em um Chrome simulado em memória.
-`npm run test:exported` executa os códigos gerados em uma fixture local com Playwright e Cypress.
-`npm run test:extension` carrega o build unpacked no Chromium e valida a gravação real após navegação.
+## Load the unpacked extension
 
-## Carregando a extensão no Chrome
+1. Run `npm run build`.
+2. Open `chrome://extensions`, enable **Developer mode**, and select **Load unpacked**.
+3. Choose the `dist` directory. Rebuild and reload the extension after changes.
 
-1. Execute `npm run build`.
-2. Abra `chrome://extensions`, ative o **Modo do desenvolvedor** e selecione **Carregar sem compactação**.
-3. Escolha a pasta `dist`.
-4. Abra o FlowSnap em uma página HTTP ou HTTPS e inicie a gravação.
-
-Após alterações, gere um novo build e atualize a extensão no Chrome.
-
-## Pacote para distribuição
+## Build the distribution package
 
 ```bash
 npm run package:extension
 ```
 
-O comando cria `flowsnap-extension.zip` na raiz do projeto. O arquivo é ignorado pelo Git.
+The command creates `stepscript-extension.zip` in the project root. ZIP archives are ignored by Git.

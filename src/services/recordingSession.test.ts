@@ -95,7 +95,9 @@ describe('recordingSession', () => {
       url: 'brave://extensions',
     });
 
-    await expect(startRecordingSession()).rejects.toThrow('HTTP ou HTTPS');
+    await expect(startRecordingSession()).rejects.toThrow(
+      'O StepScript funciona apenas em páginas HTTP ou HTTPS.',
+    );
     expect(requestPermission).not.toHaveBeenCalled();
   });
 
@@ -103,7 +105,7 @@ describe('recordingSession', () => {
     provideActiveTab();
 
     await expect(startRecordingSession()).rejects.toThrow(
-      'Reabra o FlowSnap pelo ícone',
+      'Reabra o StepScript pelo ícone',
     );
     expect(requestPermission).not.toHaveBeenCalled();
   });

@@ -32,4 +32,20 @@ describe('visible StepScript branding', () => {
 
     expect(html).toContain('<title>StepScript</title>');
   });
+
+  it('uses StepScript in the concise English README and package name', () => {
+    const readme = readFileSync(resolve(projectRoot, 'README.md'), 'utf8');
+    const packageScript = readFileSync(
+      resolve(projectRoot, 'scripts/package-extension.mjs'),
+      'utf8',
+    );
+
+    expect(readme).toContain('<h1 align="center">StepScript</h1>');
+    expect(readme).toContain('## Core features');
+    expect(readme).toContain('## Load the unpacked extension');
+    expect(readme).toContain('`stepscript-extension.zip`');
+    expect(readme).not.toMatch(/flowsnap/i);
+    expect(packageScript).toContain("'stepscript-extension.zip'");
+    expect(packageScript).not.toMatch(/flowsnap-extension\.zip/i);
+  });
 });
