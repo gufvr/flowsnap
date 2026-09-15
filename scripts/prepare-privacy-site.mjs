@@ -21,6 +21,11 @@ export const PRIVACY_SITE_FILES = [
   'privacy.html',
 ];
 
+export const EXPECTED_PUBLIC_PRIVACY_POLICY_URL =
+  'https://gufvr.github.io/stepscript/privacy.html';
+export const LEGACY_PUBLIC_PRIVACY_POLICY_URL =
+  'https://gufvr.github.io/flowsnap/privacy.html';
+
 function assertSafeOutputPath(path) {
   const expectedParent = resolve(projectRoot, 'test-results');
   const pathFromParent = relative(expectedParent, path);
@@ -47,6 +52,18 @@ export function validatePrivacyPolicyHtml(html, configuration) {
 
   if (parsedUrl.protocol !== 'https:') {
     throw new Error('StepScript: the public privacy policy URL must use HTTPS.');
+  }
+
+  if (publicUrl !== EXPECTED_PUBLIC_PRIVACY_POLICY_URL) {
+    throw new Error(
+      'StepScript: the public privacy policy URL must use the canonical StepScript URL.',
+    );
+  }
+
+  if (html.includes(LEGACY_PUBLIC_PRIVACY_POLICY_URL)) {
+    throw new Error(
+      'StepScript: privacy policy contains the legacy public privacy URL.',
+    );
   }
 
   const requiredContent = [
@@ -91,6 +108,11 @@ export function validatePrivacyDocumentation(markdown, configuration) {
   if (markdown.includes('FlowSnap')) {
     throw new Error(
       'StepScript: Privacy practices documentation contains the legacy product name.',
+    );
+  }
+  if (markdown.includes(LEGACY_PUBLIC_PRIVACY_POLICY_URL)) {
+    throw new Error(
+      'StepScript: Privacy practices documentation contains the legacy public privacy URL.',
     );
   }
 }

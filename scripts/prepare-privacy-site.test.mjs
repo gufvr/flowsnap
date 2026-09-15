@@ -4,6 +4,8 @@ import { describe, expect, it } from 'vitest';
 import {
   preparePrivacySite,
   PRIVACY_SITE_FILES,
+  EXPECTED_PUBLIC_PRIVACY_POLICY_URL,
+  LEGACY_PUBLIC_PRIVACY_POLICY_URL,
   validatePrivacyDocumentation,
   validatePrivacyPolicyHtml,
 } from './prepare-privacy-site.mjs';
@@ -46,6 +48,13 @@ describe('privacy policy site', () => {
         publicUrl: configuration.publicUrl.replace('https:', 'http:'),
       }),
     ).toThrow('must use HTTPS');
+    expect(configuration.publicUrl).toBe(EXPECTED_PUBLIC_PRIVACY_POLICY_URL);
+    expect(() =>
+      validatePrivacyPolicyHtml(policy, {
+        ...configuration,
+        publicUrl: LEGACY_PUBLIC_PRIVACY_POLICY_URL,
+      }),
+    ).toThrow('canonical StepScript URL');
     expect(() =>
       validatePrivacyPolicyHtml(policy.replace('GitHub Pages', 'public host'), configuration),
     ).toThrow('GitHub Pages');
@@ -55,6 +64,12 @@ describe('privacy policy site', () => {
         configuration,
       ),
     ).toThrow('does not use the public policy URL');
+    expect(() =>
+      validatePrivacyDocumentation(
+        `${dashboard}\n${LEGACY_PUBLIC_PRIVACY_POLICY_URL}`,
+        configuration,
+      ),
+    ).toThrow('legacy public privacy URL');
     expect(() =>
       validatePrivacyPolicyHtml(
         policy.replace('StepScript is a Chrome extension', 'FlowSnap is a Chrome extension'),

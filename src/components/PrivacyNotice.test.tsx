@@ -32,6 +32,9 @@ describe('PrivacyNotice', () => {
       'href',
       PUBLIC_PRIVACY_POLICY_URL,
     );
+    expect(PUBLIC_PRIVACY_POLICY_URL).toBe(
+      'https://gufvr.github.io/stepscript/privacy.html',
+    );
     expect(publicPolicyLink).toHaveAttribute('target', '_blank');
     expect(publicPolicyLink).toHaveAttribute('rel', 'noopener noreferrer');
 

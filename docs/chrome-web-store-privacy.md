@@ -117,7 +117,7 @@ download operations occur only when explicitly requested by the user.
 Use this exact address in the Privacy policy field after the manual GitHub Pages
 deployment has completed and the page has been verified without authentication:
 
-> https://gufvr.github.io/flowsnap/privacy.html
+> https://gufvr.github.io/stepscript/privacy.html
 
 The Side Panel uses the same address as its primary policy link and preserves a
 local packaged copy at `privacy.html`. The public page is hosted by GitHub Pages,
