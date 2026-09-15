@@ -54,6 +54,7 @@ export function validatePrivacyPolicyHtml(html, configuration) {
     `<p>Effective date: ${effectiveDate}</p>`,
     'Chrome Web Store Limited Use',
     'GitHub Pages',
+    'StepScript Privacy Policy',
     'including the user\'s IP address',
     'href="privacy.css"',
     'src="icons/icon-128.png"',
@@ -65,6 +66,10 @@ export function validatePrivacyPolicyHtml(html, configuration) {
         `StepScript: privacy policy is missing required content: ${content}`,
       );
     }
+  }
+
+  if (html.includes('FlowSnap')) {
+    throw new Error('StepScript: privacy policy contains the legacy product name.');
   }
 
   if (/<script\b/i.test(html)) {
@@ -81,6 +86,11 @@ export function validatePrivacyDocumentation(markdown, configuration) {
   if (!markdown.includes('`public/privacy.html` is the only editable policy source.')) {
     throw new Error(
       'StepScript: Privacy practices documentation does not identify the canonical source.',
+    );
+  }
+  if (markdown.includes('FlowSnap')) {
+    throw new Error(
+      'StepScript: Privacy practices documentation contains the legacy product name.',
     );
   }
 }

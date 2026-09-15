@@ -55,6 +55,18 @@ describe('privacy policy site', () => {
         configuration,
       ),
     ).toThrow('does not use the public policy URL');
+    expect(() =>
+      validatePrivacyPolicyHtml(
+        policy.replace('StepScript is a Chrome extension', 'FlowSnap is a Chrome extension'),
+        configuration,
+      ),
+    ).toThrow('legacy product name');
+    expect(() =>
+      validatePrivacyDocumentation(
+        dashboard.replace('StepScript', 'FlowSnap'),
+        configuration,
+      ),
+    ).toThrow('legacy product name');
   });
 
   it('builds a minimal site from the exact packaged policy source', async () => {

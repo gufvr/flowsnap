@@ -1,6 +1,6 @@
 # Chrome Web Store privacy practices
 
-This document contains the proposed answers for FlowSnap's Chrome Web Store
+This document contains the proposed answers for StepScript's Chrome Web Store
 Privacy practices tab. Review the dashboard wording at submission time and keep
 these answers consistent with the published privacy policy and actual extension
 behavior.
@@ -14,30 +14,30 @@ behavior.
 
 ### `activeTab`
 
-FlowSnap uses `activeTab` to identify the tab explicitly selected by the user
+StepScript uses `activeTab` to identify the tab explicitly selected by the user
 when opening the Side Panel and starting a recording. Access is limited to the
 user-initiated recording workflow.
 
 ### `scripting`
 
-FlowSnap uses `scripting` to inject its packaged recorder into the authorized
+StepScript uses `scripting` to inject its packaged recorder into the authorized
 tab only after the user starts recording. It does not inject remote code.
 
 ### `sidePanel`
 
-FlowSnap uses `sidePanel` to provide its primary interface for controlling a
+StepScript uses `sidePanel` to provide its primary interface for controlling a
 recording, reviewing steps, adding assertions, and generating test code.
 
 ### `storage`
 
-FlowSnap uses `storage` to keep recorded steps and recording state in
+StepScript uses `storage` to keep recorded steps and recording state in
 `chrome.storage.local` and short-lived active-tab and element-picker context in
-`chrome.storage.session`. FlowSnap does not use `chrome.storage.sync` or send
+`chrome.storage.session`. StepScript does not use `chrome.storage.sync` or send
 this information to an external service.
 
 ### `webNavigation`
 
-FlowSnap uses `webNavigation` to detect supported URL changes, full document
+StepScript uses `webNavigation` to detect supported URL changes, full document
 navigations, history traversal, and reloads in the tab currently being
 recorded. It also uses those events to safely resume the packaged recorder after
 a supported navigation. Subframes and tabs outside the active recording are
@@ -45,17 +45,17 @@ ignored.
 
 ### Optional host permissions
 
-FlowSnap declares optional access to HTTP and HTTPS sites so it can request
+StepScript declares optional access to HTTP and HTTPS sites so it can request
 access only to the current site's origin after the user starts a recording.
 This access is necessary to capture interactions and resume the
-recorder across same-origin navigations. FlowSnap does not request access to all
+recorder across same-origin navigations. StepScript does not request access to all
 sites at installation time.
 
 ## Remote code
 
 Select **No, I am not using remote code**.
 
-All executable JavaScript, styles, fonts, and icons used by FlowSnap are
+All executable JavaScript, styles, fonts, and icons used by StepScript are
 included in the extension package. The extension does not download or execute
 remote code.
 
@@ -67,16 +67,16 @@ following locally processed information:
 - **Personally identifiable information:** ordinary fields, page text, and URLs
   may contain names, usernames, email addresses, telephone numbers, or similar
   identifiers.
-- **Web history / web browsing activity:** FlowSnap stores full URLs and
+- **Web history / web browsing activity:** StepScript stores full URLs and
   navigation events for the tab during an active recording.
-- **User activity:** FlowSnap records user-initiated clicks, focus navigation,
+- **User activity:** StepScript records user-initiated clicks, focus navigation,
   supported key presses, selections, and control changes.
-- **Website content:** FlowSnap processes labels, accessible names, visible
+- **Website content:** StepScript processes labels, accessible names, visible
   text, attributes, element details, and selector candidates.
 - **Form data:** if the dashboard presents this as a separate category, select
-  it because FlowSnap can store ordinary form values and selection states.
+  it because StepScript can store ordinary form values and selection states.
 
-FlowSnap is designed not to retain recognized passwords, one-time codes,
+StepScript is designed not to retain recognized passwords, one-time codes,
 payment values, personal identification values, tokens, or similar secrets.
 Those controls are classified before their values are read and are represented
 only by a protected marker. Because detection is heuristic, do not describe
@@ -92,7 +92,7 @@ policy, disclosure, and dashboard answers together before release.
 
 ## Data usage certifications
 
-Certify that FlowSnap:
+Certify that StepScript:
 
 - does not sell or transfer user data to third parties;
 - does not use or transfer user data for personalized advertising;
@@ -106,10 +106,10 @@ download operations occur only when explicitly requested by the user.
 
 ## Limited Use statement
 
-> FlowSnap's use of information received from Chrome APIs adheres to the Chrome
-> Web Store User Data Policy, including the Limited Use requirements. FlowSnap
+> StepScript's use of information received from Chrome APIs adheres to the Chrome
+> Web Store User Data Policy, including the Limited Use requirements. StepScript
 > uses that information only to provide or improve its user-facing recording
-> and test-generation features. FlowSnap does not sell user data, use it for
+> and test-generation features. StepScript does not sell user data, use it for
 > advertising, transfer it to third parties, or allow humans to access it.
 
 ## Privacy policy URL
@@ -122,7 +122,7 @@ deployment has completed and the page has been verified without authentication:
 The Side Panel uses the same address as its primary policy link and preserves a
 local packaged copy at `privacy.html`. The public page is hosted by GitHub Pages,
 which may process ordinary request metadata such as an IP address when the user
-opens it. FlowSnap does not attach recorded data to that request.
+opens it. StepScript does not attach recorded data to that request.
 
 Do not submit the public address to the Chrome Web Store until it returns the
 current policy over HTTPS without requiring authentication.
